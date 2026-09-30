@@ -1,0 +1,80 @@
+{
+  "name": "PreparedMedia",
+  "type": "object",
+  "title": "Prepared Media",
+  "description": "Derivative social-ready media (e.g. JPEG for Instagram). Original artwork stays separate. No credentials.",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "title": "User ID"
+    },
+    "source_url": {
+      "type": "string",
+      "title": "Source URL"
+    },
+    "source_filename": {
+      "type": "string",
+      "title": "Source Filename"
+    },
+    "source_format": {
+      "type": "string",
+      "title": "Source Format",
+      "enum": ["jpg", "jpeg", "png", "webp", "mp4", "unknown"]
+    },
+    "media_type": {
+      "type": "string",
+      "title": "Media Type",
+      "enum": ["image", "video", "audio"],
+      "default": "image"
+    },
+    "purpose": {
+      "type": "string",
+      "title": "Purpose",
+      "enum": ["instagram_feed_image", "instagram_reel", "generic_social_image"],
+      "default": "instagram_feed_image"
+    },
+    "prepared_url": {
+      "type": "string",
+      "title": "Prepared Public URL"
+    },
+    "prepared_format": {
+      "type": "string",
+      "title": "Prepared Format",
+      "enum": ["jpeg", "mp4", "original"],
+      "default": "jpeg"
+    },
+    "width": {
+      "type": "number",
+      "title": "Width"
+    },
+    "height": {
+      "type": "number",
+      "title": "Height"
+    },
+    "file_size": {
+      "type": "number",
+      "title": "File Size (bytes)"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": ["pending", "ready", "failed"],
+      "default": "pending"
+    },
+    "error_code": {
+      "type": "string",
+      "title": "Error Code"
+    },
+    "error_message": {
+      "type": "string",
+      "title": "Error Message"
+    }
+  },
+  "required": ["user_id", "source_url", "purpose", "status"],
+  "rls": {
+    "create": false,
+    "read": { "data.user_id": "{{user.id}}" },
+    "update": false,
+    "delete": false
+  }
+}

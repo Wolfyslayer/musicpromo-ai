@@ -1,0 +1,76 @@
+{
+  "name": "AnalyticsEntry",
+  "type": "object",
+  "properties": {
+    "campaign_id": {
+      "type": "string",
+      "title": "Campaign ID"
+    },
+    "platform": {
+      "type": "string",
+      "title": "Platform"
+    },
+    "content_type": {
+      "type": "string",
+      "title": "Content Type"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "title": "Date"
+    },
+    "views": {
+      "type": "number",
+      "default": 0,
+      "title": "Views"
+    },
+    "likes": {
+      "type": "number",
+      "default": 0,
+      "title": "Likes"
+    },
+    "comments": {
+      "type": "number",
+      "default": 0,
+      "title": "Comments"
+    },
+    "shares": {
+      "type": "number",
+      "default": 0,
+      "title": "Shares"
+    },
+    "saves": {
+      "type": "number",
+      "default": 0,
+      "title": "Saves"
+    },
+    "followers_gained": {
+      "type": "number",
+      "default": 0,
+      "title": "Followers Gained"
+    },
+    "streams": {
+      "type": "number",
+      "default": 0,
+      "title": "Streams"
+    },
+    "playlist_adds": {
+      "type": "number",
+      "default": 0,
+      "title": "Playlist Additions"
+    },
+    "clicks": {
+      "type": "number",
+      "default": 0,
+      "title": "Clicks"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false,
+      "title": "Is Demo Data"
+    }
+  },
+  "required": [
+    "campaign_id"
+  ]
+}

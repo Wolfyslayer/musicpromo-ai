@@ -1,0 +1,50 @@
+{
+  "name": "Release",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "title": "Release Title"
+    },
+    "artist_id": {
+      "type": "string",
+      "title": "Artist ID"
+    },
+    "release_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Release Date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "scheduled",
+        "released"
+      ],
+      "default": "draft",
+      "title": "Status"
+    },
+    "artwork_url": {
+      "type": "string",
+      "title": "Artwork URL"
+    },
+    "presave_url": {
+      "type": "string",
+      "title": "Pre-save URL"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false,
+      "title": "Is Demo Data"
+    }
+  },
+  "required": [
+    "title",
+    "artist_id"
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "name": "SocialAccount",
+  "type": "object",
+  "title": "Social Account",
+  "description": "Connected social platform account metadata. Encrypted credentials are server-only via FLS.",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "title": "User ID"
+    },
+    "provider": {
+      "type": "string",
+      "title": "Provider",
+      "enum": ["instagram", "tiktok", "youtube", "facebook"]
+    },
+    "provider_account_id": {
+      "type": "string",
+      "title": "Provider Account ID"
+    },
+    "account_name": {
+      "type": "string",
+      "title": "Account Name"
+    },
+    "username": {
+      "type": "string",
+      "title": "Username"
+    },
+    "profile_image_url": {
+      "type": "string",
+      "title": "Profile Image URL"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "connected",
+        "needs_reauthorization",
+        "disconnected",
+        "connection_error"
+      ],
+      "default": "connected",
+      "title": "Status"
+    },
+    "scopes": {
+      "type": "string",
+      "title": "Granted Scopes"
+    },
+    "encrypted_credentials": {
+      "type": "string",
+      "title": "Encrypted Credentials",
+      "description": "AES-GCM ciphertext. Never exposed to frontend.",
+      "rls": {
+        "read": false,
+        "write": false
+      }
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Access Token Expires At"
+    },
+    "connected_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Connected At"
+    }
+  },
+  "required": ["user_id", "provider", "provider_account_id", "status"],
+  "rls": {
+    "create": false,
+    "read": { "data.user_id": "{{user.id}}" },
+    "update": false,
+    "delete": false
+  }
+}

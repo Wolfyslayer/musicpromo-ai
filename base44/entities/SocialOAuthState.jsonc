@@ -1,0 +1,38 @@
+{
+  "name": "SocialOAuthState",
+  "type": "object",
+  "title": "Social OAuth State",
+  "description": "Single-use OAuth CSRF state binding a MusicPromo user to a provider callback. Server-only.",
+  "properties": {
+    "state": {
+      "type": "string",
+      "title": "State Token"
+    },
+    "user_id": {
+      "type": "string",
+      "title": "User ID"
+    },
+    "provider": {
+      "type": "string",
+      "title": "Provider",
+      "enum": ["instagram", "tiktok", "youtube", "facebook"]
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Expires At"
+    },
+    "used": {
+      "type": "boolean",
+      "default": false,
+      "title": "Used"
+    }
+  },
+  "required": ["state", "user_id", "provider", "expires_at"],
+  "rls": {
+    "create": false,
+    "read": false,
+    "update": false,
+    "delete": false
+  }
+}

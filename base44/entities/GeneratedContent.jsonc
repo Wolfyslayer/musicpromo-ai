@@ -1,0 +1,43 @@
+{
+  "name": "GeneratedContent",
+  "type": "object",
+  "properties": {
+    "campaign_id": {
+      "type": "string",
+      "title": "Campaign ID"
+    },
+    "platform": {
+      "type": "string",
+      "title": "Platform"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "caption",
+        "hashtags",
+        "hook",
+        "cta",
+        "video_concept",
+        "idea"
+      ],
+      "title": "Content Type"
+    },
+    "content": {
+      "type": "string",
+      "title": "Content"
+    },
+    "metadata": {
+      "type": "object",
+      "title": "Metadata"
+    },
+    "status": {
+      "type": "string",
+      "default": "draft",
+      "title": "Status"
+    }
+  },
+  "required": [
+    "campaign_id",
+    "type"
+  ]
+}

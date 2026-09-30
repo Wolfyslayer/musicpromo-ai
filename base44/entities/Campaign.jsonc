@@ -1,0 +1,70 @@
+{
+  "name": "Campaign",
+  "type": "object",
+  "properties": {
+    "song_id": {
+      "type": "string",
+      "title": "Song ID"
+    },
+    "artist_id": {
+      "type": "string",
+      "title": "Artist ID"
+    },
+    "release_id": {
+      "type": "string",
+      "title": "Release ID"
+    },
+    "name": {
+      "type": "string",
+      "title": "Campaign Name"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "preparing",
+        "scheduled",
+        "active",
+        "completed",
+        "archived"
+      ],
+      "default": "draft",
+      "title": "Status"
+    },
+    "duration_days": {
+      "type": "number",
+      "default": 7,
+      "title": "Duration (days)"
+    },
+    "goals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Campaign Goals"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Start Date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "title": "End Date"
+    },
+    "summary": {
+      "type": "string",
+      "title": "Campaign Summary"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false,
+      "title": "Is Demo Data"
+    }
+  },
+  "required": [
+    "song_id",
+    "artist_id"
+  ]
+}

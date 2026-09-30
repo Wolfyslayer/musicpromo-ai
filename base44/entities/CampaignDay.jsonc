@@ -1,0 +1,79 @@
+{
+  "name": "CampaignDay",
+  "type": "object",
+  "properties": {
+    "campaign_id": {
+      "type": "string",
+      "title": "Campaign ID"
+    },
+    "day_number": {
+      "type": "number",
+      "title": "Day Number"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "title": "Date"
+    },
+    "platform": {
+      "type": "string",
+      "title": "Platform"
+    },
+    "content_type": {
+      "type": "string",
+      "title": "Content Type"
+    },
+    "objective": {
+      "type": "string",
+      "title": "Objective"
+    },
+    "video_concept": {
+      "type": "string",
+      "title": "Video Concept"
+    },
+    "hook": {
+      "type": "string",
+      "title": "Hook"
+    },
+    "caption": {
+      "type": "string",
+      "title": "Caption"
+    },
+    "hashtags": {
+      "type": "string",
+      "title": "Hashtags"
+    },
+    "cta": {
+      "type": "string",
+      "title": "Call to Action"
+    },
+    "video_template": {
+      "type": "string",
+      "title": "Recommended Video Template"
+    },
+    "posting_time": {
+      "type": "string",
+      "title": "Suggested Posting Time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "ready",
+        "posted",
+        "skipped",
+        "pending",
+        "complete"
+      ],
+      "default": "planned",
+      "title": "Status"
+    },
+    "video_project_id": {
+      "type": "string",
+      "title": "Video Project ID"
+    }
+  },
+  "required": [
+    "campaign_id"
+  ]
+}

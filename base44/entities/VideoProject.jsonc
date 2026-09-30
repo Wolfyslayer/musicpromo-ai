@@ -1,0 +1,119 @@
+{
+  "name": "VideoProject",
+  "type": "object",
+  "properties": {
+    "campaign_id": {
+      "type": "string",
+      "title": "Campaign ID"
+    },
+    "song_id": {
+      "type": "string",
+      "title": "Song ID"
+    },
+    "template": {
+      "type": "string",
+      "title": "Video Template"
+    },
+    "title": {
+      "type": "string",
+      "title": "Title Text"
+    },
+    "artist_name": {
+      "type": "string",
+      "title": "Artist Name"
+    },
+    "text": {
+      "type": "string",
+      "title": "Body Text"
+    },
+    "artwork_url": {
+      "type": "string",
+      "title": "Artwork URL"
+    },
+    "audio_url": {
+      "type": "string",
+      "title": "Audio URL"
+    },
+    "lyrics": {
+      "type": "string",
+      "title": "Lyrics"
+    },
+    "text_style": {
+      "type": "string",
+      "title": "Text Style"
+    },
+    "animation_style": {
+      "type": "string",
+      "title": "Animation Style"
+    },
+    "waveform": {
+      "type": "boolean",
+      "default": false,
+      "title": "Show Waveform"
+    },
+    "duration": {
+      "type": "number",
+      "default": 15,
+      "title": "Duration (seconds)"
+    },
+    "aspect_ratio": {
+      "type": "string",
+      "default": "9:16",
+      "title": "Aspect Ratio"
+    },
+    "resolution": {
+      "type": "string",
+      "default": "1080x1920",
+      "title": "Resolution"
+    },
+    "output_format": {
+      "type": "string",
+      "default": "mp4",
+      "title": "Output Format"
+    },
+    "font_settings": {
+      "type": "object",
+      "title": "Font Settings"
+    },
+    "animation_settings": {
+      "type": "object",
+      "title": "Animation Settings"
+    },
+    "text_layers": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "title": "Text Layers"
+    },
+    "rendering_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "queued",
+        "rendering",
+        "complete",
+        "failed"
+      ],
+      "default": "not_started",
+      "title": "Rendering Status"
+    },
+    "render_output_url": {
+      "type": "string",
+      "title": "Rendered Output URL"
+    },
+    "status": {
+      "type": "string",
+      "default": "draft",
+      "title": "Status"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false,
+      "title": "Is Demo Data"
+    }
+  },
+  "required": [
+    "song_id"
+  ]
+}

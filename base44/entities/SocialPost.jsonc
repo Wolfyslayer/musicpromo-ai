@@ -1,0 +1,111 @@
+{
+  "name": "SocialPost",
+  "type": "object",
+  "title": "Social Post",
+  "description": "A social publishing attempt bridging CampaignDay planning and provider APIs. Credentials never stored here.",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "title": "User ID"
+    },
+    "campaign_id": {
+      "type": "string",
+      "title": "Campaign ID"
+    },
+    "campaign_day_id": {
+      "type": "string",
+      "title": "Campaign Day ID"
+    },
+    "release_id": {
+      "type": "string",
+      "title": "Release ID"
+    },
+    "social_account_id": {
+      "type": "string",
+      "title": "Social Account ID"
+    },
+    "provider": {
+      "type": "string",
+      "title": "Provider",
+      "enum": ["instagram", "tiktok", "youtube", "facebook"],
+      "default": "instagram"
+    },
+    "platform": {
+      "type": "string",
+      "title": "Platform",
+      "default": "instagram"
+    },
+    "content_type": {
+      "type": "string",
+      "title": "Content Type"
+    },
+    "caption": {
+      "type": "string",
+      "title": "Caption"
+    },
+    "media_url": {
+      "type": "string",
+      "title": "Media URL"
+    },
+    "prepared_media_id": {
+      "type": "string",
+      "title": "Prepared Media ID"
+    },
+    "prepared_media_url": {
+      "type": "string",
+      "title": "Prepared Media URL"
+    },
+    "media_type": {
+      "type": "string",
+      "title": "Media Type",
+      "enum": ["IMAGE", "VIDEO", "REELS"],
+      "default": "IMAGE"
+    },
+    "video_project_id": {
+      "type": "string",
+      "title": "Video Project ID"
+    },
+    "generated_content_id": {
+      "type": "string",
+      "title": "Generated Content ID"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": ["draft", "publishing", "published", "failed"],
+      "default": "draft"
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Published At"
+    },
+    "external_post_id": {
+      "type": "string",
+      "title": "External Post ID"
+    },
+    "external_permalink": {
+      "type": "string",
+      "title": "External Permalink"
+    },
+    "container_id": {
+      "type": "string",
+      "title": "Provider Container ID"
+    },
+    "error_code": {
+      "type": "string",
+      "title": "Error Code"
+    },
+    "error_message": {
+      "type": "string",
+      "title": "Error Message"
+    }
+  },
+  "required": ["user_id", "provider", "status"],
+  "rls": {
+    "create": false,
+    "read": { "data.user_id": "{{user.id}}" },
+    "update": false,
+    "delete": false
+  }
+}

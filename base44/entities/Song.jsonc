@@ -1,0 +1,64 @@
+{
+  "name": "Song",
+  "type": "object",
+  "properties": {
+    "artist_id": {
+      "type": "string",
+      "title": "Artist ID"
+    },
+    "release_id": {
+      "type": "string",
+      "title": "Release ID"
+    },
+    "title": {
+      "type": "string",
+      "title": "Song Title"
+    },
+    "genre": {
+      "type": "string",
+      "title": "Genre"
+    },
+    "release_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Release Date"
+    },
+    "language": {
+      "type": "string",
+      "title": "Language"
+    },
+    "description": {
+      "type": "string",
+      "title": "Song Description"
+    },
+    "artwork_url": {
+      "type": "string",
+      "title": "Artwork URL"
+    },
+    "audio_url": {
+      "type": "string",
+      "title": "Audio URL"
+    },
+    "audio_duration": {
+      "type": "number",
+      "title": "Audio Duration (seconds)"
+    },
+    "lyrics": {
+      "type": "string",
+      "title": "Lyrics"
+    },
+    "analysis": {
+      "type": "object",
+      "title": "AI Analysis"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false,
+      "title": "Is Demo Data"
+    }
+  },
+  "required": [
+    "artist_id",
+    "title"
+  ]
+}

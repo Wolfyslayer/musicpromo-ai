@@ -1,0 +1,58 @@
+{
+  "name": "Artist",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Artist Name"
+    },
+    "profile_image": {
+      "type": "string",
+      "title": "Profile Image URL"
+    },
+    "biography": {
+      "type": "string",
+      "title": "Biography"
+    },
+    "genre": {
+      "type": "string",
+      "title": "Genre"
+    },
+    "location": {
+      "type": "string",
+      "title": "Location"
+    },
+    "website": {
+      "type": "string",
+      "title": "Website"
+    },
+    "spotify_url": {
+      "type": "string",
+      "title": "Spotify URL"
+    },
+    "youtube_url": {
+      "type": "string",
+      "title": "YouTube URL"
+    },
+    "tiktok_url": {
+      "type": "string",
+      "title": "TikTok URL"
+    },
+    "instagram_url": {
+      "type": "string",
+      "title": "Instagram URL"
+    },
+    "facebook_url": {
+      "type": "string",
+      "title": "Facebook URL"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "default": false,
+      "title": "Is Demo Data"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
