@@ -1,5 +1,5 @@
 import { createClient } from '@base44/sdk';
-import { appParams } from '@/lib/app-params';
+import { appParams, getSessionAccessToken } from '@/lib/app-params';
 
 /**
  * Single frontend Base44 client for this app.
@@ -17,12 +17,33 @@ if (!appParams.appId) {
   );
 }
 
+const initialToken = getSessionAccessToken() || appParams.token || undefined;
+
 export const base44 = createClient({
   appId: appParams.appId,
-  ...(appParams.token ? { token: appParams.token } : {}),
+  ...(initialToken ? { token: initialToken } : {}),
   ...(appParams.appBaseUrl ? { appBaseUrl: appParams.appBaseUrl } : {}),
   ...(appParams.functionsVersion ? { functionsVersion: appParams.functionsVersion } : {}),
 });
+
+/**
+ * Sync the live session token onto the shared client before function calls.
+ * Cookie-only SSO may have no bearer token; callers should still use credentials: "include".
+ */
+export function ensureClientSessionToken() {
+  const token = getSessionAccessToken();
+  if (!token) return null;
+  try {
+    if (typeof base44?.auth?.setToken === 'function') {
+      base44.auth.setToken(token);
+    } else if (typeof base44?.setToken === 'function') {
+      base44.setToken(token);
+    }
+  } catch {
+    /* ignore — invoke/fetch may still attach cookies */
+  }
+  return token;
+}
 
 /** Alias kept for call sites that historically used `db`. */
 export const db = base44;

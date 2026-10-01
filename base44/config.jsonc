@@ -1,5 +1,8 @@
 {
   "name": "untitled",
+  // Allow authenticated end-users (and public SPA) to reach function endpoints.
+  // Private/workspace visibility can surface as gateway 403 on function invoke.
+  "visibility": "public",
   "site": {
     "installCommand": "npm install",
     "buildCommand": "npm run build",

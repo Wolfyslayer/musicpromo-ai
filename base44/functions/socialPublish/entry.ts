@@ -14,6 +14,34 @@ import {
   prepareInstagramFeedImage,
 } from "../../shared/mediaPreparation.ts";
 
+/** Allow SPA origins (local Vite + production) with credentialed POSTs. */
+function corsHeaders(req: Request): HeadersInit {
+  const origin = req.headers.get("Origin") || req.headers.get("origin") || "";
+  const allowOrigin =
+    origin &&
+    (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin) ||
+      origin.includes("base44.app") ||
+      origin.includes("flying-sonic-promo-flow"))
+      ? origin
+      : origin || "*";
+
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, X-Requested-With",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    Vary: "Origin",
+  };
+}
+
+function jsonResponse(
+  req: Request,
+  body: Record<string, unknown>,
+  status = 200
+): Response {
+  return Response.json(body, { status, headers: corsHeaders(req) });
+}
+
 function safePost(row: Record<string, unknown>) {
   return {
     id: row.id,
@@ -44,55 +72,103 @@ function safePost(row: Record<string, unknown>) {
 }
 
 /**
- * Publish a SocialPost to Instagram (Instagram Login Content Publishing API).
+ * Publish a SocialPost to Instagram (Instagram Login + graph.instagram.com).
+ * Requires an authenticated Base44 user session (Authorization Bearer and/or cookies).
  * IMAGE posts: MediaPreparation produces a public JPEG when needed, then Meta publish.
+ * REELS/VIDEO: async container → poll FINISHED → media_publish.
  * Tokens never leave this function.
  */
 export default async function (req: Request): Promise<Response> {
+  // Preflight for credentialed cross-origin POSTs from local / production SPA.
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(req) });
+  }
+
+  if (req.method !== "POST") {
+    return jsonResponse(req, { error: "Method not allowed.", code: "VALIDATION" }, 405);
+  }
+
   let postId = "";
   let base44: ReturnType<typeof createClientFromRequest> | null = null;
 
   try {
+    const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
+    const hasBearer = /^Bearer\s+\S+/i.test(authHeader);
+    console.log(
+      "[socialPublish] auth_context",
+      JSON.stringify({
+        method: req.method,
+        hasAuthorizationHeader: Boolean(authHeader),
+        hasBearer,
+        origin: req.headers.get("Origin") || null,
+      })
+    );
+
     base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user?.id) {
+      console.error(
+        "[socialPublish] Unauthorized — createClientFromRequest could not resolve session user",
+        JSON.stringify({ hasBearer, hasAuthorizationHeader: Boolean(authHeader) })
+      );
+      return jsonResponse(
+        req,
+        {
+          error: "Unauthorized. Sign in again, then retry publish.",
+          code: "UNAUTHORIZED",
+        },
+        401
+      );
     }
 
     const body = await req.json().catch(() => ({}));
     postId = body?.postId ? String(body.postId) : "";
     if (!postId) {
-      return Response.json({ error: "postId is required." }, { status: 400 });
+      return jsonResponse(req, { error: "postId is required." }, 400);
     }
 
     const encryptionKey = secrets.get("SOCIAL_TOKEN_ENCRYPTION_KEY");
     if (!encryptionKey) {
-      return Response.json({ error: "Publishing is not configured.", code: "NOT_CONFIGURED" }, { status: 503 });
+      return jsonResponse(
+        req,
+        { error: "Publishing is not configured.", code: "NOT_CONFIGURED" },
+        503
+      );
     }
 
     const post = await base44.asServiceRole.entities.SocialPost.get(postId);
     if (!post || post.user_id !== user.id) {
-      return Response.json({ error: "Post not found." }, { status: 404 });
+      return jsonResponse(req, { error: "Post not found." }, 404);
     }
 
     if (post.provider !== "instagram") {
-      return Response.json({ error: "Only Instagram publishing is supported.", code: "VALIDATION" }, { status: 400 });
+      return jsonResponse(
+        req,
+        { error: "Only Instagram publishing is supported.", code: "VALIDATION" },
+        400
+      );
     }
 
     if (post.status === "published" || post.external_post_id) {
-      return Response.json(
+      return jsonResponse(
+        req,
         { error: "This post is already published.", code: "DUPLICATE", post: safePost(post) },
-        { status: 409 }
+        409
       );
     }
     if (post.status === "publishing") {
-      return Response.json(
+      return jsonResponse(
+        req,
         { error: "This post is already publishing.", code: "DUPLICATE", post: safePost(post) },
-        { status: 409 }
+        409
       );
     }
     if (post.status !== "draft" && post.status !== "failed") {
-      return Response.json({ error: "Post cannot be published from this status.", code: "VALIDATION" }, { status: 400 });
+      return jsonResponse(
+        req,
+        { error: "Post cannot be published from this status.", code: "VALIDATION" },
+        400
+      );
     }
 
     const accounts = await base44.asServiceRole.entities.SocialAccount.filter(
@@ -104,23 +180,38 @@ export default async function (req: Request): Promise<Response> {
       (a) => a.id === post.social_account_id || (!post.social_account_id && a.status === "connected")
     );
     if (!account || account.user_id !== user.id) {
-      return Response.json({ error: "Instagram account not found.", code: "NOT_CONFIGURED" }, { status: 400 });
+      return jsonResponse(
+        req,
+        { error: "Instagram account not found.", code: "NOT_CONFIGURED" },
+        400
+      );
     }
     if (account.status !== "connected") {
-      return Response.json({ error: "Instagram is not connected.", code: "NOT_CONFIGURED" }, { status: 400 });
+      return jsonResponse(
+        req,
+        { error: "Instagram is not connected.", code: "NOT_CONFIGURED" },
+        400
+      );
     }
+    // Use 400 (not 403) so browsers/SDK don't treat missing IG scopes as a platform auth block.
     if (!hasInstagramPublishScope(account.scopes)) {
-      return Response.json(
+      return jsonResponse(
+        req,
         {
-          error: "Reconnect Instagram to grant publishing permission (instagram_business_content_publish).",
+          error:
+            "Reconnect Instagram to grant publishing permission (instagram_business_content_publish).",
           code: "PERMISSION_DENIED",
           needsReauth: true,
         },
-        { status: 403 }
+        400
       );
     }
     if (!account.encrypted_credentials) {
-      return Response.json({ error: "Instagram credentials missing. Reconnect the account.", code: "INVALID_TOKEN" }, { status: 400 });
+      return jsonResponse(
+        req,
+        { error: "Instagram credentials missing. Reconnect the account.", code: "INVALID_TOKEN" },
+        400
+      );
     }
 
     let videoProject = null;
@@ -144,7 +235,8 @@ export default async function (req: Request): Promise<Response> {
         error_code: mediaCheck.code || "INVALID_MEDIA",
         error_message: mediaCheck.message || "Media not publishable.",
       });
-      return Response.json(
+      return jsonResponse(
+        req,
         {
           error: mediaCheck.message,
           code: mediaCheck.code || "INVALID_MEDIA",
@@ -155,7 +247,7 @@ export default async function (req: Request): Promise<Response> {
             error_message: mediaCheck.message,
           }),
         },
-        { status: 400 }
+        400
       );
     }
 
@@ -164,7 +256,7 @@ export default async function (req: Request): Promise<Response> {
       caption = validateCaption(post.caption);
     } catch (e) {
       const norm = normalizeInstagramPublishError(e);
-      return Response.json({ error: norm.message, code: norm.code }, { status: 400 });
+      return jsonResponse(req, { error: norm.message, code: norm.code }, 400);
     }
 
     await base44.asServiceRole.entities.SocialPost.update(postId, {
@@ -176,10 +268,9 @@ export default async function (req: Request): Promise<Response> {
 
     const locked = await base44.asServiceRole.entities.SocialPost.get(postId);
     if (!locked || locked.user_id !== user.id || locked.status !== "publishing") {
-      return Response.json({ error: "Could not start publishing.", code: "DUPLICATE" }, { status: 409 });
+      return jsonResponse(req, { error: "Could not start publishing.", code: "DUPLICATE" }, 409);
     }
 
-    // Resolve publishable HTTPS JPEG for IMAGE posts via MediaPreparation
     let publishUrl = String(post.media_url);
     let preparedMediaId = post.prepared_media_id || "";
     let preparedMediaUrl = post.prepared_media_url || "";
@@ -211,7 +302,8 @@ export default async function (req: Request): Promise<Response> {
           error_code: code,
           error_message: message,
         });
-        return Response.json(
+        return jsonResponse(
+          req,
           {
             error: message,
             code,
@@ -222,25 +314,34 @@ export default async function (req: Request): Promise<Response> {
               error_message: message,
             }),
           },
-          { status: 400 }
+          400
         );
       }
     }
 
     let accessToken = "";
+    let igUserId = String(account.provider_account_id || "");
     try {
       const raw = await decryptCredential(account.encrypted_credentials, encryptionKey);
       const parsed = JSON.parse(raw);
-      accessToken = parsed?.access_token || "";
+      accessToken =
+        parsed?.access_token || parsed?.page_access_token || parsed?.user_access_token || "";
+      if (parsed?.ig_user_id) {
+        igUserId = String(parsed.ig_user_id);
+      }
     } catch {
       await base44.asServiceRole.entities.SocialPost.update(postId, {
         status: "failed",
         error_code: "INVALID_TOKEN",
         error_message: "Could not decrypt Instagram credentials. Reconnect the account.",
       });
-      return Response.json(
-        { error: "Could not decrypt Instagram credentials. Reconnect the account.", code: "INVALID_TOKEN" },
-        { status: 400 }
+      return jsonResponse(
+        req,
+        {
+          error: "Could not decrypt Instagram credentials. Reconnect the account.",
+          code: "INVALID_TOKEN",
+        },
+        400
       );
     }
     if (!accessToken) {
@@ -249,11 +350,27 @@ export default async function (req: Request): Promise<Response> {
         error_code: "INVALID_TOKEN",
         error_message: "Instagram access token missing. Reconnect the account.",
       });
-      return Response.json({ error: "Instagram access token missing. Reconnect the account.", code: "INVALID_TOKEN" }, { status: 400 });
+      return jsonResponse(
+        req,
+        { error: "Instagram access token missing. Reconnect the account.", code: "INVALID_TOKEN" },
+        400
+      );
+    }
+    if (!igUserId) {
+      await base44.asServiceRole.entities.SocialPost.update(postId, {
+        status: "failed",
+        error_code: "NOT_CONFIGURED",
+        error_message: "Instagram user id missing. Reconnect Instagram.",
+      });
+      return jsonResponse(
+        req,
+        { error: "Instagram user id missing. Reconnect Instagram.", code: "NOT_CONFIGURED" },
+        400
+      );
     }
 
     const result = await publishInstagramMedia({
-      igUserId: String(account.provider_account_id),
+      igUserId,
       accessToken,
       mediaUrl: publishUrl,
       mediaType: mediaType === "VIDEO" || mediaType === "REELS" ? mediaType : "IMAGE",
@@ -273,7 +390,7 @@ export default async function (req: Request): Promise<Response> {
       error_message: "",
     });
 
-    return Response.json({
+    return jsonResponse(req, {
       ok: true,
       post: safePost({
         ...post,
@@ -304,6 +421,6 @@ export default async function (req: Request): Promise<Response> {
         /* ignore secondary failure */
       }
     }
-    return Response.json({ error: norm.message, code: norm.code }, { status: 502 });
+    return jsonResponse(req, { error: norm.message, code: norm.code, ok: false }, 502);
   }
 }

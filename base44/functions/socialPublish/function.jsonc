@@ -1,0 +1,15 @@
+{
+  // socialPublish — callable by authenticated app users via SDK invoke/fetch.
+  // Gateway must not block user-session POSTs from the SPA.
+  "name": "socialPublish",
+  "entry": "entry.ts",
+
+  // Allow any signed-in app user to invoke this function (not admin-only).
+  // Public gateway access; the handler still enforces base44.auth.me().
+  "authRequired": false,
+  "access": "public",
+  "permission": "user",
+  "permissions": {
+    "invoke": "public"
+  }
+}

@@ -1,7 +1,11 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.52";
 import { secrets } from "base44:runtime";
 import { generateOAuthState } from "../../shared/socialCrypto.ts";
-import { buildInstagramAuthorizeUrl, INSTAGRAM_CONNECT_SCOPES } from "../../shared/instagramOAuth.ts";
+import {
+  buildInstagramAuthorizeUrl,
+  INSTAGRAM_CONNECT_SCOPES,
+  META_OAUTH_REDIRECT_URI,
+} from "../../shared/instagramOAuth.ts";
 
 const SUPPORTED = new Set(["instagram"]);
 const STATE_TTL_MS = 10 * 60 * 1000;
@@ -9,6 +13,7 @@ const STATE_TTL_MS = 10 * 60 * 1000;
 /**
  * Authenticated start of OAuth. Returns { authorizationUrl } for the browser to navigate.
  * Secrets never leave the server.
+ * redirect_uri is always META_OAUTH_REDIRECT_URI → /functions/metaCustomCallback.
  */
 export default async function (req: Request): Promise<Response> {
   try {
@@ -20,8 +25,6 @@ export default async function (req: Request): Promise<Response> {
 
     const body = await req.json().catch(() => ({}));
     const provider = String(body?.provider || "").toLowerCase();
-    // Default on: silent Instagram re-auth reuses old grants and skips content_publish.
-    const forceReauth = body?.forceReauth !== false && body?.force_reauth !== false;
     if (!SUPPORTED.has(provider)) {
       return Response.json(
         { error: "This provider is not available for connection yet." },
@@ -30,16 +33,16 @@ export default async function (req: Request): Promise<Response> {
     }
 
     const clientId = secrets.get("META_CLIENT_ID");
-    const redirectUri = secrets.get("META_REDIRECT_URI");
-    const encryptionKey = secrets.get("SOCIAL_TOKEN_ENCRYPTION_KEY");
     const clientSecret = secrets.get("META_CLIENT_SECRET");
+    const encryptionKey = secrets.get("SOCIAL_TOKEN_ENCRYPTION_KEY");
     const publicAppUrl = secrets.get("PUBLIC_APP_URL") || secrets.get("APP_PUBLIC_URL");
+    const redirectUri = META_OAUTH_REDIRECT_URI;
 
-    if (!clientId || !clientSecret || !redirectUri || !encryptionKey || !publicAppUrl) {
+    if (!clientId || !clientSecret || !encryptionKey || !publicAppUrl) {
       return Response.json(
         {
           error:
-            "Instagram connection is not configured. Add META_CLIENT_ID, META_CLIENT_SECRET, META_REDIRECT_URI, PUBLIC_APP_URL, and SOCIAL_TOKEN_ENCRYPTION_KEY via Base44 secrets.",
+            "Instagram connection is not configured. Add META_CLIENT_ID, META_CLIENT_SECRET, PUBLIC_APP_URL, and SOCIAL_TOKEN_ENCRYPTION_KEY via Base44 secrets.",
           code: "not_configured",
         },
         { status: 503 }
@@ -62,15 +65,15 @@ export default async function (req: Request): Promise<Response> {
       redirectUri,
       state,
       scopes: INSTAGRAM_CONNECT_SCOPES,
-      // Reconnect / scope upgrades must re-prompt; silent reuse keeps old grants.
-      forceReauth,
+      forceReauth: true,
     });
 
     return Response.json({
       authorizationUrl,
       provider,
       scopes: INSTAGRAM_CONNECT_SCOPES,
-      forceReauth,
+      redirectUri: META_OAUTH_REDIRECT_URI,
+      forceReauth: true,
     });
   } catch (error) {
     console.error("[socialOAuthStart]", error?.message || "unknown error");

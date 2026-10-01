@@ -3,14 +3,55 @@
  * OAuth token exchange and Meta publishing stay in Base44 functions; this module never sees secrets.
  */
 
-import { db } from "@/api/base44Client";
+import { db, ensureClientSessionToken } from "@/api/base44Client";
+import { getSessionAccessToken } from "@/lib/app-params";
 import { SOCIAL_PROVIDERS, getSocialProviderConfig } from "@/services/social/providers";
 import { CONNECTION_STATUS, CONNECTION_STATUS_META } from "@/services/social/provider";
 
-const invoke = async (name, payload) => {
-  const res = await db.functions.invoke(name, payload || {});
+/**
+ * Invoke a Base44 backend function with the active user session.
+ * Always forwards cookies (credentials: "include") and Authorization: Bearer when a token exists.
+ */
+async function invoke(name, payload) {
+  const token = ensureClientSessionToken() || getSessionAccessToken();
+  const body = payload || {};
+
+  // Prefer low-level fetch so we can set credentials + Bearer explicitly (platform 403 fix).
+  if (typeof db?.functions?.fetch === "function") {
+    const headers = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await db.functions.fetch(`/${name}`, {
+      method: "POST",
+      credentials: "include",
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ...(data && typeof data === "object" ? data : {}),
+        ok: false,
+        error:
+          (data && data.error) ||
+          (data && data.message) ||
+          `Request failed (${response.status})`,
+        _httpStatus: response.status,
+      };
+    }
+    return data?.data ?? data;
+  }
+
+  // Fallback: SDK invoke (attaches auth when client token is set).
+  const res = await db.functions.invoke(name, body);
   return res?.data ?? res;
-};
+}
 
 export function getProviders() {
   return SOCIAL_PROVIDERS.map((cfg) => ({
@@ -66,6 +107,7 @@ export async function loadPost(postId) {
   return invoke("socialPostList", { postId });
 }
 
+/** Publish a SocialPost — always sends authenticated session headers. */
 export async function publishPost(postId) {
   return invoke("socialPublish", { postId });
 }

@@ -1,234 +1,76 @@
 # Instagram Publishing — MusicPromo AI
 
-**Phase:** 2F  
-**Login type:** Instagram API with Instagram Login (Business Login for Instagram)  
-**Status:** Implementation complete for drafts + server-side publish path. **Real Instagram publish is NOT claimed verified in this document until Test D succeeds.**
+**Phase:** 2F (updated)  
+**Login type:** Facebook Login for Business → Instagram Graph Content Publishing  
+**API host:** `graph.facebook.com`  
+**Status:** OAuth + image publish + Reels container pipeline implemented. Real Reels publish still requires a public HTTPS MP4 from VideoProject.
 
 ---
 
-## 1. Architecture
+## Architecture
 
 ```text
 Campaign / Release
-  → CampaignDay (planning source of truth)
-  → SocialPost (publishing attempt)
-  → socialPublish (Base44 function)
-  → Instagram Content Publishing API (graph.instagram.com)
-  → Published Instagram media
+  → CampaignDay
+  → SocialPost
+  → socialPublish
+  → graph.facebook.com Content Publishing
+  → Published Instagram media / Reel
 ```
-
-Related entities (unchanged roles):
 
 | Entity | Role |
 |--------|------|
-| `CampaignDay` | Plan copy, hashtags, CTA, optional `video_project_id` |
-| `GeneratedContent` | Optional caption source (referenced by ID) |
-| `VideoProject` | Video composition; **mock renderer today** |
-| `SocialAccount` | Connected IG account + encrypted token |
+| `CampaignDay` | Plan copy, optional `video_project_id` |
+| `SocialAccount` | IG Business Account id + encrypted Page token |
 | `SocialPost` | Draft / publish lifecycle |
+| `VideoProject` | Must expose public HTTPS MP4 for Reels |
+| `PreparedMedia` | JPEG preparation for IMAGE posts |
 
 ---
 
-## 2. Required Meta permissions (Instagram Login)
-
-Official Content Publishing guide (Instagram API with Instagram Login):
+## Required Meta permissions (Facebook Login)
 
 | Permission | Purpose |
 |------------|---------|
-| `instagram_business_basic` | Account identity / basic access |
-| `instagram_business_content_publish` | Create containers + publish |
+| `instagram_basic` | IG professional account identity |
+| `instagram_content_publish` | Create containers + publish (incl. Reels) |
 
-**Do not** request analytics / Facebook Page permissions in this phase.
+Instagram Connect requests **only** those two scopes (no `pages_*` / Facebook profile bundle) and always sends `auth_type=rerequest` so Meta focuses the dialog on Instagram Professional account selection.
 
-OAuth authorize URL remains:
+- Authorize: `https://www.facebook.com/v21.0/dialog/oauth`
+- Token + Graph: `https://graph.facebook.com`
+- Secrets: **Facebook App ID/Secret** as `META_CLIENT_ID` / `META_CLIENT_SECRET`
+- Redirect (fixed): `https://flying-sonic-promo-flow.base44.app/functions/metaCustomCallback`  
+  Register this exact URI in Meta → Facebook Login → Valid OAuth Redirect URIs.
 
-`https://www.instagram.com/oauth/authorize`
-
-Token exchange / Graph:
-
-`https://api.instagram.com` · `https://graph.instagram.com`
-
----
-
-## 3. OAuth changes
-
-`INSTAGRAM_CONNECT_SCOPES` in `base44/shared/instagramOAuth.ts` now includes both:
-
-- `instagram_business_basic`
-- `instagram_business_content_publish`
-
-**Reconnect required** for accounts connected before publishing scopes were added. Existing `SocialAccount` rows are **not** deleted. Social Hub shows **Reconnect** when `needsPublishReauth` is true (`scopes` missing `instagram_business_content_publish`).
-
-Reconnect passes `force_reauth=true` so Instagram re-prompts. `socialOAuthCallback` stores permissions Meta actually returned on token exchange (not only the requested list). Enable `instagram_business_content_publish` in Meta **Business login settings** or Meta will never grant it.
+On connect, callback:
+1. Exchanges `code` → short-lived User token → long-lived User token  
+2. `GET /me/accounts` → finds `instagram_business_account`  
+3. Stores IG id on `SocialAccount.provider_account_id`  
+4. Encrypts Page access token (+ User token metadata) in `encrypted_credentials`
 
 ---
 
-## 4. Publish API flow (server-side)
+## Reels publish flow (`instagramPublishing.ts`)
 
-Function: `socialPublish`
+1. `POST /{ig-user-id}/media` with `media_type=REELS`, `video_url`, `caption`  
+2. Poll `GET /{container-id}?fields=status_code` until `FINISHED`  
+3. `POST /{ig-user-id}/media_publish` with `creation_id`  
+4. Persist `external_post_id` / permalink on `SocialPost`
 
-1. Authenticate Base44 user.  
-2. Load `SocialPost`; verify `user_id`.  
-3. Load `SocialAccount`; verify ownership + `status=connected` + publish scope.  
-4. Decrypt credentials with `SOCIAL_TOKEN_ENCRYPTION_KEY`.  
-5. Validate media (public HTTPS JPEG for images; real MP4 for video — see §6).  
-6. Refuse if status is `published` / `publishing` or `external_post_id` set.  
-7. Set status → `publishing`.  
-8. `POST /{ig-user-id}/media` (`image_url` or `video_url` + `caption`).  
-9. Poll `GET /{container-id}?fields=status_code` until `FINISHED`.  
-10. `POST /{ig-user-id}/media_publish` with `creation_id`.  
-11. Optionally fetch `permalink`.  
-12. Persist `external_post_id`, `external_permalink`, `published_at`, status `published`.
-
-On failure: status `failed`, sanitized `error_code` / `error_message`. Tokens never returned or logged.
+Images use the same container → publish pattern with `image_url` (JPEG via MediaPreparation).
 
 ---
 
-## 5. Supported media (Phase 2F)
+## Operator checklist
 
-| Type | Supported now? | Notes |
-|------|----------------|-------|
-| **IMAGE** | **Yes, if** public HTTPS **JPEG** URL | Meta: JPEG only for images |
-| **VIDEO / REELS** | **Blocked** until real render | VideoService is mock/preview-only; no MP4 |
-
-Artwork uploaded via `UploadPublicFile` is the intended image source (release/song artwork).
-
-PNG/WebP artwork will be **rejected** by media validation (Instagram JPEG requirement).
-
----
-
-## 6. Media URL requirements
-
-Meta cURLs media at publish time → URL must be **publicly reachable HTTPS**.
-
-| Asset | Storage today | Publishable? |
-|-------|---------------|--------------|
-| Artwork | `UploadPublicFile` → permanent public URL | Yes if JPEG |
-| Audio | `UploadPrivateFile` + signed URL | No (not a feed image/video post asset) |
-| VideoProject `render_output_url` | Mock / usually empty | No until real renderer + public MP4 |
-
-**If publishing is blocked:** it is due to **media hosting/rendering**, not OAuth — when the only available asset is preview-only video or non-JPEG artwork.
-
----
-
-## 7. Base44 storage requirements (Phase 2G)
-
-1. Real video renderer producing public HTTPS MP4 (or a safe temporary signed URL Meta can fetch for the full processing window).  
-2. Optional JPEG normalization for artwork (PNG/WebP → JPEG).  
-3. Do **not** permanently expose private audio or put Meta tokens in the browser.
-
----
-
-## 8. SocialPost lifecycle
-
-```text
-draft → publishing → published
-  ↓
-failed  → (edit / retry) → draft → publishing → …
-```
-
-Statuses used: `draft` | `publishing` | `published` | `failed`  
-Scheduling status is **not** used in 2F.
-
-Mutations go through backend functions only (entity RLS: client create/update/delete **false**).
-
----
-
-## 9. Error handling
-
-Normalized codes: `INVALID_TOKEN`, `PERMISSION_DENIED`, `INVALID_MEDIA`, `MEDIA_NOT_READY`, `RATE_LIMITED`, `DUPLICATE`, `PROVIDER_ERROR`, `NOT_CONFIGURED`, `VALIDATION`.
-
-Frontend shows human-readable messages only.
-
----
-
-## 10. Retry behavior
-
-Retry allowed when `status=failed`. Same `SocialPost` row is reused.  
-If Meta accepted a post but our write failed after publish, retry could duplicate — rare; refuse when `external_post_id` is already set.
-
----
-
-## 11. Security model
-
-- Tokens only in `SocialAccount.encrypted_credentials` (FLS blocked for clients).  
-- Decrypt + Meta calls only in Deno functions.  
-- No `VITE_*` Meta secrets.  
-- No tokens in localStorage / sessionStorage / URLs.  
-- Ownership checks on `SocialPost` and `SocialAccount`.  
-- Duplicate publish protection server-side.
-
----
-
-## 12. Manual testing
-
-### Test A — Existing OAuth
-
-1. Open published app → Social Hub.  
-2. Confirm Instagram Connected + username.  
-3. If “Reconnect for publishing” appears, reconnect and re-approve scopes.
-
-### Test B — Create Draft
-
-1. Campaign Plan / Content / Calendar → **Post to Social**.  
-2. Prefill caption/media.  
-3. Save Draft → refresh → draft remains.
-
-### Test C — Media Validation
-
-1. Select preview-only video path → publish blocked with clear message.  
-2. Non-JPEG artwork → blocked with JPEG message.
-
-### Test D — Real Publish
-
-Only with public JPEG artwork + publish scope:
-
-1. Confirm account, caption, media.  
-2. Publish → confirm dialog → wait.  
-3. Status Published + external ID / permalink.  
-4. Verify on Instagram.
-
-### Test E — Duplicate Protection
-
-Publish again → rejected (`DUPLICATE`).
-
-### Test F — Failed Publish
-
-Invalid media → `failed` + safe error.
-
----
-
-## 13. Known Meta limitations
-
-- JPEG-only images; public URL required.  
-- ~100 API publishes / 24h per IG account.  
-- Professional IG account required.  
-- Advanced Access / App Review for third-party users.  
-- Page Publishing Authorization may affect some Page-linked accounts.  
-- No first-class Instagram schedule API — scheduling is app-side (later phase).
-
----
-
-## 14. Remaining for scheduling (Phase 2G+)
-
-- Real MP4 rendering + public hosting.  
-- JPEG conversion pipeline.  
-- `scheduled` status + worker / cron.  
-- TikTok / YouTube / Facebook.  
-- Analytics import.
-
----
-
-## Deploy checklist (2F)
+1. Meta app has **Facebook Login** + Instagram Graph products.  
+2. IG Professional account linked to a Facebook Page you admin.  
+3. Base44 secrets updated to Facebook App ID/Secret (not Instagram Login credentials).  
+4. Disconnect any old Instagram-Login connection and reconnect.  
+5. Deploy: `base44 functions deploy socialOAuthStart socialOAuthCallback socialPublish socialConnectionStatus`
 
 ```bash
-base44 entities push          # includes SocialPost
-base44 functions deploy socialPostCreate socialPostUpdate socialPostList socialPublish socialOAuthStart socialOAuthCallback socialConnectionStatus
-# or: base44 functions deploy
+base44 functions deploy socialOAuthStart socialOAuthCallback socialPublish socialConnectionStatus
+base44 site deploy -y --build
 ```
-
-Enable `instagram_business_content_publish` in Meta App Dashboard and reconnect Instagram in the app.
-
----
-
-*Keep this file free of real credential values.*

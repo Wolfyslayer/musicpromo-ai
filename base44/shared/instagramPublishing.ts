@@ -1,10 +1,13 @@
 /**
- * Instagram Content Publishing helpers (Instagram Login / graph.instagram.com).
- * Official guide: Instagram API with Instagram Login — Content Publishing.
- * Requires scopes: instagram_business_basic + instagram_business_content_publish.
+ * Instagram Content Publishing via Instagram Login for Business / graph.instagram.com.
+ * Requires: instagram_business_basic + instagram_business_content_publish.
+ * Uses the Instagram user id and Instagram User access token (no Facebook Page).
  *
- * Media must be on a publicly reachable HTTPS URL (Meta cURLs it).
- * Images: JPEG only per Meta docs.
+ * Reels: create container (media_type=REELS) → poll status_code → media_publish.
+ * Images: create container (image_url) → poll → media_publish.
+ * Media URLs must be publicly reachable HTTPS (Meta cURLs them).
+ *
+ * Auth: Authorization: Bearer <token> on Graph requests (Instagram Login).
  */
 
 export const IG_GRAPH = "https://graph.instagram.com";
@@ -31,10 +34,18 @@ export type NormalizedPublishError = {
 
 export class InstagramPublishError extends Error {
   code: NormalizedPublishError["code"];
-  constructor(code: NormalizedPublishError["code"], message: string) {
+  metaStatus?: number;
+  metaBody?: unknown;
+  constructor(
+    code: NormalizedPublishError["code"],
+    message: string,
+    meta?: { status?: number; body?: unknown }
+  ) {
     super(message);
     this.name = "InstagramPublishError";
     this.code = code;
+    this.metaStatus = meta?.status;
+    this.metaBody = meta?.body;
   }
 }
 
@@ -44,8 +55,16 @@ export function normalizeInstagramPublishError(err: unknown): NormalizedPublishE
   }
   const msg = String((err as { message?: string })?.message || err || "Unknown error");
   const lower = msg.toLowerCase();
-  if (lower.includes("permission") || lower.includes("oauth") || lower.includes("#10")) {
-    return { code: "PERMISSION_DENIED", message: "Instagram permission denied. Reconnect Instagram with publishing access." };
+  if (
+    lower.includes("permission") ||
+    lower.includes("oauth") ||
+    lower.includes("#10") ||
+    lower.includes("403")
+  ) {
+    return {
+      code: "PERMISSION_DENIED",
+      message: "Instagram permission denied. Reconnect Instagram with publishing access.",
+    };
   }
   if (lower.includes("rate") || lower.includes("limit") || lower.includes("100 api")) {
     return { code: "RATE_LIMITED", message: "Instagram publishing rate limit reached. Try again later." };
@@ -54,7 +73,11 @@ export function normalizeInstagramPublishError(err: unknown): NormalizedPublishE
     return { code: "INVALID_TOKEN", message: "Instagram session expired. Reconnect your account." };
   }
   if (lower.includes("media") || lower.includes("image") || lower.includes("video") || lower.includes("download")) {
-    return { code: "INVALID_MEDIA", message: "Instagram rejected this media. Use a public JPEG URL (or a real MP4 when video rendering is available)." };
+    return {
+      code: "INVALID_MEDIA",
+      message:
+        "Instagram rejected this media. Use a public JPEG URL, or a public HTTPS MP4 for Reels.",
+    };
   }
   return { code: "PROVIDER_ERROR", message: "Instagram publishing failed. Try again." };
 }
@@ -101,8 +124,8 @@ export function looksLikeVideoUrl(url: string): boolean {
 
 /**
  * Assess whether source media can enter the Instagram publish path.
- * IMAGE: public HTTPS JPEG/PNG/WebP — PNG/WebP are prepared to JPEG before Meta.
- * VIDEO/REELS: still require a real public MP4 (not implemented in renderer yet).
+ * IMAGE: public HTTPS — PNG/WebP prepared to JPEG before Meta.
+ * VIDEO/REELS: require a real public MP4 on the VideoProject.
  */
 export function assessMediaPublishability(params: {
   mediaUrl?: string | null;
@@ -123,12 +146,11 @@ export function assessMediaPublishability(params: {
     return {
       ok: false,
       code: "INVALID_MEDIA",
-      message: "Instagram publishing requires a public HTTPS image.",
+      message: "Instagram publishing requires a public HTTPS media URL.",
     };
   }
 
   if (mediaType === "IMAGE") {
-    // Allow JPEG/PNG/WebP (and extension-less CDN URLs). Preparation verifies magic bytes.
     const needsPreparation = !looksLikeJpegUrl(url);
     return { ok: true, needsPreparation };
   }
@@ -162,18 +184,128 @@ export function assessMediaPublishability(params: {
   return { ok: false, code: "INVALID_MEDIA", message: "Unsupported media type for Instagram publishing." };
 }
 
-async function igFetch(path: string, accessToken: string, init?: RequestInit): Promise<Record<string, unknown>> {
-  const url = path.startsWith("http") ? path : `${IG_GRAPH}/${IG_API_VERSION}${path}`;
-  const sep = url.includes("?") ? "&" : "?";
-  const withToken = `${url}${sep}access_token=${encodeURIComponent(accessToken)}`;
-  const res = await fetch(withToken, init);
-  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok || data.error) {
-    const errObj = data.error as { message?: string; code?: number } | undefined;
-    const message = errObj?.message || `Instagram API error (${res.status})`;
-    throw new InstagramPublishError("PROVIDER_ERROR", message);
+function graphUrl(path: string): string {
+  if (path.startsWith("http")) return path;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${IG_GRAPH}/${IG_API_VERSION}${p}`;
+}
+
+function bearerHeaders(accessToken: string, extra?: HeadersInit): Headers {
+  const headers = new Headers(extra || {});
+  headers.set("Authorization", `Bearer ${accessToken}`);
+  return headers;
+}
+
+/**
+ * Log the exact Meta Graph error body (esp. 403) with subcode / type / fbtrace.
+ * Never logs the access token.
+ */
+function logMetaGraphFailure(params: {
+  step: string;
+  status: number;
+  body: unknown;
+  path?: string;
+}): void {
+  const err =
+    params.body && typeof params.body === "object"
+      ? ((params.body as { error?: Record<string, unknown> }).error || params.body)
+      : params.body;
+  const errObj = err && typeof err === "object" ? (err as Record<string, unknown>) : null;
+
+  console.error("[instagramPublishing] --- META GRAPH ERROR ---");
+  console.error(
+    "[instagramPublishing]",
+    JSON.stringify({
+      step: params.step,
+      httpStatus: params.status,
+      path: params.path || null,
+      message: errObj?.message ?? null,
+      type: errObj?.type ?? null,
+      code: errObj?.code ?? null,
+      error_subcode: errObj?.error_subcode ?? null,
+      error_user_title: errObj?.error_user_title ?? null,
+      error_user_msg: errObj?.error_user_msg ?? null,
+      fbtrace_id: errObj?.fbtrace_id ?? null,
+      rawBody: params.body,
+    })
+  );
+}
+
+function throwFromMetaResponse(params: {
+  step: string;
+  status: number;
+  body: Record<string, unknown>;
+  fallback: string;
+  path?: string;
+}): never {
+  if (params.status === 403 || params.status === 401) {
+    logMetaGraphFailure({
+      step: params.step,
+      status: params.status,
+      body: params.body,
+      path: params.path,
+    });
+  } else if (params.body?.error) {
+    logMetaGraphFailure({
+      step: params.step,
+      status: params.status,
+      body: params.body,
+      path: params.path,
+    });
   }
-  return data;
+
+  const errObj = params.body?.error as
+    | { message?: string; code?: number; error_subcode?: number; type?: string }
+    | undefined;
+  const message =
+    errObj?.message ||
+    (typeof params.body?.error === "string" ? params.body.error : null) ||
+    params.fallback;
+
+  const code: NormalizedPublishError["code"] =
+    params.status === 403 || params.status === 401
+      ? "PERMISSION_DENIED"
+      : "PROVIDER_ERROR";
+
+  throw new InstagramPublishError(code, String(message), {
+    status: params.status,
+    body: params.body,
+  });
+}
+
+async function igFetch(
+  path: string,
+  accessToken: string,
+  init?: RequestInit
+): Promise<Record<string, unknown>> {
+  const url = graphUrl(path);
+  const method = (init?.method || "GET").toUpperCase();
+  try {
+    const res = await fetch(url, {
+      ...init,
+      method,
+      headers: bearerHeaders(accessToken, init?.headers),
+    });
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok || data.error) {
+      throwFromMetaResponse({
+        step: `igFetch:${method}`,
+        status: res.status,
+        body: data,
+        fallback: `Instagram API error (${res.status})`,
+        path,
+      });
+    }
+    return data;
+  } catch (err) {
+    if (err instanceof InstagramPublishError) throw err;
+    console.error("[instagramPublishing] igFetch network/catch error=", (err as Error)?.message || err);
+    throw err;
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 /** Create an image media container. */
@@ -183,26 +315,53 @@ export async function createImageContainer(params: {
   imageUrl: string;
   caption?: string;
 }): Promise<string> {
+  const path = `/${params.igUserId}/media`;
   const body = new URLSearchParams({
     image_url: params.imageUrl,
-    access_token: params.accessToken,
   });
   if (params.caption) body.set("caption", params.caption);
 
-  const res = await fetch(`${IG_GRAPH}/${IG_API_VERSION}/${params.igUserId}/media`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.id) {
-    const message = data?.error?.message || "Failed to create Instagram media container";
-    throw new InstagramPublishError("PROVIDER_ERROR", message);
+  try {
+    const res = await fetch(graphUrl(path), {
+      method: "POST",
+      headers: bearerHeaders(params.accessToken, {
+        "Content-Type": "application/x-www-form-urlencoded",
+      }),
+      body,
+    });
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok || !data.id) {
+      throwFromMetaResponse({
+        step: "createImageContainer",
+        status: res.status,
+        body: data,
+        fallback: "Failed to create Instagram media container",
+        path,
+      });
+    }
+    return String(data.id);
+  } catch (err) {
+    if (err instanceof InstagramPublishError) {
+      if (err.metaStatus === 403) {
+        console.error(
+          "[instagramPublishing] 403 on createImageContainer — exact Meta body:",
+          JSON.stringify(err.metaBody ?? null)
+        );
+      }
+      throw err;
+    }
+    console.error(
+      "[instagramPublishing] createImageContainer catch=",
+      (err as Error)?.message || err
+    );
+    throw err;
   }
-  return String(data.id);
 }
 
-/** Create a video/reels container (requires public video_url). */
+/**
+ * Step 1 — Create a Reels container.
+ * POST /{ig-user-id}/media with Authorization: Bearer + media_type=REELS
+ */
 export async function createVideoContainer(params: {
   igUserId: string;
   accessToken: string;
@@ -210,29 +369,55 @@ export async function createVideoContainer(params: {
   caption?: string;
   mediaType?: "VIDEO" | "REELS";
 }): Promise<string> {
+  const path = `/${params.igUserId}/media`;
+  // Instagram Login Reels publishing: media_type must be explicitly REELS (default).
+  const mediaType = params.mediaType === "VIDEO" ? "VIDEO" : "REELS";
   const body = new URLSearchParams({
     video_url: params.videoUrl,
-    media_type: params.mediaType || "REELS",
-    access_token: params.accessToken,
+    media_type: mediaType,
   });
   if (params.caption) body.set("caption", params.caption);
 
-  const res = await fetch(`${IG_GRAPH}/${IG_API_VERSION}/${params.igUserId}/media`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.id) {
-    const message = data?.error?.message || "Failed to create Instagram video container";
-    throw new InstagramPublishError("PROVIDER_ERROR", message);
+  try {
+    const res = await fetch(graphUrl(path), {
+      method: "POST",
+      headers: bearerHeaders(params.accessToken, {
+        "Content-Type": "application/x-www-form-urlencoded",
+      }),
+      body,
+    });
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok || !data.id) {
+      throwFromMetaResponse({
+        step: "createVideoContainer",
+        status: res.status,
+        body: data,
+        fallback: "Failed to create Instagram Reels container",
+        path,
+      });
+    }
+    return String(data.id);
+  } catch (err) {
+    if (err instanceof InstagramPublishError) {
+      if (err.metaStatus === 403) {
+        console.error(
+          "[instagramPublishing] 403 on createVideoContainer (Reels) — exact Meta body:",
+          JSON.stringify(err.metaBody ?? null)
+        );
+      }
+      throw err;
+    }
+    console.error(
+      "[instagramPublishing] createVideoContainer catch=",
+      (err as Error)?.message || err
+    );
+    throw err;
   }
-  return String(data.id);
 }
 
 /**
- * Poll container status until FINISHED / ERROR / timeout.
- * status_code values: EXPIRED, ERROR, FINISHED, IN_PROGRESS, PUBLISHED
+ * Step 2 — Poll container until FINISHED, then caller publishes.
+ * status_code: EXPIRED | ERROR | FINISHED | IN_PROGRESS | PUBLISHED
  */
 export async function waitForContainerReady(params: {
   containerId: string;
@@ -240,42 +425,74 @@ export async function waitForContainerReady(params: {
   maxAttempts?: number;
   delayMs?: number;
 }): Promise<void> {
-  const maxAttempts = params.maxAttempts ?? 30;
-  const delayMs = params.delayMs ?? 2000;
+  const maxAttempts = params.maxAttempts ?? 60;
+  const delayMs = params.delayMs ?? 3000;
 
   for (let i = 0; i < maxAttempts; i++) {
-    const data = await igFetch(`/${params.containerId}?fields=status_code`, params.accessToken);
+    const data = await igFetch(
+      `/${params.containerId}?fields=status_code,status`,
+      params.accessToken
+    );
     const code = String(data.status_code || "");
     if (code === "FINISHED" || code === "PUBLISHED") return;
     if (code === "ERROR" || code === "EXPIRED") {
-      throw new InstagramPublishError("INVALID_MEDIA", "Instagram rejected this media during processing.");
+      const detail = data.status ? String(data.status) : "Instagram rejected this media during processing.";
+      throw new InstagramPublishError("INVALID_MEDIA", detail);
     }
-    await new Promise((r) => setTimeout(r, delayMs));
+    await sleep(delayMs);
   }
-  throw new InstagramPublishError("MEDIA_NOT_READY", "Instagram media is still processing. Try again shortly.");
+  throw new InstagramPublishError(
+    "MEDIA_NOT_READY",
+    "Instagram media is still processing. Try again shortly."
+  );
 }
 
-/** Publish a finished media container. */
+/** Step 3 — Publish a finished container via media_publish + creation_id. */
 export async function publishMediaContainer(params: {
   igUserId: string;
   accessToken: string;
   creationId: string;
 }): Promise<string> {
+  const path = `/${params.igUserId}/media_publish`;
   const body = new URLSearchParams({
     creation_id: params.creationId,
-    access_token: params.accessToken,
   });
-  const res = await fetch(`${IG_GRAPH}/${IG_API_VERSION}/${params.igUserId}/media_publish`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.id) {
-    const message = data?.error?.message || "Failed to publish Instagram media";
-    throw new InstagramPublishError("PROVIDER_ERROR", message);
+
+  try {
+    const res = await fetch(graphUrl(path), {
+      method: "POST",
+      headers: bearerHeaders(params.accessToken, {
+        "Content-Type": "application/x-www-form-urlencoded",
+      }),
+      body,
+    });
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok || !data.id) {
+      throwFromMetaResponse({
+        step: "publishMediaContainer",
+        status: res.status,
+        body: data,
+        fallback: "Failed to publish Instagram media",
+        path,
+      });
+    }
+    return String(data.id);
+  } catch (err) {
+    if (err instanceof InstagramPublishError) {
+      if (err.metaStatus === 403) {
+        console.error(
+          "[instagramPublishing] 403 on publishMediaContainer — exact Meta body:",
+          JSON.stringify(err.metaBody ?? null)
+        );
+      }
+      throw err;
+    }
+    console.error(
+      "[instagramPublishing] publishMediaContainer catch=",
+      (err as Error)?.message || err
+    );
+    throw err;
   }
-  return String(data.id);
 }
 
 /** Fetch permalink for a published media id (best-effort). */
@@ -292,7 +509,7 @@ export async function fetchMediaPermalink(params: {
 }
 
 /**
- * Full publish pipeline for a single image or video.
+ * Full publish pipeline for a single image or Reel/video.
  * Never logs access tokens.
  */
 export async function publishInstagramMedia(params: {
@@ -302,39 +519,61 @@ export async function publishInstagramMedia(params: {
   mediaType: PublishMediaType;
   caption: string;
 }): Promise<{ mediaId: string; permalink: string | null; containerId: string }> {
-  let containerId: string;
-  if (params.mediaType === "IMAGE") {
-    containerId = await createImageContainer({
+  try {
+    let containerId: string;
+    if (params.mediaType === "IMAGE") {
+      containerId = await createImageContainer({
+        igUserId: params.igUserId,
+        accessToken: params.accessToken,
+        imageUrl: params.mediaUrl,
+        caption: params.caption,
+      });
+    } else {
+      containerId = await createVideoContainer({
+        igUserId: params.igUserId,
+        accessToken: params.accessToken,
+        videoUrl: params.mediaUrl,
+        caption: params.caption,
+        mediaType: "REELS",
+      });
+    }
+
+    await waitForContainerReady({
+      containerId,
+      accessToken: params.accessToken,
+    });
+
+    const mediaId = await publishMediaContainer({
       igUserId: params.igUserId,
       accessToken: params.accessToken,
-      imageUrl: params.mediaUrl,
-      caption: params.caption,
+      creationId: containerId,
     });
-  } else {
-    containerId = await createVideoContainer({
-      igUserId: params.igUserId,
+
+    const permalink = await fetchMediaPermalink({
+      mediaId,
       accessToken: params.accessToken,
-      videoUrl: params.mediaUrl,
-      caption: params.caption,
-      mediaType: params.mediaType === "VIDEO" ? "VIDEO" : "REELS",
     });
+
+    return { mediaId, permalink, containerId };
+  } catch (err) {
+    if (err instanceof InstagramPublishError && err.metaStatus === 403) {
+      console.error(
+        "[instagramPublishing] publishInstagramMedia 403 — exact Meta body response:",
+        JSON.stringify(err.metaBody ?? { message: err.message, code: err.code })
+      );
+    } else {
+      console.error(
+        "[instagramPublishing] publishInstagramMedia catch=",
+        err instanceof InstagramPublishError
+          ? JSON.stringify({
+              code: err.code,
+              message: err.message,
+              metaStatus: err.metaStatus ?? null,
+              metaBody: err.metaBody ?? null,
+            })
+          : String((err as Error)?.message || err)
+      );
+    }
+    throw err;
   }
-
-  await waitForContainerReady({
-    containerId,
-    accessToken: params.accessToken,
-  });
-
-  const mediaId = await publishMediaContainer({
-    igUserId: params.igUserId,
-    accessToken: params.accessToken,
-    creationId: containerId,
-  });
-
-  const permalink = await fetchMediaPermalink({
-    mediaId,
-    accessToken: params.accessToken,
-  });
-
-  return { mediaId, permalink, containerId };
 }

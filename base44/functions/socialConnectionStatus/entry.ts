@@ -1,6 +1,9 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.52";
 import { secrets } from "base44:runtime";
-import { hasInstagramPublishScope } from "../../shared/instagramOAuth.ts";
+import {
+  hasInstagramPublishScope,
+  META_OAUTH_REDIRECT_URI,
+} from "../../shared/instagramOAuth.ts";
 
 /**
  * Safe connection metadata for the Social Hub.
@@ -43,7 +46,7 @@ export default async function (req: Request): Promise<Response> {
     const instagramConfigured = Boolean(
       secrets.get("META_CLIENT_ID") &&
         secrets.get("META_CLIENT_SECRET") &&
-        secrets.get("META_REDIRECT_URI") &&
+        META_OAUTH_REDIRECT_URI &&
         secrets.get("SOCIAL_TOKEN_ENCRYPTION_KEY") &&
         (secrets.get("PUBLIC_APP_URL") || secrets.get("APP_PUBLIC_URL"))
     );
@@ -56,6 +59,7 @@ export default async function (req: Request): Promise<Response> {
         youtube: false,
         facebook: false,
       },
+      metaOAuthRedirectUri: META_OAUTH_REDIRECT_URI,
     });
   } catch (error) {
     console.error("[socialConnectionStatus]", error?.message || "status failed");

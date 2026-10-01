@@ -26,18 +26,18 @@ const ERROR_MESSAGES = {
   expired_state: "This connection request expired. Please try again.",
   not_configured: "Instagram is not configured on the server yet.",
   provider_error:
-    "Instagram connection failed at an unknown step. Check Meta Instagram App ID/Secret, redirect URI, and tester invite.",
+    "Instagram connection failed. Check Instagram App ID/Secret and the OAuth redirect URI.",
   client_init_failed: "Server could not start the Instagram callback. Try again in a moment.",
   state_lookup_failed: "Could not validate the login session. Try Connect again.",
   state_consume_failed: "Could not finish the login session. Try Connect again.",
   token_exchange_failed:
-    "Instagram rejected the login code. Confirm Instagram App ID/Secret and that the redirect URI matches exactly on the new Meta app.",
+    "Instagram rejected the login code. Confirm App ID/Secret and that the redirect URI matches exactly.",
   bad_credentials:
-    "Meta rejected the app credentials. META_CLIENT_ID must be the Instagram App ID and META_CLIENT_SECRET the Instagram App Secret (Business login settings — not Facebook app id/secret).",
+    "Instagram rejected the app credentials. META_CLIENT_ID / META_CLIENT_SECRET must be the Instagram App ID and App Secret from Instagram Login for Business.",
   redirect_mismatch:
-    "OAuth redirect URI mismatch. Add exactly https://flying-sonic-promo-flow.base44.app/functions/socialOAuthCallback to the new app’s Business login settings.",
+    "OAuth redirect URI mismatch. Register https://flying-sonic-promo-flow.base44.app/functions/metaCustomCallback under Instagram → Valid OAuth Redirect URIs.",
   profile_failed:
-    "Logged in with Instagram, but profile lookup failed. Add your account as an Instagram Tester on the new app and accept the invite.",
+    "Instagram login succeeded but no Instagram user id was returned. Use a Professional (Business or Creator) account and try Connect again.",
   encrypt_failed:
     "Could not store Instagram credentials. SOCIAL_TOKEN_ENCRYPTION_KEY must be 32 bytes as base64 (do not replace it with the Meta secret).",
   account_save_failed: "Instagram login worked, but saving the connection failed. Try Connect again.",
@@ -84,10 +84,34 @@ export default function SocialHub() {
   }, [reload]);
 
   useEffect(() => {
-    const err = params.get("social_error");
+    const err = params.get("social_error") || params.get("error");
     const ok = params.get("social_connected");
     const warn = params.get("social_warning");
-    if (!err && !ok && !warn) return;
+    const details = params.get("details") || params.get("social_debug_message");
+    const meta = params.get("meta") || params.get("social_debug_meta");
+    const debugType = params.get("social_debug_type");
+    const debugStep = params.get("social_debug_step");
+    const debugStack = params.get("social_debug_stack");
+    if (!err && !ok && !warn && !details && !debugType) return;
+
+    if (err || details || meta || debugType) {
+      const debugPayload = {
+        success: false,
+        errorType: debugType || err || "provider_error",
+        step: debugStep || null,
+        message: details || ERROR_MESSAGES[err] || err || null,
+        meta: meta || null,
+        stack: debugStack || null,
+        social_error: err || null,
+      };
+      console.error("--- INSTAGRAM DEBUG ERROR ---");
+      console.error("Error Message:", debugPayload.message);
+      console.error("Step:", debugPayload.step);
+      console.error("Error Type:", debugPayload.errorType);
+      if (debugPayload.meta) console.error("Meta API data:", debugPayload.meta);
+      if (debugPayload.stack) console.error("Stack:", debugPayload.stack);
+      console.error("Full Error Object:", JSON.stringify(debugPayload, null, 2));
+    }
 
     if (warn === "missing_publish_scope") {
       toast({
@@ -104,42 +128,92 @@ export default function SocialHub() {
       toast({
         variant: "destructive",
         title: `Connection failed (${err})`,
-        description: ERROR_MESSAGES[err] || `Authorization error code: ${err}`,
+        description: details || ERROR_MESSAGES[err] || `Authorization error code: ${err}`,
       });
     }
 
     const next = new URLSearchParams(params);
-    next.delete("social_error");
-    next.delete("social_connected");
-    next.delete("social_warning");
+    [
+      "social_error",
+      "error",
+      "details",
+      "meta",
+      "social_connected",
+      "social_warning",
+      "social_debug_type",
+      "social_debug_step",
+      "social_debug_message",
+      "social_debug_stack",
+      "social_debug_meta",
+    ].forEach((k) => next.delete(k));
     setParams(next, { replace: true });
   }, [params, setParams, toast, reload]);
 
   const onConnect = async (provider) => {
     if (provider.id !== "instagram") return;
+    console.log("Instagram Auth Triggered");
     setConnectingId(provider.id);
     try {
       // Scope upgrades need force_reauth; otherwise Instagram silent-reuses old grants.
       const forceReauth = provider.needsPublishReauth === true || provider.status === "connected";
       const res = await startOAuth(provider.id, { forceReauth });
       if (res?.code === "not_configured" || res?.error) {
+        const error = {
+          success: false,
+          errorType: res?.errorType || res?.code || "NOT_CONFIGURED",
+          message: res?.error || res?.message || "Instagram not configured",
+          stack: res?.stack || null,
+          full: res,
+        };
+        console.error("--- INSTAGRAM DEBUG ERROR ---");
+        console.error("Error Message:", error.message);
+        console.error("Full Error Object:", JSON.stringify(error, null, 2));
+        if (error.stack) console.error("Stack:", error.stack);
         toast({
           variant: "destructive",
           title: "Instagram not configured",
-          description: res.error || "Add Meta secrets in Base44 first.",
+          description: error.message,
         });
         return;
       }
       if (!res?.authorizationUrl) {
+        const error = {
+          success: false,
+          errorType: "MISSING_AUTHORIZATION_URL",
+          message: "socialOAuthStart returned no authorizationUrl",
+          full: res,
+        };
+        console.error("--- INSTAGRAM DEBUG ERROR ---");
+        console.error("Error Message:", error.message);
+        console.error("Full Error Object:", JSON.stringify(error, null, 2));
         toast({ variant: "destructive", title: "Could not start Instagram connection" });
         return;
       }
+      console.log("Instagram Auth redirecting to Meta…", {
+        scopes: res.scopes,
+        forceReauth: res.forceReauth,
+      });
       window.location.assign(res.authorizationUrl);
     } catch (e) {
+      const error = {
+        success: false,
+        errorType: e?.errorType || "FRONTEND_OAUTH_START",
+        message: e?.message || String(e),
+        stack: e?.stack || null,
+        full: e,
+      };
+      console.error("--- INSTAGRAM DEBUG ERROR ---");
+      console.error("Error Message:", error.message || error);
+      try {
+        console.error("Full Error Object:", JSON.stringify(error, Object.getOwnPropertyNames(e || {}), 2));
+      } catch {
+        console.error("Full Error Object:", error);
+      }
+      if (error.stack) console.error("Stack:", error.stack);
       toast({
         variant: "destructive",
         title: "Could not start Instagram connection",
-        description: e?.message || "Please try again.",
+        description: error.message || "Please try again.",
       });
     } finally {
       setConnectingId(null);
@@ -205,23 +279,22 @@ export default function SocialHub() {
           <p className="mt-3 text-sm text-amber-600">
             Instagram granted:{" "}
             <code className="text-xs">{ig.connection?.scopes || "none"}</code>
-            . Publishing needs <code className="text-xs">instagram_business_content_publish</code>.
-            Meta is not putting publish on your token yet — see reconnect steps below the accounts list.
+            . Publishing needs{" "}
+            <code className="text-xs">instagram_business_content_publish</code>. Reconnect and approve
+            Instagram publish permission.
           </p>
         )}
         {igConnected && ig?.needsPublishReauth && (
           <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
             <li>
-              Instagram app → Settings → Apps and websites → accept the <span className="font-600">MusicPromo AI-IG</span>{" "}
-              tester invite if pending.
+              Meta App Dashboard → Instagram → API setup with Instagram Login; use the Instagram App
+              ID/Secret in Base44 secrets.
             </li>
             <li>
-              Meta dashboard → Instagram → API setup → <span className="font-600">Generate access tokens</span> → add{" "}
-              <span className="font-600">@wolfyslayermusic</span> and confirm publish is available there.
-            </li>
-            <li>
-              Disconnect here, reconnect, and on the consent screen turn <span className="font-600">both</span> toggles ON
-              (profile + publicera innehåll) before Tillåt.
+              Disconnect here, reconnect with <span className="font-600">Connect Instagram</span>, and
+              approve{" "}
+              <code className="text-xs">instagram_business_basic</code> +{" "}
+              <code className="text-xs">instagram_business_content_publish</code>.
             </li>
           </ol>
         )}
