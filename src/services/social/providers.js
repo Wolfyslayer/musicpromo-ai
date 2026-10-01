@@ -1,7 +1,6 @@
 /**
  * Centralized Social Hub platform configuration.
  * Static UI metadata only — no secrets, tokens, or API keys.
- * Separate from campaign PLATFORMS in constants.js (which includes Spotify/X etc.).
  */
 
 export const SOCIAL_PROVIDERS = [
@@ -16,14 +15,14 @@ export const SOCIAL_PROVIDERS = [
     available: false,
     oauthImplemented: true,
     capabilities: {
-      connect: false,
-      publish: false,
-      schedule: false,
-      media: false,
-      video: false,
-      image: false,
-      text: false,
-      analytics: false,
+      connect: true,
+      publish: true,
+      schedule: true,
+      media: true,
+      video: true,
+      image: true,
+      text: true,
+      analytics: true,
     },
   },
   {
@@ -35,15 +34,16 @@ export const SOCIAL_PROVIDERS = [
     providerId: "tiktok",
     configured: false,
     available: false,
+    oauthImplemented: true,
     capabilities: {
-      connect: false,
-      publish: false,
-      schedule: false,
-      media: false,
-      video: false,
+      connect: true,
+      publish: true,
+      schedule: true,
+      media: true,
+      video: true,
       image: false,
-      text: false,
-      analytics: false,
+      text: true,
+      analytics: true,
     },
   },
   {
@@ -55,15 +55,16 @@ export const SOCIAL_PROVIDERS = [
     providerId: "youtube",
     configured: false,
     available: false,
+    oauthImplemented: true,
     capabilities: {
-      connect: false,
-      publish: false,
-      schedule: false,
-      media: false,
-      video: false,
+      connect: true,
+      publish: true,
+      schedule: true,
+      media: true,
+      video: true,
       image: false,
-      text: false,
-      analytics: false,
+      text: true,
+      analytics: true,
     },
   },
   {
@@ -75,6 +76,7 @@ export const SOCIAL_PROVIDERS = [
     providerId: "facebook",
     configured: false,
     available: false,
+    oauthImplemented: false,
     capabilities: {
       connect: false,
       publish: false,

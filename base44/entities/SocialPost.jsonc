@@ -72,8 +72,13 @@
     "status": {
       "type": "string",
       "title": "Status",
-      "enum": ["draft", "publishing", "published", "failed"],
+      "enum": ["draft", "scheduled", "publishing", "published", "failed"],
       "default": "draft"
+    },
+    "scheduled_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Scheduled Publish At"
     },
     "published_at": {
       "type": "string",

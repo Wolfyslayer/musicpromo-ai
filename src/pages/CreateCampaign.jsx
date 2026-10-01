@@ -12,11 +12,16 @@ import { useToast } from "@/components/ui/use-toast";
 
 import { loadArtists, loadReleases } from "@/services/data";
 import { aiService } from "@/services/aiService";
+import { triggerCampaignAutoVideo } from "@/services/socialService";
 import { GENRES, LANGUAGES, CAMPAIGN_GOALS, CAMPAIGN_DURATIONS } from "@/services/constants";
 import { getSettings } from "@/services/settings";
 import { todayISO, addDaysISO, fmtDate } from "@/services/format";
 import ArtworkUpload from "@/components/ArtworkUpload";
 import AudioUpload from "@/components/AudioUpload";
+import AssetAnalysisPanel from "@/components/video/AssetAnalysisPanel";
+import { analyzeCampaignAssets, hooksForVibe, saveAssetSession } from "@/services/assetAnalysis";
+import VideoRenderProgress from "@/components/VideoRenderProgress";
+import { useAuth } from "@/lib/AuthContext";
 
 const STEPS = [
   { key: "song", label: "Song", icon: Music2 },
@@ -30,6 +35,7 @@ const STEPS = [
 export default function CreateCampaign() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, requireAuth } = useAuth();
   const [step, setStep] = useState(0);
   const [artists, setArtists] = useState([]);
   const [releases, setReleases] = useState([]);
@@ -39,18 +45,66 @@ export default function CreateCampaign() {
       artistMode: "existing", artistId: "", newArtistName: "", newArtistGenre: "",
       releaseId: "",
       title: "", genre: "", releaseDate: todayISO(), language: "English", description: "",
-      artworkUrl: "", audioUri: "", audioSignedUrl: "", audioDuration: null, audioName: "",
+      artworkUrl: "", artworkFile: null,
+      audioUri: "", audioSignedUrl: "", audioDuration: null, audioName: "", audioFile: null,
       lyrics: "", goals: [], durationDays: s.defaultDuration, startDate: todayISO(),
+      assetProfile: null,
     };
   });
+  const [analyzingAssets, setAnalyzingAssets] = useState(false);
+  const [energyChoice, setEnergyChoice] = useState("");
   const [generating, setGenerating] = useState(false);
   const [stage, setStage] = useState("");
+  const [renderProgress, setRenderProgress] = useState(null);
 
   useEffect(() => {
     loadArtists().then(setArtists).catch(() => {});
     loadReleases().then(setReleases).catch(() => setReleases([]));
   }, []);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  useEffect(() => {
+    const artwork = form.artworkFile || form.artworkUrl;
+    const audio = form.audioFile || form.audioSignedUrl;
+    if (!artwork || !audio) return undefined;
+    let cancelled = false;
+    setAnalyzingAssets(true);
+    analyzeCampaignAssets({
+      artwork,
+      audio,
+      title: form.title,
+      energy: energyChoice,
+    }).then((profile) => {
+      if (cancelled || !profile) return;
+      saveAssetSession(profile);
+      setForm((current) => ({ ...current, assetProfile: profile }));
+    }).finally(() => {
+      if (!cancelled) setAnalyzingAssets(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.artworkFile, form.artworkUrl, form.audioFile, form.audioSignedUrl, form.title, energyChoice]);
+
+  const chooseEnergy = (energy) => {
+    setEnergyChoice(energy);
+    setForm((current) => {
+      if (!current.assetProfile) return current;
+      const profile = {
+        ...current.assetProfile,
+        energy,
+        hooks: hooksForVibe({ energy, title: current.title }),
+        keywords: [
+          current.assetProfile.theme,
+          energy === "fast" ? "Fast / Aggressive" : "Slow / Acoustic",
+          current.assetProfile.label,
+          current.assetProfile.palette,
+        ].filter(Boolean),
+      };
+      saveAssetSession(profile);
+      return { ...current, assetProfile: profile };
+    });
+  };
 
   const selectArtist = (v) => {
     if (v === "__new__") {
@@ -97,6 +151,7 @@ export default function CreateCampaign() {
 
   const generate = async () => {
     setGenerating(true);
+    setRenderProgress(null);
     try {
       setStage("Preparing artist…");
       let artistId = form.artistId;
@@ -110,7 +165,8 @@ export default function CreateCampaign() {
       const songPayload = {
         artist_id: artistId, title: form.title.trim(), genre: form.genre, release_date: form.releaseDate,
         language: form.language, description: form.description, artwork_url: form.artworkUrl,
-        audio_url: form.audioUri, audio_duration: form.audioDuration, lyrics: form.lyrics, analysis: null, is_demo: false,
+        audio_url: form.audioUri, audio_duration: form.audioDuration, lyrics: form.lyrics,
+        analysis: form.assetProfile ? { assetProfile: form.assetProfile } : null, is_demo: false,
       };
       if (form.releaseId) songPayload.release_id = form.releaseId;
       const song = await db.entities.Song.create(songPayload);
@@ -118,7 +174,11 @@ export default function CreateCampaign() {
       const songForAI = { ...song, artistName: artist.name };
 
       setStage("Analyzing song with AI…");
-      const analysis = await aiService.analyzeSong(songForAI);
+      const generated = await aiService.analyzeSong(songForAI);
+      const analysis = {
+        ...(generated && typeof generated === "object" ? generated : {}),
+        assetProfile: form.assetProfile || null,
+      };
       await db.entities.Song.update(song.id, { analysis });
 
       setStage("Generating campaign with AI…");
@@ -141,14 +201,122 @@ export default function CreateCampaign() {
         content_type: d.contentType, objective: d.objective, video_concept: d.videoConcept,
         hook: d.hook, video_template: d.videoTemplate,
         caption: d.caption, hashtags: d.hashtags, cta: d.cta, posting_time: d.postingTime, status: "planned",
+        user_id: user?.id || "",
       }));
       if (days.length) await db.entities.CampaignDay.bulkCreate(days);
 
-      toast({ title: "Campaign generated!" });
+      let renderedVideoUrl = "";
+      if (form.artworkUrl && (form.audioFile || form.audioSignedUrl || form.audioUri)) {
+        setStage("Rendering promo video on your device…");
+        setRenderProgress({ progress: 0, message: "Starting…" });
+        try {
+          const firstDay = (result.days || [])[0] || {};
+          const duration = Math.min(15, Math.max(8, Number(form.audioDuration) || 12));
+          const { resolvePlayableAudioUrl } = await import("@/services/videoService");
+          let playableAudio = form.audioSignedUrl || "";
+          if (!playableAudio) {
+            playableAudio = await resolvePlayableAudioUrl(form.audioUri);
+          }
+          if (!playableAudio && form.audioFile) {
+            const uploadedAudio = await db.integrations.Core.UploadPublicFile({
+              file: form.audioFile,
+            });
+            playableAudio = uploadedAudio?.file_url || uploadedAudio?.url || "";
+          }
+          if (!playableAudio) {
+            throw new Error("Could not resolve a playable audio URL for rendering.");
+          }
+          if (!form.artworkUrl) {
+            throw new Error("Artwork URL is required for Remotion render.");
+          }
+
+          const { buildLyricCues } = await import("@/remotion/styles");
+          const lyricCues = buildLyricCues(form.lyrics || "", duration, []);
+          const { renderPromoRemotion } = await import("@/remotion/renderPromoRemotion");
+          const rendered = await renderPromoRemotion({
+            artworkUrl: form.artworkUrl,
+            audioUrl: playableAudio,
+            duration,
+            title: form.title.trim(),
+            artistName: artist.name || form.newArtistName || "",
+            text: firstDay.hook || form.assetProfile?.hooks?.[0] || firstDay.caption || form.description || "",
+            lyrics: form.lyrics || "",
+            visualStyle: "pop",
+            lyricCues,
+            onProgress: (info) => {
+              setRenderProgress({
+                progress: info.progress,
+                message: info.message,
+              });
+              setStage(info.message || "Rendering promo video…");
+            },
+          });
+
+          setStage("Uploading promo video…");
+          setRenderProgress({ progress: 96, message: "Uploading MP4…" });
+          const uploaded = await db.integrations.Core.UploadPublicFile({ file: rendered.file });
+          renderedVideoUrl = uploaded?.file_url || uploaded?.url || "";
+          if (!renderedVideoUrl) {
+            throw new Error("Upload succeeded but no public video URL was returned.");
+          }
+
+          setStage("Saving video project…");
+          const me = user || (await db.auth.me().catch(() => null));
+          const ownerId = me?.id || "";
+          await db.entities.VideoProject.create({
+            campaign_id: campaign.id,
+            song_id: song.id,
+            template: "LYRICS",
+            title: form.title.trim(),
+            artist_name: artist.name || form.newArtistName || "",
+            text: firstDay.hook || firstDay.caption || "",
+            artwork_url: form.artworkUrl,
+            audio_url: form.audioUri,
+            lyrics: String(form.lyrics || "").slice(0, 2000),
+            visual_style: "pop",
+            particle_effect: "none",
+            lyric_cues: lyricCues,
+            duration: rendered.duration,
+            aspect_ratio: "9:16",
+            resolution: `${rendered.width}x${rendered.height}`,
+            output_format: "mp4",
+            rendering_status: "complete",
+            render_output_url: renderedVideoUrl,
+            status: "ready",
+            is_demo: false,
+            user_id: ownerId,
+          });
+
+          setStage("Linking video to campaign…");
+          setRenderProgress({ progress: 99, message: "Linking to campaign…" });
+          await triggerCampaignAutoVideo({
+            campaignId: campaign.id,
+            videoUrl: renderedVideoUrl,
+          });
+          setRenderProgress({ progress: 100, message: "Done" });
+        } catch (err) {
+          console.warn("[CreateCampaign] Remotion video render", err?.message || err);
+          toast({
+            variant: "destructive",
+            title: "Video render skipped",
+            description: err?.message || "Campaign was created, but the promo video could not be rendered on this device.",
+          });
+        }
+      }
+
+      toast({
+        title: "Campaign generated!",
+        description: renderedVideoUrl
+          ? "Promo video rendered on your device and uploaded."
+          : form.artworkUrl && form.audioUri
+            ? "Campaign ready. You can re-render the promo video later."
+            : undefined,
+      });
       navigate(`/campaigns/${campaign.id}`);
     } catch (e) {
       setGenerating(false);
       setStage("");
+      setRenderProgress(null);
       toast({ variant: "destructive", title: "Generation failed", description: e.message });
     }
   };
@@ -182,7 +350,7 @@ export default function CreateCampaign() {
 
       <div className="rounded-2xl border border-border/60 card-gradient p-5">
         {generating ? (
-          <GeneratingScreen stage={stage} />
+          <GeneratingScreen stage={stage} renderProgress={renderProgress} />
         ) : (
           <>
             {step === 0 && (
@@ -195,8 +363,8 @@ export default function CreateCampaign() {
                 selectRelease={selectRelease}
               />
             )}
-            {step === 1 && <StepArtwork form={form} set={set} />}
-            {step === 2 && <StepAudio form={form} set={set} />}
+            {step === 1 && <StepArtwork form={form} setForm={setForm} analyzingAssets={analyzingAssets} onEnergy={chooseEnergy} />}
+            {step === 2 && <StepAudio form={form} setForm={setForm} analyzingAssets={analyzingAssets} onEnergy={chooseEnergy} />}
             {step === 3 && <StepLyrics form={form} set={set} />}
             {step === 4 && <StepGoals form={form} set={set} toggleGoal={toggleGoal} />}
             {step === 5 && <StepSummary form={form} artists={artists} releases={releases} />}
@@ -206,7 +374,7 @@ export default function CreateCampaign() {
               {step < STEPS.length - 1 ? (
                 <Button onClick={next} disabled={!canContinue()} className="rounded-full">Continue <ArrowRight className="ml-1.5 h-4 w-4" /></Button>
               ) : (
-                <Button onClick={generate} className="rounded-full"><Sparkles className="mr-1.5 h-4 w-4" />Generate Campaign</Button>
+                <Button onClick={() => requireAuth(generate)} className="rounded-full"><Sparkles className="mr-1.5 h-4 w-4" />Generate Campaign</Button>
               )}
             </div>
           </>
@@ -282,24 +450,52 @@ function StepSong({ form, set, artists, releases, selectArtist, selectRelease })
   );
 }
 
-function StepArtwork({ form, set }) {
+function StepArtwork({ form, setForm, analyzingAssets, onEnergy }) {
+  const { requireAuth } = useAuth();
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">Upload your album or track artwork. This is used across your campaign and video previews.</p>
-      <ArtworkUpload value={form.artworkUrl} onChange={(url) => set("artworkUrl", url)} />
+      <p className="text-sm text-muted-foreground">Upload your album or track artwork. This is used across your campaign and for on-device video rendering.</p>
+      <ArtworkUpload
+        guard={requireAuth}
+        value={form.artworkUrl}
+        onChange={(payload) => {
+          const url = typeof payload === "string" ? payload : payload?.url || "";
+          const file = typeof payload === "object" && payload ? payload.file : null;
+          setForm((f) => ({ ...f, artworkUrl: url, artworkFile: file || null }));
+        }}
+      />
+      {form.artworkUrl && form.audioUri ? (
+        <AssetAnalysisPanel profile={form.assetProfile} analyzing={analyzingAssets} onEnergy={onEnergy} />
+      ) : null}
     </div>
   );
 }
 
-function StepAudio({ form, set }) {
+function StepAudio({ form, setForm, analyzingAssets, onEnergy }) {
+  const { requireAuth } = useAuth();
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">Upload your song. The audio is stored privately and used for waveform videos and playback.</p>
+      <p className="text-sm text-muted-foreground">Upload your song. The audio is stored privately and used for on-device promo video encoding.</p>
       <AudioUpload
+        guard={requireAuth}
         value={form.audioUri}
         signedUrl={form.audioSignedUrl}
-        onChange={({ file_uri, signed_url, duration, name }) => { set("audioUri", file_uri); set("audioSignedUrl", signed_url); set("audioDuration", duration); set("audioName", name); }}
+        onChange={({ file_uri, signed_url, duration, name, file }) => {
+          setForm((f) => ({
+            ...f,
+            audioUri: file_uri || "",
+            audioSignedUrl: signed_url || "",
+            audioDuration: duration,
+            audioName: name || "",
+            audioFile: file || null,
+          }));
+        }}
       />
+      {form.artworkUrl && form.audioUri ? (
+        <AssetAnalysisPanel profile={form.assetProfile} analyzing={analyzingAssets} onEnergy={onEnergy} />
+      ) : (
+        <p className="text-xs text-muted-foreground">Add artwork as well, and the cover colors and track energy will be read here.</p>
+      )}
     </div>
   );
 }
@@ -354,13 +550,15 @@ function StepSummary({ form, artists, releases }) {
     ["Artwork", form.artworkUrl ? "Uploaded" : "Not uploaded"],
     ["Audio", form.audioUri ? "Uploaded" : "Not uploaded"],
     ["Lyrics", form.lyrics ? `${form.lyrics.split("\n").length} lines` : "Skipped"],
+    ["Visual read", form.assetProfile?.label || "Waiting for artwork and audio"],
+    ["Energy", form.assetProfile ? (form.assetProfile.energy === "fast" ? "Fast / Aggressive" : "Slow / Acoustic") : "—"],
     ["Goals", form.goals.length ? form.goals.join(", ") : "None selected"],
     ["Duration", `${form.durationDays} days`],
     ["Start", fmtDate(form.startDate)],
   ];
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Review your campaign details, then generate.</p>
+      <p className="text-sm text-muted-foreground">Review your campaign details, then generate. Promo video encodes on your device.</p>
       {form.artworkUrl && <img src={form.artworkUrl} alt="Artwork" className="h-32 w-32 rounded-2xl object-cover" />}
       <div className="divide-y divide-border/40">
         {rows.map(([k, v]) => (
@@ -374,7 +572,18 @@ function StepSummary({ form, artists, releases }) {
   );
 }
 
-function GeneratingScreen({ stage }) {
+function GeneratingScreen({ stage, renderProgress }) {
+  if (renderProgress) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <VideoRenderProgress
+          progress={renderProgress.progress}
+          message={renderProgress.message || stage}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="relative mb-6">

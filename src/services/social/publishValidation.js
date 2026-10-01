@@ -45,7 +45,7 @@ export function canRetryPublish(status) {
 
 export function canStartPublish(status, externalPostId) {
   if (externalPostId) return false;
-  if (status === "published" || status === "publishing") return false;
+  if (status === "published" || status === "publishing" || status === "scheduled") return false;
   return status === "draft" || status === "failed";
 }
 

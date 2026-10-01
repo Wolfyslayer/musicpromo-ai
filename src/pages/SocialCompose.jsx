@@ -277,11 +277,12 @@ export default function SocialCompose() {
 
       setPublishPhase("publishing");
       const res = await publishPost(post.id);
-      if (res?.error && !res?.ok) {
+      // Treat any error payload as failure (ok may be omitted on some SDK error shapes).
+      if (res?.error && res?.ok !== true) {
         if (res.post) setPost(res.post);
         toast({
           variant: "destructive",
-          title: "Publish failed",
+          title: res?.code === "UNAUTHORIZED" ? "Session expired" : "Publish failed",
           description: res.error,
         });
         await bootstrap();
@@ -296,10 +297,15 @@ export default function SocialCompose() {
       });
       navigate("/social");
     } catch (e) {
+      const status = e?.status || e?.response?.status || e?._httpStatus;
+      const body = e?.data || e?.response?.data;
       toast({
         variant: "destructive",
-        title: "Publish failed",
-        description: e?.message || "Please try again.",
+        title: status === 401 || status === 403 ? "Session / auth error" : "Publish failed",
+        description:
+          body?.error ||
+          e?.message ||
+          (status ? `Request failed (${status})` : "Please try again."),
       });
     } finally {
       setPublishing(false);
@@ -308,11 +314,32 @@ export default function SocialCompose() {
   };
 
   const reconnect = async () => {
+    console.log("Instagram Auth Triggered");
     try {
       const res = await startOAuth("instagram", { forceReauth: true });
-      if (res?.authorizationUrl) window.location.assign(res.authorizationUrl);
-      else toast({ variant: "destructive", title: "Could not start Instagram reconnect" });
+      if (res?.authorizationUrl) {
+        window.location.assign(res.authorizationUrl);
+        return;
+      }
+      const error = {
+        success: false,
+        errorType: res?.errorType || res?.code || "MISSING_AUTHORIZATION_URL",
+        message: res?.error || res?.message || "Could not start Instagram reconnect",
+        stack: res?.stack || null,
+        full: res,
+      };
+      console.error("--- INSTAGRAM DEBUG ERROR ---");
+      console.error("Error Message:", error.message || error);
+      console.error("Full Error Object:", JSON.stringify(error, null, 2));
+      toast({ variant: "destructive", title: "Could not start Instagram reconnect", description: error.message });
     } catch (e) {
+      console.error("--- INSTAGRAM DEBUG ERROR ---");
+      console.error("Error Message:", e?.message || e);
+      try {
+        console.error("Full Error Object:", JSON.stringify(e, Object.getOwnPropertyNames(e || {}), 2));
+      } catch {
+        console.error("Full Error Object:", e);
+      }
       toast({ variant: "destructive", title: "Reconnect failed", description: e?.message });
     }
   };
@@ -353,9 +380,9 @@ export default function SocialCompose() {
           <p className="font-600">Reconnect required for publishing</p>
           <p className="mt-1 text-muted-foreground">
             Instagram currently granted:{" "}
-            <code className="text-xs">{instagram.scopes || "none"}</code>. Turn ON both consent toggles
-            (profile + <code className="text-xs">publicera innehåll</code>), then reconnect. Publishing
-            requires <code className="text-xs">instagram_business_content_publish</code>.
+            <code className="text-xs">{instagram.scopes || "none"}</code>. Reconnect via Facebook Login and approve{" "}
+            <code className="text-xs">instagram_content_publish</code> plus Page permissions. Your Instagram
+            Professional account must be linked to a Facebook Page.
           </p>
           <Button className="mt-3 rounded-full" size="sm" onClick={reconnect}>
             Reconnect Instagram

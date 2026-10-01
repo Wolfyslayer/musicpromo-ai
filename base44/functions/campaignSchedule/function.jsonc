@@ -1,0 +1,10 @@
+{
+  "name": "campaignSchedule",
+  "entry": "entry.ts",
+  "authRequired": false,
+  "access": "public",
+  "permission": "user",
+  "permissions": {
+    "invoke": "public"
+  }
+}

@@ -17,7 +17,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const [s, setS] = useState(DEFAULT_SETTINGS);
 
-  useEffect(() => { setS(getSettings()); applyTheme(getSettings().theme); }, []);
+  useEffect(() => { setS(getSettings()); applyTheme(); }, []);
   const set = (k, v) => setS((p) => ({ ...p, [k]: v }));
 
   const save = () => {
@@ -47,7 +47,7 @@ export default function Settings() {
           <div>
             <p className="text-sm font-600">Manage connected platforms</p>
             <p className="text-xs text-muted-foreground">
-              Open the Social Hub to view Instagram, TikTok, YouTube, and Facebook. Connections are not configured yet.
+              Open the Social Hub to connect Instagram, TikTok, and YouTube.
             </p>
           </div>
           <Button
@@ -120,13 +120,12 @@ export default function Settings() {
         </div>
       </Card>
 
-      <Card title="Theme">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-600">Light mode</p>
-            <p className="text-xs text-muted-foreground">Default is dark.</p>
-          </div>
-          <Switch checked={s.theme === "light"} onCheckedChange={(c) => { set("theme", c ? "light" : "dark"); applyTheme(c ? "light" : "dark"); }} />
+      <Card title="Appearance">
+        <div>
+          <p className="text-sm font-600">Matches your device</p>
+          <p className="text-xs text-muted-foreground">
+            Light and dark follow the system setting. Brand purple and pink stay the same in both.
+          </p>
         </div>
       </Card>
 
@@ -143,7 +142,22 @@ export default function Settings() {
         ))}
       </Card>
 
-      <div className="sticky bottom-20 md:static md:bottom-auto">
+      <Card title="Legal">
+        <div className="flex flex-wrap gap-3 text-sm">
+          <a href="/privacy" className="text-primary underline-offset-4 hover:underline" target="_blank" rel="noreferrer">
+            Privacy Policy
+          </a>
+          <a href="/terms" className="text-primary underline-offset-4 hover:underline" target="_blank" rel="noreferrer">
+            Terms of Service
+          </a>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Public URLs for TikTok / Google / Meta app review:{" "}
+          <span className="text-foreground">/privacy</span> and <span className="text-foreground">/terms</span>.
+        </p>
+      </Card>
+
+      <div>
         <Button onClick={save} className="w-full rounded-full md:w-auto">Save settings</Button>
       </div>
     </div>

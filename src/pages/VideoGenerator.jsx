@@ -1,81 +1,432 @@
-import { db } from '@/api/base44Client';
+import { db } from "@/api/base44Client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Download, Play, Pause, Loader2, Info } from "lucide-react";
+import { ArrowLeft, Save, Download, Play, Pause, CheckCircle2, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
 
 import { loadCampaign } from "@/services/data";
-import { VIDEO_TEMPLATES, getTemplate } from "@/services/videoTemplates";
-import { videoService } from "@/services/videoService";
-import { TEXT_STYLES, ANIMATION_STYLES } from "@/services/constants";
+import { videoService, resolvePlayableAudioUrl } from "@/services/videoService";
 import { getSettings } from "@/services/settings";
-import VideoPreview from "@/components/VideoPreview";
+import { DEMO_AUDIO_URL, createDemoProject } from "@/services/demoMedia";
+import { useAuth } from "@/lib/AuthContext";
+import RemotionPlayerPreview from "@/remotion/PlayerPreview";
+import VideoRenderProgress from "@/components/VideoRenderProgress";
+import LyricsTimelineEditor from "@/components/LyricsTimelineEditor";
+import EditorSidebar from "@/components/video/EditorSidebar";
+import PreviewDragLayer from "@/components/video/PreviewDragLayer";
+import MultiTrackTimeline from "@/components/video/MultiTrackTimeline";
+import CampaignPresets from "@/components/video/CampaignPresets";
+import ArtworkUpload from "@/components/ArtworkUpload";
+import AudioUpload from "@/components/AudioUpload";
+import { useWorkspaceRefresh } from "@/lib/AuthContext";
+import { useIsolatedPreviewAudio } from "@/hooks/useIsolatedPreviewAudio";
+import { loadAssetSession } from "@/services/assetAnalysis";
+import VideoTypeModal from "@/components/video/VideoTypeModal";
+import {
+  VISUAL_STYLES,
+  PROMO_FPS,
+  buildLyricCues,
+  cuesInAudioWindow,
+  normalizeEditorLook,
+  clampAudioOffset,
+  normalizeParticleEffect,
+  normalizeVideoType,
+  normalizeVisualStyle,
+  resolveStudioDuration,
+  scaleLyricCues,
+} from "@/remotion/styles";
+
+function packVideoProject(project, audioSeconds) {
+  const videoType = normalizeVideoType(project?.video_type || project?.animation_settings?.videoType);
+  const duration = resolveStudioDuration(videoType, project?.duration, audioSeconds);
+  const {
+    video_type: _videoType,
+    outro_cta: outroCta,
+    asset_keywords: keywords,
+    asset_hooks: hooks,
+    asset_label: label,
+    ...rest
+  } = project || {};
+  return {
+    ...rest,
+    duration,
+    lyric_cues: buildLyricCues(project?.lyrics, duration, project?.lyric_cues),
+    animation_settings: {
+      ...(project?.animation_settings || {}),
+      videoType,
+      outroCta: outroCta || project?.animation_settings?.outroCta || "",
+      keywords: keywords || project?.animation_settings?.keywords || [],
+      hooks: hooks || project?.animation_settings?.hooks || [],
+      label: label || project?.animation_settings?.label || "",
+    },
+  };
+}
+
+const EDITOR_TABS = [
+  { id: "look", label: "Look" },
+  { id: "media", label: "Media" },
+  { id: "lyrics", label: "Lyrics" },
+  { id: "effects", label: "Effects" },
+];
+
+function styleFingerprint(p) {
+  if (!p) return "";
+  return [
+    p.visual_style,
+    p.particle_effect,
+    p.duration,
+    JSON.stringify(normalizeEditorLook(p.editor_look)),
+    p.audioStartTimeOffset || 0,
+    p.title,
+    p.artist_name,
+    p.text,
+    JSON.stringify(p.lyric_cues || []).slice(0, 400),
+    (p.lyrics || "").slice(0, 200),
+  ].join("|");
+}
 
 export default function VideoGenerator() {
   const { id } = useParams();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const requestedType = normalizeVideoType(params.get("videoType"));
+  const requestedSeconds = Number(params.get("seconds")) === 30 ? 30 : 15;
+  const requestedText = params.get("text") || "";
   const projectId = params.get("project");
   const dayId = params.get("day");
+  const wantRemake = params.get("remake") === "1";
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, requireAuth } = useAuth();
+  const [refreshTick, setRefreshTick] = useState(0);
+  useWorkspaceRefresh(() => setRefreshTick((n) => n + 1));
 
   const [song, setSong] = useState(null);
-  const [campaign, setCampaign] = useState(null);
   const [project, setProject] = useState(null);
+  const [previewAudioUrl, setPreviewAudioUrl] = useState("");
+  const [exportedFp, setExportedFp] = useState("");
   const [playing, setPlaying] = useState(true);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportResult, setExportResult] = useState(null);
+  const [renderProgress, setRenderProgress] = useState(null);
+  const [previewLive, setPreviewLive] = useState(true);
+  const [forceLastMp4, setForceLastMp4] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(true);
+  const [editorTab, setEditorTab] = useState("look");
+  const [chooseType, setChooseType] = useState(false);
+  const lyricsTabSynced = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
+    const applyDemo = () => {
+      const demo = createDemoProject(getSettings().defaultVideoDuration);
+      setSong({ artwork_url: demo.artwork_url, audio_url: demo.audio_url, title: demo.title });
+      setProject(demo);
+      setPreviewAudioUrl(DEMO_AUDIO_URL);
+      setExportedFp("");
+      setPreviewLive(false);
+    };
+    if (!id) {
+      applyDemo();
+      return undefined;
+    }
     (async () => {
-      const s = getSettings();
+      try {
       const data = await loadCampaign(id);
       setSong(data.song);
-      setCampaign(data.campaign);
-      let base = {
-        template: s.defaultTemplate, title: data.song?.title || "", artist_name: data.artist?.name || "",
-        text: "", artwork_url: data.song?.artwork_url || "", audio_url: data.song?.audio_url || "",
-        lyrics: data.song?.lyrics || "", text_style: "bold", animation_style: "zoom-pan",
-        waveform: false, duration: s.defaultVideoDuration, song_id: data.song?.id, campaign_id: id,
-      };
+      const profile = data.song?.analysis?.assetProfile || loadAssetSession();
+      let savedType = "";
+      let savedProject = null;
+      let day = null;
       if (projectId) {
-        const p = await db.entities.VideoProject.get(projectId);
-        base = { ...base, ...p };
+        savedProject = await db.entities.VideoProject.get(projectId);
+        savedType = normalizeVideoType(savedProject?.animation_settings?.videoType);
       } else if (dayId) {
-        const day = await db.entities.CampaignDay.get(dayId);
-        base = { ...base, text: day?.caption || day?.cta || "", title: data.song?.title || "", template: guessTemplate(day?.content_type) };
-      } else if (params.get("template")) {
+        day = await db.entities.CampaignDay.get(dayId);
+      }
+      const videoType = savedType || requestedType || (projectId ? "promo" : "");
+      if (!videoType) {
+        if (!cancelled) setChooseType(true);
+        return;
+      }
+      if (!cancelled) setChooseType(false);
+      const audioSeconds = Number(data.song?.audio_duration) || 0;
+      const duration = resolveStudioDuration(
+        videoType,
+        videoType === "promo" ? (savedProject?.duration || requestedSeconds) : (savedProject?.duration || audioSeconds),
+        audioSeconds
+      );
+      let base = {
+        template: profile?.template || "LYRICS",
+        title: data.song?.title || "",
+        artist_name: data.artist?.name || "",
+        text: videoType === "promo" ? (day?.hook || requestedText || profile?.hooks?.[0] || "") : "",
+        outro_cta: videoType === "promo" ? (day?.cta || "Listen now") : "",
+        artwork_url: data.song?.artwork_url || "",
+        audio_url: data.song?.audio_url || "",
+        audio_duration: audioSeconds,
+        lyrics: data.song?.lyrics || "",
+        visual_style: normalizeVisualStyle(profile?.visualStyle || "pop"),
+        particle_effect: normalizeParticleEffect(profile?.particleEffect || "none"),
+        editor_look: normalizeEditorLook(null),
+        lyric_cues: buildLyricCues(data.song?.lyrics || "", duration, []),
+        duration,
+        video_type: videoType,
+        asset_label: profile?.label || "",
+        asset_keywords: profile?.keywords || [],
+        asset_hooks: profile?.hooks || [],
+        song_id: data.song?.id,
+        campaign_id: id,
+        animation_settings: {
+          videoType,
+          outroCta: videoType === "promo" ? (day?.cta || "Listen now") : "",
+          keywords: profile?.keywords || [],
+          hooks: profile?.hooks || [],
+          label: profile?.label || "",
+        },
+      };
+      if (savedProject) {
+        const savedDuration = resolveStudioDuration(videoType, savedProject.duration || duration, audioSeconds);
         base = {
           ...base,
-          template: params.get("template") || base.template,
-          title: params.get("title") ? decodeURIComponent(params.get("title")) : base.title,
-          text: params.get("text") ? decodeURIComponent(params.get("text")) : base.text,
-          duration: Number(params.get("duration")) || base.duration,
+          ...savedProject,
+          video_type: videoType,
+          outro_cta: savedProject.animation_settings?.outroCta || base.outro_cta,
+          visual_style: normalizeVisualStyle(savedProject.visual_style || base.visual_style),
+          particle_effect: normalizeParticleEffect(savedProject.particle_effect || base.particle_effect),
+          editor_look: normalizeEditorLook(savedProject.editor_look || base.editor_look),
+          duration: savedDuration,
+          lyric_cues: buildLyricCues(savedProject.lyrics || base.lyrics, savedDuration, savedProject.lyric_cues),
+        };
+      } else if (day) {
+        base = {
+          ...base,
+          title: data.song?.title || "",
+          text: videoType === "promo" ? (day.hook || day.caption || base.text) : "",
+          outro_cta: videoType === "promo" ? (day.cta || base.outro_cta) : "",
         };
       }
+      if (cancelled) return;
       setProject(base);
+      const fp = styleFingerprint(base);
+      if (base.render_output_url && /^https:\/\//i.test(base.render_output_url)) {
+        setExportedFp(fp);
+        setPreviewLive(!wantRemake);
+      } else {
+        setExportedFp("");
+        setPreviewLive(false);
+      }
+      } catch (err) {
+        console.error(err);
+        if (cancelled) return;
+        applyDemo();
+      }
     })();
-  }, [id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [id, projectId, dayId, wantRemake, refreshTick, requestedType, requestedSeconds, requestedText]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!project?.audio_url) {
+        setPreviewAudioUrl("");
+        return;
+      }
+      const url = await resolvePlayableAudioUrl(project.audio_url);
+      if (!cancelled) setPreviewAudioUrl(url);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.audio_url]);
 
   const set = (k, v) => setProject((p) => ({ ...p, [k]: v }));
-  const tpl = project ? getTemplate(project.template) : null;
+
+  const touchStyle = () => {
+    setPreviewLive(false);
+    setForceLastMp4(false);
+  };
+
+  const setLook = (patch) => {
+    setProject((p) => ({
+      ...p,
+      editor_look: normalizeEditorLook({ ...normalizeEditorLook(p?.editor_look), ...patch }),
+    }));
+    touchStyle();
+  };
+
+  const playerRef = useRef(null);
+  const videoRef = useRef(null);
+  const playheadRef = useRef(null);
+  const scrubbingRef = useRef(false);
+  const durationRef = useRef(15);
+  const timelineRef = useRef(0);
+  const noteTimelineRef = useRef(() => {});
+  const seekAudioRef = useRef(() => {});
+  const dragDepth = useRef(0);
+  const setHoldRef = useRef(() => {});
+  const audioDurationRef = useRef(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [audioDuration, setAudioDuration] = useState(0);
+  durationRef.current = resolveStudioDuration(project?.video_type, project?.duration, audioDurationRef.current || audioDuration);
+
+  const setDragActive = (active) => {
+    dragDepth.current = Math.max(0, dragDepth.current + (active ? 1 : -1));
+    const next = dragDepth.current > 0;
+    setHoldRef.current(next);
+    setIsDragging(next);
+  };
+
+  const onFrame = useCallback((frame) => {
+    const time = frame / Math.max(1, PROMO_FPS);
+    const previous = timelineRef.current;
+    timelineRef.current = time;
+    noteTimelineRef.current(time);
+    if (previous - time > 0.4) seekAudioRef.current(0);
+    if (!playheadRef.current || scrubbingRef.current) return;
+    const frames = Math.max(1, durationRef.current * PROMO_FPS);
+    playheadRef.current.style.left = `${Math.min(100, (frame / frames) * 100)}%`;
+  }, []);
+
+  const seekToTime = (time) => {
+    const seconds = Math.max(0, Math.min(durationRef.current, Number(time) || 0));
+    timelineRef.current = seconds;
+    playerRef.current?.seekTo?.(Math.round(seconds * PROMO_FPS));
+    seekAudioRef.current(seconds);
+    if (videoRef.current && Number.isFinite(videoRef.current.duration)) {
+      videoRef.current.currentTime = Math.min(videoRef.current.duration, seconds);
+    }
+  };
+
+  const setAudioOffset = (seconds) => {
+    setProject((current) => ({
+      ...current,
+      audioStartTimeOffset: clampAudioOffset(
+        seconds,
+        audioDurationRef.current,
+        resolveStudioDuration(current?.video_type, current?.duration, audioDurationRef.current)
+      ),
+    }));
+    touchStyle();
+  };
+
+  const moveLyricCue = (index, start) => {
+    setProject((current) => {
+      const duration = resolveStudioDuration(current.video_type, current.duration, audioDurationRef.current);
+      const cues = buildLyricCues(current.lyrics, duration, current.lyric_cues);
+      const cue = cues[index];
+      if (!cue) return current;
+      const cueStart = Number(cue.timeSeconds ?? cue.start) || 0;
+      const length = Math.max(0.2, (Number(cue.end) || cueStart) - cueStart);
+      const offset = Math.max(0, Number(current.audioStartTimeOffset) || 0);
+      const windowEnd = offset + duration;
+      const nextStart = Math.round(Math.max(offset, Math.min(windowEnd - length, start)) * 1000) / 1000;
+      const nextEnd = Math.round(Math.min(windowEnd, nextStart + length) * 1000) / 1000;
+      return {
+        ...current,
+        lyric_cues: cues.map((item, itemIndex) =>
+          itemIndex === index ? { ...item, start: nextStart, end: nextEnd, timeSeconds: nextStart } : item
+        ),
+      };
+    });
+    touchStyle();
+  };
+
+  const applyPreset = (preset) => {
+    setProject((current) => {
+      if (current.video_type === "lyrics") return current;
+      const from = resolveStudioDuration(current.video_type, current.duration, audioDurationRef.current);
+      const nextDuration = resolveStudioDuration(current.video_type, preset.seconds, audioDurationRef.current);
+      const cues = buildLyricCues(current.lyrics, from, current.lyric_cues);
+      return {
+        ...current,
+        duration: nextDuration,
+        editor_look: normalizeEditorLook({ ...normalizeEditorLook(current.editor_look), ...preset.look }),
+        lyric_cues: scaleLyricCues(cues, from, nextDuration),
+      };
+    });
+    touchStyle();
+  };
+
+  const hasLiveMp4 =
+    project?.render_output_url && /^https:\/\//i.test(project.render_output_url);
+  const currentFp = useMemo(() => styleFingerprint(project), [project]);
+  const styleDirty = Boolean(hasLiveMp4 && exportedFp && currentFp !== exportedFp);
+  const showLivePreview =
+    hasLiveMp4 && (forceLastMp4 || (previewLive && !styleDirty && !wantRemake));
+
+  const studioAudioUrl = previewAudioUrl || (project?.is_demo_preview ? DEMO_AUDIO_URL : "");
+  const audioClock = useIsolatedPreviewAudio({
+    url: showLivePreview ? "" : studioAudioUrl,
+    offsetSec: project?.audioStartTimeOffset || 0,
+    windowSec: resolveStudioDuration(project?.video_type, project?.duration, audioDuration),
+    playing: Boolean(playing && project && !showLivePreview),
+  });
+  noteTimelineRef.current = audioClock.noteTimeline;
+  seekAudioRef.current = audioClock.seek;
+  setHoldRef.current = audioClock.setHold;
+
+  useEffect(() => {
+    if (lyricsTabSynced.current || requestedType !== "lyrics") return;
+    lyricsTabSynced.current = true;
+    setEditorTab("lyrics");
+  }, [requestedType]);
+
+  useEffect(() => {
+    if (!project || project.video_type !== "lyrics" || !audioDuration) return;
+    const next = resolveStudioDuration("lyrics", audioDuration, audioDuration);
+    if (next === project.duration && !(Number(project.audioStartTimeOffset) > 0)) return;
+    setProject((current) => (current ? { ...current, duration: next, audioStartTimeOffset: 0, audio_duration: audioDuration } : current));
+  }, [audioDuration, project?.video_type, project?.duration, project?.audioStartTimeOffset]);
+
+  useEffect(() => {
+    if (!project) return;
+    const next = clampAudioOffset(project.audioStartTimeOffset, audioDuration, resolveStudioDuration(project.video_type, project.duration, audioDuration));
+    if (next === (Number(project.audioStartTimeOffset) || 0)) return;
+    setProject((current) => (current ? { ...current, audioStartTimeOffset: next } : current));
+  }, [audioDuration, project?.duration, project?.audioStartTimeOffset, project]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !showLivePreview) return undefined;
+    const tick = () => {
+      if (!playheadRef.current || scrubbingRef.current) return;
+      const dur = video.duration || durationRef.current;
+      if (!dur) return;
+      playheadRef.current.style.left = `${Math.min(100, (video.currentTime / dur) * 100)}%`;
+    };
+    video.addEventListener("timeupdate", tick);
+    return () => video.removeEventListener("timeupdate", tick);
+  }, [showLivePreview, project?.render_output_url]);
 
   const save = async () => {
     setSaving(true);
     try {
-      if (projectId) {
-        await db.entities.VideoProject.update(projectId, project);
+      const packed = packVideoProject(project, audioDurationRef.current);
+      const payload = {
+        ...packed,
+        visual_style: normalizeVisualStyle(project.visual_style),
+        particle_effect: normalizeParticleEffect(project.particle_effect),
+        editor_look: normalizeEditorLook(project.editor_look),
+        audioStartTimeOffset: clampAudioOffset(project.audioStartTimeOffset, audioDurationRef.current, packed.duration),
+        user_id: project.user_id || user?.id || "",
+        is_demo: false,
+      };
+      if (project.id || projectId) {
+        const pid = project.id || projectId;
+        await db.entities.VideoProject.update(pid, payload);
+        setProject((p) => ({ ...p, ...payload, video_type: project.video_type, id: pid }));
       } else {
-        const created = await db.entities.VideoProject.create({ ...project, is_demo: false });
+        const created = await db.entities.VideoProject.create(payload);
+        setProject((p) => ({ ...p, ...payload, video_type: project.video_type, id: created.id }));
         navigate(`/campaigns/${id}/video?project=${created.id}`, { replace: true });
       }
       toast({ title: "Video project saved" });
@@ -87,124 +438,574 @@ export default function VideoGenerator() {
   };
 
   const exportVideo = async () => {
+    if (!project?.artwork_url) {
+      toast({
+        variant: "destructive",
+        title: "Artwork required",
+        description: "This campaign song needs artwork before a video can be rendered.",
+      });
+      return;
+    }
+    if (!project?.audio_url) {
+      toast({
+        variant: "destructive",
+        title: "Audio required",
+        description: "This campaign song needs an audio file before a video can be rendered.",
+      });
+      return;
+    }
+
     setExporting(true);
     setExportResult(null);
+    setRenderProgress({ progress: 0, message: "Starting Remotion render…" });
+    setPlaying(false);
+
     try {
-      const res = await videoService.exportVideo(project);
+      let working = {
+        ...packVideoProject(project, audioDurationRef.current),
+        video_type: project.video_type,
+        outro_cta: project.outro_cta,
+        visual_style: normalizeVisualStyle(project.visual_style),
+        particle_effect: normalizeParticleEffect(project.particle_effect),
+        editor_look: normalizeEditorLook(project.editor_look),
+        user_id: project.user_id || user?.id || "",
+      };
+      if (!working.id && !projectId) {
+        const created = await db.entities.VideoProject.create({
+          ...working,
+          rendering_status: "rendering",
+          is_demo: false,
+        });
+        working = { ...working, id: created.id };
+        setProject(working);
+        navigate(`/campaigns/${id}/video?project=${created.id}`, { replace: true });
+      } else if (working.id || projectId) {
+        working = { ...working, id: working.id || projectId };
+        await db.entities.VideoProject.update(working.id, {
+          ...working,
+          rendering_status: "rendering",
+        }).catch(() => {});
+      }
+
+      const res = await videoService.exportVideo(working, {
+        audioUrl: previewAudioUrl || undefined,
+        onProgress: (info) => {
+          setRenderProgress({
+            progress: info.progress,
+            message: info.message,
+          });
+        },
+      });
+
       setExportResult(res);
-      toast({ title: "Export prepared (mock)" });
+      if (res?.status === "ready" && res?.downloadUrl) {
+        const next = {
+          ...working,
+          ...(res.project || {}),
+          render_output_url: res.downloadUrl,
+          rendering_status: "complete",
+        };
+        setProject(next);
+        setExportedFp(styleFingerprint(next));
+        setPreviewLive(true);
+        setForceLastMp4(false);
+        setPlaying(true);
+        if (wantRemake) {
+          navigate(`/campaigns/${id}/video?project=${next.id}`, { replace: true });
+        }
+        toast({
+          title: "Video exported",
+          description: "Playing the rendered MP4 in the preview.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Export failed",
+          description: res?.message || "Could not render the video on this device.",
+        });
+      }
     } catch (e) {
       toast({ variant: "destructive", title: "Export failed", description: e.message });
     } finally {
       setExporting(false);
+      setRenderProgress(null);
     }
   };
 
-  if (!project || !tpl) return <div className="h-64 animate-shimmer rounded-2xl" />;
+  const globalLyricCues = useMemo(
+    () => buildLyricCues(project?.lyrics, resolveStudioDuration(project?.video_type, project?.duration, audioDuration), project?.lyric_cues),
+    [project?.lyrics, project?.duration, project?.lyric_cues]
+  );
+  const visibleLyricCues = useMemo(
+    () => cuesInAudioWindow(
+      globalLyricCues,
+      project?.audioStartTimeOffset || 0,
+      resolveStudioDuration(project?.video_type, project?.duration, audioDuration)
+    ),
+    [globalLyricCues, project?.audioStartTimeOffset, project?.duration]
+  );
+
+  if (!project) {
+    return (
+      <>
+        <div className="h-full animate-shimmer" />
+        <VideoTypeModal
+          open={chooseType}
+          onOpenChange={() => {}}
+          onConfirm={(choice) => {
+            const next = new URLSearchParams(params);
+            next.set("videoType", choice.videoType);
+            if (choice.videoType === "promo") next.set("seconds", String(choice.seconds || 15));
+            else next.delete("seconds");
+            setChooseType(false);
+            setParams(next, { replace: true });
+          }}
+        />
+      </>
+    );
+  }
+
+  const tabClass = (id) => (editorTab === id ? "space-y-4 md:space-y-5" : "hidden space-y-4 md:block md:space-y-5 md:border-t md:border-border/50 md:pt-6");
 
   return (
-    <div className="space-y-5">
-      <button onClick={() => navigate(`/campaigns/${id}`)} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back to campaign
-      </button>
-      <h1 className="font-heading text-2xl font-700 tracking-tight">Video Generator</h1>
-
-      <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
-        {/* Preview */}
-        <div className="space-y-3">
-          <VideoPreview project={project} playing={playing} />
-          <div className="flex items-center justify-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setPlaying((p) => !p)} className="rounded-full">
-              {playing ? <Pause className="mr-1.5 h-4 w-4" /> : <Play className="mr-1.5 h-4 w-4" />}{playing ? "Pause" : "Play"}
+    <div
+      className="flex h-full min-h-0 flex-col overflow-hidden bg-background md:grid md:grid-cols-[clamp(220px,32vw,420px)_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)_9.5rem]"
+      style={{ "--editor-sheet": "42%" }}
+    >
+      <section className="relative flex min-h-0 flex-1 items-center justify-center bg-muted/40 md:col-start-1 md:row-start-1">
+        <div
+          className="flex h-full w-full items-center justify-center md:px-8 md:pb-20 md:pt-16"
+          style={{ containerType: "size" }}
+        >
+          {showLivePreview ? (
+            <div
+              className="relative w-full max-h-full overflow-hidden bg-black shadow-2xl shadow-black/40 max-md:rounded-none md:rounded-[1.6rem] md:border md:border-white/10"
+              style={{ width: "min(100cqw, calc(100cqh * 9 / 16))", height: "min(100cqh, calc(100cqw * 16 / 9))" }}
+            >
+              <video
+                ref={videoRef}
+                src={project.render_output_url}
+                className="h-full w-full object-cover"
+                playsInline
+                loop
+                autoPlay={playing}
+                muted={false}
+                controls={false}
+              />
+              <div className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-600 uppercase tracking-wide text-white/90">
+                MP4
+              </div>
+              <PreviewDragLayer look={project.editor_look} onLook={setLook} onDragging={setDragActive} />
+            </div>
+          ) : (
+            <div
+              className="relative w-full max-h-full overflow-hidden max-md:rounded-none md:rounded-[1.6rem]"
+              style={{ width: "min(100cqw, calc(100cqh * 9 / 16))", height: "min(100cqh, calc(100cqw * 16 / 9))" }}
+            >
+              <RemotionPlayerPreview
+                project={{
+                  ...project,
+                  preview_audio_url: previewAudioUrl,
+                  suspendEffects: isDragging,
+                  windowLyricCues: visibleLyricCues,
+                }}
+                playing={playing}
+                playerRef={playerRef}
+                onFrame={onFrame}
+                className="aspect-auto h-full w-full max-w-none rounded-[1.6rem]"
+              />
+              <PreviewDragLayer look={project.editor_look} onLook={setLook} onDragging={setDragActive} />
+            </div>
+          )}
+        </div>
+        <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 p-3">
+          <button
+            onClick={() => navigate(id ? `/campaigns/${id}` : "/")}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-background/80 px-3 text-sm text-foreground backdrop-blur"
+          >
+            <ArrowLeft className="h-4 w-4" /> {id ? "Campaign" : "Home"}
+          </button>
+          <div className="flex items-center gap-2 md:hidden">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPlaying((value) => !value)}
+              className="min-h-11 rounded-full bg-background/85 backdrop-blur"
+            >
+              {playing ? <Pause className="mr-1.5 h-4 w-4" /> : <Play className="mr-1.5 h-4 w-4" />}
+              {playing ? "Pause" : "Play"}
             </Button>
-            <span className="text-xs text-muted-foreground">{project.duration}s · 1080×1920 · 9:16</span>
+            <span className="rounded-full bg-background/80 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
+              {project.duration}s · 9:16
+            </span>
           </div>
-          <div className="flex items-start gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-3 text-xs text-muted-foreground">
-            <Info className="h-4 w-4 shrink-0 text-yellow-500/80" />
-            <span>Live preview is a real in-browser mock of the composition. MP4 export requires an FFmpeg renderer (e.g. on Replit) — not yet connected.</span>
-          </div>
+          {project.is_demo_preview ? (
+            <span className="hidden rounded-full bg-background/80 px-3 py-1 text-[11px] font-600 uppercase tracking-wide text-foreground backdrop-blur md:inline">
+              Demo
+            </span>
+          ) : null}
+        </div>
+        <div className="absolute inset-x-0 bottom-3 z-20 hidden items-center justify-center gap-2 md:flex">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPlaying((value) => !value)}
+            className="min-h-11 rounded-full bg-background/85 backdrop-blur"
+          >
+            {playing ? <Pause className="mr-1.5 h-4 w-4" /> : <Play className="mr-1.5 h-4 w-4" />}
+            {playing ? "Pause" : "Play"}
+          </Button>
+          <span className="rounded-full bg-background/80 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
+            {project.duration}s · 9:16
+          </span>
+        </div>
+      </section>
+
+      <div className="shrink-0 border-t border-border/60 bg-card md:contents">
+      <MultiTrackTimeline
+        duration={resolveStudioDuration(project.video_type, project.duration, audioDuration)}
+        allowTrim={project.video_type !== "lyrics"}
+        audioUrl={studioAudioUrl}
+        cues={globalLyricCues}
+        effect={project.particle_effect}
+        playheadRef={playheadRef}
+        onSeek={seekToTime}
+        onCueMove={moveLyricCue}
+        audioOffset={project.audioStartTimeOffset || 0}
+        onAudioOffset={setAudioOffset}
+        onDragging={setDragActive}
+        onAudioDuration={(seconds) => {
+          audioDurationRef.current = seconds || 0;
+          setAudioDuration(seconds || 0);
+        }}
+        onScrubbing={(active) => {
+          scrubbingRef.current = active;
+        }}
+      />
+        {controlsOpen ? null : (
+          <button
+            type="button"
+            onClick={() => setControlsOpen(true)}
+            className="flex h-11 w-full items-center justify-center gap-2 border-t border-border/60 text-sm font-600 text-foreground md:hidden"
+            aria-expanded={false}
+            aria-label="Show editor"
+          >
+            <ChevronUp className="h-5 w-5" />
+            Show editor
+          </button>
+        )}
+      </div>
+
+      <div
+        className={cn(
+          "flex w-full min-h-0 shrink-0 flex-col overflow-hidden bg-slate-100/85 backdrop-blur-md transition-[height] duration-300 ease-out dark:bg-slate-900/85",
+          controlsOpen ? "max-md:h-[var(--editor-sheet)]" : "max-md:pointer-events-none max-md:h-0",
+          "md:contents md:h-auto md:overflow-visible md:bg-transparent md:backdrop-blur-none"
+        )}
+      >
+        <div className="flex h-12 shrink-0 items-center gap-1 border-b border-white/10 px-1 md:hidden">
+          <button
+            type="button"
+            onClick={() => setControlsOpen(false)}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-foreground"
+            aria-expanded={controlsOpen}
+            aria-label="Hide editor"
+          >
+            <ChevronDown className="h-5 w-5" />
+          </button>
+          {EDITOR_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setEditorTab(tab.id)}
+              className={cn(
+                "min-h-11 flex-1 rounded-xl px-1 text-xs font-600",
+                editorTab === tab.id ? "bg-primary/15 text-primary" : "text-muted-foreground"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* Controls */}
-        <div className="space-y-5 rounded-2xl border border-border/60 card-gradient p-5">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent md:col-start-2 md:row-start-1 md:border-l md:border-border/60 md:bg-card">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-4 md:px-6">
+        <div className="hidden pb-2 md:block">
+          <h1 className="font-heading text-xl font-700 tracking-tight">Video Studio</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Drag lyrics and the particle source on the frame. Presets, effects, and playback stay available before sign-in.
+          </p>
+        </div>
+
+          {exporting && renderProgress ? (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <VideoRenderProgress
+                progress={renderProgress.progress}
+                message={renderProgress.message}
+                title="Rendering with Remotion"
+                hint="WebCodecs encode in your browser — no server render cost."
+              />
+            </div>
+          ) : styleDirty || wantRemake ? (
+            <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-muted-foreground">
+              <p>
+                {styleDirty
+                  ? "Style or lyrics changed — live Remotion preview is active. Remake to bake a new MP4."
+                  : "Remake mode — tweak style or lyric timing, then remake."}
+              </p>
+              <Button
+                size="sm"
+                className="w-full rounded-full"
+                disabled={exporting}
+                onClick={() => requireAuth(exportVideo)}
+              >
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                Remake with current style
+              </Button>
+              {hasLiveMp4 && styleDirty ? (
+                <button
+                  type="button"
+                  className="w-full text-center text-[11px] underline underline-offset-2 hover:text-foreground"
+                  onClick={() => setForceLastMp4(true)}
+                >
+                  Keep watching last export
+                </button>
+              ) : null}
+            </div>
+          ) : hasLiveMp4 ? (
+            <div className="flex items-start gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 text-xs text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+              <span>
+                Real MP4 ready. Change style or lyric timing to remake.{" "}
+                <a
+                  href={project.render_output_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-2 hover:text-foreground"
+                >
+                  Open / download
+                </a>
+              </span>
+            </div>
+          ) : (
+            <div className="hidden rounded-xl border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground md:block">
+              Live Remotion preview. Click{" "}
+              <span className="font-600 text-foreground">Export Video</span> to encode an MP4 on
+              this device.
+            </div>
+          )}
+        <div className={tabClass("look")}>
+          {project.video_type === "lyrics" ? null : (
+            <CampaignPresets
+              activeDuration={resolveStudioDuration(project.video_type, project.duration, audioDuration)}
+              allowedSeconds={project.video_type === "promo" ? [15, 30] : undefined}
+              onApply={applyPreset}
+            />
+          )}
+          {project.asset_label ? (
+            <p className="text-xs text-muted-foreground">
+              Artwork read as {project.asset_label}. Keywords: {(project.asset_keywords || []).join(" · ")}
+            </p>
+          ) : null}
           <div>
-            <Label className="text-xs text-muted-foreground">Template</Label>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {VIDEO_TEMPLATES.map((t) => (
-                <button key={t.id} onClick={() => set("template", t.id)} className={`rounded-xl border p-3 text-left transition ${project.template === t.id ? "border-primary/50 bg-primary/10" : "border-border hover:border-primary/30"}`}>
-                  <p className="text-sm font-600">{t.name}</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground line-clamp-2">{t.description}</p>
+            <Label className="text-xs text-muted-foreground">Visual style</Label>
+            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              {VISUAL_STYLES.map((style) => (
+                <button
+                  key={style.id}
+                  type="button"
+                  onClick={() => {
+                    set("visual_style", style.id);
+                    touchStyle();
+                  }}
+                  className={`rounded-xl border p-3 text-left transition ${
+                    normalizeVisualStyle(project.visual_style) === style.id
+                      ? "border-primary/50 bg-primary/10"
+                      : "border-border hover:border-primary/30"
+                  }`}
+                >
+                  <p className="text-sm font-600">{style.label}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
+                    {style.description}
+                  </p>
                 </button>
               ))}
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Title"><Input value={project.title} onChange={(e) => set("title", e.target.value)} className="rounded-xl" /></Field>
-            <Field label="Artist Name"><Input value={project.artist_name} onChange={(e) => set("artist_name", e.target.value)} className="rounded-xl" /></Field>
-          </div>
-
-          <Field label="Body Text / Hook"><Textarea value={project.text} onChange={(e) => set("text", e.target.value)} rows={3} className="rounded-xl" /></Field>
-
-          {tpl.id === "LYRICS" && (
-            <Field label="Lyrics"><Textarea value={project.lyrics} onChange={(e) => set("lyrics", e.target.value)} rows={4} className="rounded-xl" /></Field>
-          )}
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Text Style">
-              <Select value={project.text_style} onValueChange={(v) => set("text_style", v)}>
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>{TEXT_STYLES.map((t) => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}</SelectContent>
-              </Select>
+            <Field label="Title">
+              <Input
+                value={project.title}
+                onChange={(e) => {
+                  set("title", e.target.value);
+                  touchStyle();
+                }}
+                className="rounded-xl"
+              />
             </Field>
-            <Field label="Animation Style">
-              <Select value={project.animation_style} onValueChange={(v) => set("animation_style", v)}>
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>{ANIMATION_STYLES.map((a) => <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>)}</SelectContent>
-              </Select>
+            <Field label="Artist Name">
+              <Input
+                value={project.artist_name}
+                onChange={(e) => {
+                  set("artist_name", e.target.value);
+                  touchStyle();
+                }}
+                className="rounded-xl"
+              />
             </Field>
           </div>
 
-          {tpl.supportsWaveform && (
-            <div className="flex items-center justify-between rounded-xl bg-muted/30 p-3">
-              <span className="text-sm">Show audio waveform</span>
-              <Switch checked={project.waveform} onCheckedChange={(c) => set("waveform", c)} />
+        </div>
+
+        <div className={tabClass("media")}>
+          <p className="text-sm text-muted-foreground">
+            {project.is_demo_preview
+              ? "This demo track and cover are ready to preview. Sign in when you want to upload your own files."
+              : "Replace the artwork or audio used in this preview."}
+          </p>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Artwork</Label>
+              <ArtworkUpload
+                value={project.artwork_url}
+                guard={requireAuth}
+                onChange={(payload) => {
+                  const url = typeof payload === "string" ? payload : payload?.url || "";
+                  setProject((current) => ({ ...current, artwork_url: url, is_demo_preview: false }));
+                  setSong((songState) => ({ ...(songState || {}), artwork_url: url }));
+                  touchStyle();
+                }}
+              />
             </div>
-          )}
-
-          <div>
-            <div className="mb-2 flex items-center justify-between"><Label className="text-xs text-muted-foreground">Duration</Label><span className="text-xs text-muted-foreground">{project.duration}s</span></div>
-            <Slider value={[project.duration]} min={5} max={30} step={1} onValueChange={(v) => set("duration", v[0])} />
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Audio</Label>
+              <AudioUpload
+                value={project.audio_url}
+                signedUrl={previewAudioUrl}
+                guard={requireAuth}
+                onChange={({ file_uri, signed_url }) => {
+                  setProject((current) => ({ ...current, audio_url: file_uri || "", is_demo_preview: false }));
+                  setSong((songState) => ({ ...(songState || {}), audio_url: file_uri || "" }));
+                  if (signed_url) setPreviewAudioUrl(signed_url);
+                  touchStyle();
+                }}
+              />
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 pt-2">
-            <Button onClick={save} disabled={saving} className="rounded-full"><Save className="mr-1.5 h-4 w-4" />{saving ? "Saving…" : "Save Project"}</Button>
-            <Button onClick={exportVideo} disabled={exporting} variant="outline" className="rounded-full"><Download className="mr-1.5 h-4 w-4" />{exporting ? "Exporting…" : "Export Video"}</Button>
+        </div>
+
+        <div className={tabClass("lyrics")}>
+          <Field label="Hook / supporting line">
+            <Textarea
+              value={project.text}
+              onChange={(e) => {
+                set("text", e.target.value);
+                touchStyle();
+              }}
+              rows={2}
+              className="rounded-xl"
+            />
+          </Field>
+
+          <LyricsTimelineEditor
+            lyrics={project.lyrics}
+            cues={project.lyric_cues}
+            duration={project.duration}
+            audioUrl={previewAudioUrl}
+            syncFocus={project.video_type === "lyrics"}
+            onChange={({ lyric_cues, lyrics }) => {
+              setProject((p) => ({ ...p, lyric_cues, lyrics }));
+              touchStyle();
+            }}
+          />
+        </div>
+
+        <div className={tabClass("effects")}>
+          <EditorSidebar
+            look={normalizeEditorLook(project.editor_look)}
+            duration={resolveStudioDuration(project.video_type, project.duration, audioDuration)}
+            durationLocked={project.video_type === "lyrics"}
+            durationChoices={project.video_type === "promo" ? [15, 30] : [15, 30, 60]}
+            particleEffect={project.particle_effect}
+            onLook={setLook}
+            onDuration={(seconds) => {
+              set("duration", resolveStudioDuration(project.video_type, seconds, audioDuration));
+              touchStyle();
+            }}
+            onEffect={(effectId) => {
+              set("particle_effect", effectId);
+              touchStyle();
+            }}
+            className="border-0 bg-transparent p-0 shadow-none"
+          />
+        </div>
+
+          <div className="flex flex-wrap gap-2 border-t border-border/50 pt-4">
+            <Button onClick={() => requireAuth(save)} disabled={saving || exporting} className="rounded-full">
+              <Save className="mr-1.5 h-4 w-4" />
+              {saving ? "Saving…" : "Save Project"}
+            </Button>
+            <Button
+              onClick={() => requireAuth(exportVideo)}
+              disabled={exporting}
+              variant="outline"
+              className="rounded-full"
+            >
+              {styleDirty || wantRemake || hasLiveMp4 ? (
+                <RefreshCw className="mr-1.5 h-4 w-4" />
+              ) : (
+                <Download className="mr-1.5 h-4 w-4" />
+              )}
+              {exporting
+                ? "Exporting…"
+                : styleDirty || wantRemake
+                  ? "Remake Video"
+                  : hasLiveMp4
+                    ? "Re-export Video"
+                    : "Export Video"}
+            </Button>
           </div>
 
-          {exporting && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Rendering preview…</div>}
-          {exportResult && (
+          {exportResult && !exporting && (
             <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-sm text-muted-foreground">
-              <p className="font-600 text-foreground">Export (mock)</p>
+              <p className="font-600 text-foreground">
+                {exportResult.status === "ready" ? "Export complete" : "Export failed"}
+              </p>
               <p className="mt-1">{exportResult.message}</p>
+              {exportResult.downloadUrl && (
+                <a
+                  href={exportResult.downloadUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-block text-xs underline underline-offset-2 hover:text-foreground"
+                >
+                  Download MP4
+                </a>
+              )}
             </div>
+          )}
+
+          {(!song?.artwork_url || !song?.audio_url) && (
+            <p className="text-xs text-amber-600">
+              {!song?.artwork_url ? "Missing song artwork. " : null}
+              {!song?.audio_url ? "Missing song audio. " : null}
+              Add them on the campaign song to enable export.
+            </p>
           )}
         </div>
+      </section>
       </div>
     </div>
   );
 }
 
 function Field({ label, children }) {
-  return <div className="space-y-1.5"><Label className="text-xs font-500 text-muted-foreground">{label}</Label>{children}</div>;
-}
-
-function guessTemplate(contentType = "") {
-  const c = contentType.toLowerCase();
-  if (c.includes("lyric")) return "LYRICS";
-  if (c.includes("teaser") || c.includes("cinematic")) return "CINEMATIC";
-  if (c.includes("waveform")) return "WAVEFORM";
-  if (c.includes("release") || c.includes("announcement")) return "RELEASE";
-  if (c.includes("hook")) return "HOOK";
-  return "MINIMAL";
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-500 text-muted-foreground">{label}</Label>
+      {children}
+    </div>
+  );
 }

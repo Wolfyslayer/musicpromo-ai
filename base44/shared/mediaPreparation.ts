@@ -1,6 +1,7 @@
 /**
  * Reusable media preparation types for social publishing.
- * Image JPEG preparation is implemented; video preparation is reserved for later phases.
+ * Image JPEG preparation is implemented; campaign reel video accepts
+ * client-rendered public MP4 URLs (Remotion / WebCodecs in the browser).
  */
 
 export type MediaKind = "image" | "video" | "audio";
@@ -18,7 +19,8 @@ export type PreparedFormat = "jpeg" | "mp4" | "original";
 export type PreparationPurpose =
   | "instagram_feed_image"
   | "instagram_reel"
-  | "generic_social_image";
+  | "generic_social_image"
+  | "campaign_reel_video";
 
 export type PreparedMediaStatus = "pending" | "ready" | "failed";
 
@@ -56,12 +58,19 @@ export const MEDIA_REQUIREMENTS: Record<PreparationPurpose, MediaRequirement> = 
     mediaType: "video",
     acceptedOutput: "mp4",
     requiresPublicHttps: true,
-    implemented: false,
+    implemented: true,
   },
   generic_social_image: {
     purpose: "generic_social_image",
     mediaType: "image",
     acceptedOutput: "jpeg",
+    requiresPublicHttps: true,
+    implemented: false,
+  },
+  campaign_reel_video: {
+    purpose: "campaign_reel_video",
+    mediaType: "video",
+    acceptedOutput: "mp4",
     requiresPublicHttps: true,
     implemented: true,
   },
@@ -190,10 +199,8 @@ export async function fetchSourceBytes(sourceUrl: string): Promise<{
 }
 
 /**
- * Convert image bytes to JPEG using pure-JS codecs only (jpeg-js + pngjs).
- * No native .node binaries — required for Base44 Deno function bundling.
- * Transparent PNG pixels are composited onto white before encoding.
- * WebP uses WebCodecs ImageDecoder when the runtime provides it.
+ * Convert image bytes to JPEG using Deno-safe codecs (no pngjs/pako Inflate).
+ * Order: WebCodecs ImageDecoder → UPNG (PNG) → JPEG pass-through.
  */
 export async function convertImageBytesToJpeg(
   bytes: Uint8Array,
@@ -206,47 +213,81 @@ export async function convertImageBytesToJpeg(
     );
   }
 
-  try {
+  // Already JPEG — pass through (avoid fragile re-encode).
+  if (isJpegSourceFormat(sourceFormat)) {
     let width = 0;
     let height = 0;
-    let rgba: Uint8Array;
+    try {
+      const dims = await decodeWithImageDecoder(bytes, "image/jpeg");
+      if (dims) {
+        // Re-encode from RGBA only if we need a clean JPEG derivative later;
+        // for feed publish we keep original bytes.
+        width = dims.width;
+        height = dims.height;
+      }
+    } catch {
+      /* optional */
+    }
+    return { jpegBytes: bytes, width, height };
+  }
 
-    if (sourceFormat === "jpeg" || sourceFormat === "jpg") {
-      const jpegJs = await import("npm:jpeg-js@0.4.4");
-      const decoded = jpegJs.decode(bytes, { useTArray: true, maxMemoryUsageInMB: 64 });
+  try {
+    const mime =
+      sourceFormat === "png" ? "image/png" : sourceFormat === "webp" ? "image/webp" : "application/octet-stream";
+
+    let width = 0;
+    let height = 0;
+    let rgba: Uint8Array | null = null;
+
+    const viaDecoder = await decodeWithImageDecoder(bytes, mime);
+    if (viaDecoder) {
+      width = viaDecoder.width;
+      height = viaDecoder.height;
+      rgba = compositeRgbaOntoWhite(viaDecoder.rgba);
+    } else if (sourceFormat === "png") {
+      const decoded = await decodePngWithUpng(bytes);
       width = decoded.width;
       height = decoded.height;
-      rgba = decoded.data as Uint8Array;
-    } else if (sourceFormat === "png") {
-      const { PNG } = await import("npm:pngjs@7.0.0");
-      const png = PNG.sync.read(bytes);
-      width = png.width;
-      height = png.height;
-      rgba = compositeRgbaOntoWhite(png.data as Uint8Array);
+      rgba = compositeRgbaOntoWhite(decoded.rgba);
     } else if (sourceFormat === "webp") {
       const decoded = await decodeWebpToRgba(bytes);
       width = decoded.width;
       height = decoded.height;
       rgba = compositeRgbaOntoWhite(decoded.rgba);
-    } else {
+    }
+
+    if (!rgba || !width || !height || rgba.byteLength < width * height * 4) {
       throw new MediaPreparationError(
-        "MEDIA_FORMAT_UNSUPPORTED",
-        "Only JPEG, PNG, and WebP images can be prepared for Instagram."
+        "MEDIA_CONVERSION_FAILED",
+        sourceFormat === "webp"
+          ? "WebP conversion is not available. Re-upload artwork as PNG or JPEG."
+          : "Could not decode image pixels for JPEG conversion."
       );
     }
 
     const jpegJs = await import("npm:jpeg-js@0.4.4");
-    const encoded = jpegJs.encode({ data: rgba, width, height }, PREPARED_JPEG_QUALITY);
-    return { jpegBytes: new Uint8Array(encoded.data), width, height };
+    const encoded = jpegJs.encode(
+      { data: rgba, width, height },
+      PREPARED_JPEG_QUALITY
+    );
+    const out = encoded?.data ? new Uint8Array(encoded.data) : null;
+    if (!out?.byteLength) {
+      throw new MediaPreparationError(
+        "MEDIA_CONVERSION_FAILED",
+        "JPEG encoder returned empty output."
+      );
+    }
+    return { jpegBytes: out, width, height };
   } catch (err) {
     if (err instanceof MediaPreparationError) throw err;
-    const msg = String((err as { message?: string })?.message || "");
+    const msg = String((err as { message?: string })?.message || err || "");
+    console.error("[mediaPreparation] convertImageBytesToJpeg underlying=", msg.slice(0, 400));
     if (msg.toLowerCase().includes("decode") || msg.toLowerCase().includes("unsupported")) {
       throw new MediaPreparationError("MEDIA_NOT_AN_IMAGE", "Source file is not a supported image.");
     }
     throw new MediaPreparationError(
       "MEDIA_CONVERSION_FAILED",
-      "Could not convert artwork to JPEG."
+      msg ? `Could not convert artwork to JPEG: ${msg.slice(0, 180)}` : "Could not convert artwork to JPEG."
     );
   }
 }
@@ -266,33 +307,67 @@ function compositeRgbaOntoWhite(src: Uint8Array): Uint8Array {
 }
 
 /**
+ * Decode via WebCodecs ImageDecoder when the Deno runtime provides it.
+ */
+async function decodeWithImageDecoder(
+  bytes: Uint8Array,
+  mimeType: string
+): Promise<{ width: number; height: number; rgba: Uint8Array } | null> {
+  // deno-lint-ignore no-explicit-any
+  const ImageDecoderCtor = (globalThis as any).ImageDecoder;
+  if (typeof ImageDecoderCtor !== "function") return null;
+  try {
+    const decoder = new ImageDecoderCtor({
+      data: bytes,
+      type: mimeType,
+    });
+    const { image } = await decoder.decode({ frameIndex: 0 });
+    const width = image.displayWidth || image.codedWidth;
+    const height = image.displayHeight || image.codedHeight;
+    const buffer = new ArrayBuffer(width * height * 4);
+    await image.copyTo(buffer, { format: "RGBA", size: { height, width } });
+    image.close?.();
+    decoder.close?.();
+    return { width, height, rgba: new Uint8Array(buffer) };
+  } catch (err) {
+    console.warn(
+      "[mediaPreparation] ImageDecoder failed for",
+      mimeType,
+      String((err as Error)?.message || err).slice(0, 200)
+    );
+    return null;
+  }
+}
+
+/** Pure-JS PNG decode (avoids pngjs/pako "Inflate without new" under Deno bundling). */
+async function decodePngWithUpng(
+  bytes: Uint8Array
+): Promise<{ width: number; height: number; rgba: Uint8Array }> {
+  const UPNG = await import("npm:upng-js@2.1.0");
+  const lib = (UPNG as { default?: typeof UPNG }).default || UPNG;
+  // deno-lint-ignore no-explicit-any
+  const img = (lib as any).decode(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+  // deno-lint-ignore no-explicit-any
+  const frames = (lib as any).toRGBA8(img) as ArrayBuffer[];
+  if (!img?.width || !img?.height || !frames?.[0]) {
+    throw new MediaPreparationError("MEDIA_NOT_AN_IMAGE", "Could not decode PNG artwork.");
+  }
+  return {
+    width: img.width,
+    height: img.height,
+    rgba: new Uint8Array(frames[0]),
+  };
+}
+
+/**
  * Decode WebP without npm native codecs.
  * Prefers WebCodecs ImageDecoder when present in the Deno runtime.
  */
 async function decodeWebpToRgba(
   bytes: Uint8Array
 ): Promise<{ width: number; height: number; rgba: Uint8Array }> {
-  // deno-lint-ignore no-explicit-any
-  const ImageDecoderCtor = (globalThis as any).ImageDecoder;
-  if (typeof ImageDecoderCtor === "function") {
-    try {
-      const decoder = new ImageDecoderCtor({
-        data: bytes,
-        type: "image/webp",
-      });
-      const { image } = await decoder.decode({ frameIndex: 0 });
-      const width = image.displayWidth || image.codedWidth;
-      const height = image.displayHeight || image.codedHeight;
-      const buffer = new ArrayBuffer(width * height * 4);
-      const opts = { format: "RGBA", size: { height, width } };
-      await image.copyTo(buffer, opts);
-      image.close?.();
-      decoder.close?.();
-      return { width, height, rgba: new Uint8Array(buffer) };
-    } catch {
-      /* fall through */
-    }
-  }
+  const viaDecoder = await decodeWithImageDecoder(bytes, "image/webp");
+  if (viaDecoder) return viaDecoder;
 
   throw new MediaPreparationError(
     "MEDIA_FORMAT_UNSUPPORTED",
@@ -444,27 +519,39 @@ export async function prepareInstagramFeedImage(params: {
     let jpegBytes: Uint8Array;
     let width: number;
     let height: number;
+    let preparedUrl: string;
 
     if (isJpegSourceFormat(detected)) {
-      // Re-encode JPEG for consistency / strip exotic encodings; still a JPEG derivative.
-      const converted = await convertImageBytesToJpeg(bytes, detected);
-      jpegBytes = converted.jpegBytes;
-      width = converted.width;
-      height = converted.height;
+      // Public HTTPS JPEG can be sent to Instagram as-is — skip re-encode/upload.
+      console.log("[mediaPreparation] passthrough jpeg", purpose, sourceUrl.slice(0, 80));
+      jpegBytes = bytes;
+      width = 0;
+      height = 0;
+      try {
+        const jpegJs = await import("npm:jpeg-js@0.4.4");
+        const decoded = jpegJs.decode(bytes, {
+          useTArray: true,
+          maxMemoryUsageInMB: 128,
+          formatAsRGBA: false,
+        });
+        width = Number(decoded.width) || 0;
+        height = Number(decoded.height) || 0;
+      } catch {
+        /* optional */
+      }
+      preparedUrl = sourceUrl;
     } else {
       const converted = await convertImageBytesToJpeg(bytes, detected);
       jpegBytes = converted.jpegBytes;
       width = converted.width;
       height = converted.height;
+      console.log("[mediaPreparation] convert", purpose, detected, "->", "jpeg", width, "x", height);
+      preparedUrl = await uploadPreparedJpeg(
+        params.base44,
+        jpegBytes,
+        `ig-prepared-${Date.now()}.jpg`
+      );
     }
-
-    console.log("[mediaPreparation] convert", purpose, detected, "->", "jpeg", width, "x", height);
-
-    const preparedUrl = await uploadPreparedJpeg(
-      params.base44,
-      jpegBytes,
-      `ig-prepared-${Date.now()}.jpg`
-    );
 
     const updated = await params.base44.asServiceRole.entities.PreparedMedia.update(pending.id, {
       source_format: detected === "jpg" ? "jpeg" : detected,
@@ -512,4 +599,94 @@ export async function prepareInstagramFeedImage(params: {
     if (err instanceof MediaPreparationError) throw err;
     throw new MediaPreparationError("MEDIA_PREPARATION_FAILED", message);
   }
+}
+
+/**
+ * Persist a client-rendered public MP4 URL as PreparedMedia.
+ * The frontend already uploaded the Remotion/WebCodecs MP4.
+ */
+export async function saveClientRenderedCampaignVideo(params: {
+  // deno-lint-ignore no-explicit-any
+  base44: any;
+  userId: string;
+  videoUrl: string;
+  sourceUrl?: string;
+  width?: number;
+  height?: number;
+  fileSize?: number;
+}): Promise<PreparedMediaResult> {
+  const videoUrl = String(params.videoUrl || "").trim();
+  if (!videoUrl) {
+    throw new MediaPreparationError("MEDIA_SOURCE_MISSING", "Pre-rendered video URL is required.");
+  }
+  if (!isPublicHttpsUrl(videoUrl)) {
+    throw new MediaPreparationError(
+      "MEDIA_PUBLIC_URL_REQUIRED",
+      "Pre-rendered video must be a public HTTPS URL."
+    );
+  }
+
+  const sourceUrl = String(params.sourceUrl || videoUrl).trim();
+  const purpose: PreparationPurpose = "campaign_reel_video";
+
+  // Reuse an existing ready row for the same prepared URL when possible.
+  const existing = await params.base44.asServiceRole.entities.PreparedMedia.filter(
+    {
+      user_id: params.userId,
+      prepared_url: videoUrl,
+      purpose,
+      status: "ready",
+    },
+    "-created_date",
+    3
+  ).catch(() => []);
+
+  const hit = (existing || [])[0];
+  if (hit?.id) {
+    return {
+      id: String(hit.id),
+      sourceUrl,
+      sourceFormat: (hit.source_format || "unknown") as SourceFormat,
+      preparedUrl: videoUrl,
+      preparedFormat: "mp4",
+      purpose,
+      width: hit.width ?? params.width ?? null,
+      height: hit.height ?? params.height ?? null,
+      fileSize: hit.file_size ?? params.fileSize ?? null,
+      status: "ready",
+      reused: true,
+    };
+  }
+
+  const row = await params.base44.asServiceRole.entities.PreparedMedia.create({
+    user_id: params.userId,
+    source_url: sourceUrl,
+    source_filename: "client-render.mp4",
+    source_format: "mp4",
+    media_type: "video",
+    purpose,
+    prepared_url: videoUrl,
+    prepared_format: "mp4",
+    width: params.width || 1080,
+    height: params.height || 1920,
+    file_size: params.fileSize || 0,
+    status: "ready",
+    error_code: "",
+    error_message: "",
+  });
+
+  console.log("[mediaPreparation] client-rendered campaign video saved", row.id);
+  return {
+    id: String(row.id),
+    sourceUrl,
+    sourceFormat: "mp4",
+    preparedUrl: videoUrl,
+    preparedFormat: "mp4",
+    purpose,
+    width: params.width || 1080,
+    height: params.height || 1920,
+    fileSize: params.fileSize || 0,
+    status: "ready",
+    reused: false,
+  };
 }

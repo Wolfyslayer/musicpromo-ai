@@ -58,9 +58,20 @@ export const CAMPAIGN_DAY_STATUSES = [
   { id: "planned", label: "Planned", color: "muted" },
   { id: "pending", label: "Pending", color: "muted" },
   { id: "ready", label: "Ready", color: "primary" },
-  { id: "posted", label: "Posted", color: "chart-2" },
+  { id: "scheduled", label: "Scheduled", color: "chart-3" },
+  { id: "processing", label: "Publishing", color: "primary" },
+  { id: "posted", label: "Live", color: "chart-2" },
+  { id: "failed", label: "Failed", color: "chart-3" },
   { id: "complete", label: "Complete", color: "chart-2" },
   { id: "skipped", label: "Skipped", color: "chart-3" },
+];
+
+export const SOCIAL_POST_STATUSES = [
+  { id: "draft", label: "Draft", color: "muted" },
+  { id: "scheduled", label: "Scheduled", color: "chart-3" },
+  { id: "publishing", label: "Publishing", color: "primary" },
+  { id: "published", label: "Live", color: "chart-2" },
+  { id: "failed", label: "Failed", color: "chart-3" },
 ];
 
 export const SOCIAL_CONNECTION_STATUSES = [
@@ -103,5 +114,6 @@ export const statusMeta = (id) =>
   CAMPAIGN_STATUSES.find((s) => s.id === id)
   || RELEASE_STATUSES.find((s) => s.id === id)
   || CAMPAIGN_DAY_STATUSES.find((s) => s.id === id)
+  || SOCIAL_POST_STATUSES.find((s) => s.id === id)
   || SOCIAL_CONNECTION_STATUSES.find((s) => s.id === id)
   || CAMPAIGN_STATUSES[0];

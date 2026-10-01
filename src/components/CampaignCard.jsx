@@ -34,11 +34,6 @@ export default function CampaignCard({ campaign, song, artist, daysCount = 0, vi
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <StatusBadge status={campaign.status} />
-            {campaign.is_demo && (
-              <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[10px] font-500 uppercase tracking-wider text-muted-foreground">
-                Demo
-              </span>
-            )}
           </div>
           {campaign.release?.title && (
             <p className="mt-1.5 truncate text-xs text-muted-foreground">

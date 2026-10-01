@@ -18,6 +18,7 @@ function safePost(row: Record<string, unknown>) {
     videoProjectId: row.video_project_id || null,
     generatedContentId: row.generated_content_id || null,
     status: row.status,
+    scheduledAt: row.scheduled_at || null,
     publishedAt: row.published_at || null,
     externalPostId: row.external_post_id || null,
     externalPermalink: row.external_permalink || null,

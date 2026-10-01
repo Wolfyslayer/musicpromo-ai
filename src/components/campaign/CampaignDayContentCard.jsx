@@ -1,13 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { Film, Clock, Share2 } from "lucide-react";
+import { Film, Clock, Share2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { fmtDate } from "@/services/format";
 import { platformColor } from "@/services/constants";
 import { buildComposePath } from "@/services/socialService";
+import { useCountdown } from "@/hooks/useCountdown";
 import StatusBadge from "@/components/StatusBadge";
 import VideoPreview from "@/components/VideoPreview";
 import PromoTextCard from "@/components/campaign/PromoTextCard";
+import CreateVideoButton from "@/components/video/CreateVideoButton";
 
 /**
  * One CampaignDay's promotional assets (fields live on CampaignDay itself).
@@ -22,6 +24,7 @@ export default function CampaignDayContentCard({
   highlight = false,
 }) {
   const navigate = useNavigate();
+  const countdown = useCountdown(day.scheduled_at);
   const showCaptions = filter === "all" || filter === "captions";
   const showHooks = filter === "all" || filter === "hooks";
   const showHashtags = filter === "all" || filter === "hashtags";
@@ -70,6 +73,19 @@ export default function CampaignDayContentCard({
               </span>
             )}
             <StatusBadge status={day.status || "planned"} />
+            {day.status === "scheduled" && day.scheduled_at && (
+              <span className="text-xs text-muted-foreground">{countdown.label}</span>
+            )}
+            {(day.status === "posted" || day.live_permalink) && day.live_permalink && (
+              <a
+                href={day.live_permalink}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                Live <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -137,14 +153,9 @@ export default function CampaignDayContentCard({
       {showVideos && !video && filter === "videos" && (
         <div className="mt-3 flex flex-wrap gap-2">
           <p className="w-full text-sm text-muted-foreground">No video linked to this day yet.</p>
-          <Button
-            size="sm"
-            variant="outline"
-            className="rounded-full"
-            onClick={() => navigate(`/campaigns/${campaignId}/video?day=${day.id}`)}
-          >
+          <CreateVideoButton campaignId={campaignId} dayId={day.id} className="rounded-full">
             <Film className="mr-1.5 h-3.5 w-3.5" /> Create Video
-          </Button>
+          </CreateVideoButton>
         </div>
       )}
 

@@ -11,9 +11,15 @@ const ICONS = {
   Facebook,
 };
 
+const SECRET_HINTS = {
+  instagram: "Add META_CLIENT_ID and META_CLIENT_SECRET in Base44 secrets.",
+  tiktok: "Add TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET in Base44 secrets.",
+  youtube: "Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Base44 secrets.",
+  facebook: "Facebook Page connect is not available yet.",
+};
+
 /**
- * Platform card for the Social Hub.
- * Instagram may run real OAuth; other providers stay unavailable.
+ * Platform card for the Social Hub (Instagram / TikTok / YouTube OAuth).
  */
 export default function SocialPlatformCard({
   provider,
@@ -25,9 +31,9 @@ export default function SocialPlatformCard({
   const { toast } = useToast();
   const Icon = ICONS[provider.icon] || Music2;
   const connected = provider.status === CONNECTION_STATUS.CONNECTED && provider.connection;
-  const unavailable =
-    !connected &&
-    (provider.status === CONNECTION_STATUS.UNAVAILABLE || provider.available === false);
+  const oauthReady = provider.oauthImplemented === true;
+  // Only Facebook (oauth not implemented) is truly unavailable for Connect.
+  const unavailable = !connected && !oauthReady;
 
   const handleConnect = async () => {
     if (unavailable || connecting) return;
@@ -38,7 +44,8 @@ export default function SocialPlatformCard({
       });
       return;
     }
-    await onConnect(provider);
+    // Always pass the stable string id — never the whole card object.
+    await onConnect(provider.id);
   };
 
   const handleDisconnect = async () => {
@@ -53,6 +60,7 @@ export default function SocialPlatformCard({
           <img
             src={provider.connection.profileImageUrl}
             alt=""
+            referrerPolicy="no-referrer"
             className="h-11 w-11 shrink-0 rounded-xl object-cover"
           />
         ) : (
@@ -78,7 +86,7 @@ export default function SocialPlatformCard({
                 <p className="truncate text-sm text-muted-foreground">{provider.connection.accountName}</p>
               )}
               {provider.needsPublishReauth && (
-                <p className="text-xs text-amber-600">Reconnect to enable Instagram publishing.</p>
+                <p className="text-xs text-amber-600">Reconnect to enable publishing permissions.</p>
               )}
               {provider.canPublish && (
                 <p className="text-xs text-muted-foreground">Publishing enabled</p>
@@ -88,11 +96,14 @@ export default function SocialPlatformCard({
             <>
               <p className="mt-1 text-sm text-muted-foreground">{provider.description}</p>
               <p className="mt-2 text-xs text-muted-foreground">
-                {unavailable
-                  ? provider.id === "instagram"
-                    ? "Instagram OAuth is not configured yet. Add Meta secrets in Base44."
-                    : "Social account connections will be available after platform integration is configured."
-                  : "Not connected"}
+                {!oauthReady
+                  ? SECRET_HINTS[provider.id] || "Coming later."
+                  : provider.configured === false
+                    ? SECRET_HINTS[provider.id] ||
+                      "OAuth secrets are not configured yet."
+                    : provider.configured === true
+                      ? "Ready to connect"
+                      : "Not connected"}
               </p>
             </>
           )}
@@ -116,7 +127,7 @@ export default function SocialPlatformCard({
             <Button
               variant="outline"
               className="min-h-10 rounded-full"
-              disabled={disconnecting}
+              disabled={disconnecting || !onDisconnect}
               onClick={handleDisconnect}
               aria-label={`Disconnect ${provider.name}`}
             >
@@ -127,16 +138,16 @@ export default function SocialPlatformCard({
         ) : (
           <>
             <Button
-              className="min-h-10 rounded-full"
-              disabled={unavailable || connecting}
+              className="min-h-11 w-full rounded-full sm:w-auto"
+              disabled={unavailable || connecting || !oauthReady}
               onClick={handleConnect}
               aria-label={`Connect ${provider.name}`}
             >
               {connecting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
               Connect
             </Button>
-            {unavailable && provider.id !== "instagram" && (
-              <span className="text-xs text-muted-foreground">Coming in a later phase</span>
+            {!oauthReady && (
+              <span className="text-xs text-muted-foreground">Coming later</span>
             )}
           </>
         )}

@@ -123,9 +123,8 @@ If a ready `PreparedMedia` already exists for the same user, source URL, and pur
 
 ## Future (not in 2F.5)
 
-- Video / Reels MP4 preparation  
+- Client Remotion / WebCodecs MP4 rendering  
 - TikTok / YouTube / Facebook requirements  
-- FFmpeg rendering  
 - Scheduling  
 
 ---

@@ -45,7 +45,6 @@ export default function CampaignDetail() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={campaign.status} />
-              {campaign.is_demo && <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">Demo</span>}
             </div>
             <h1 className="mt-2 truncate font-heading text-2xl font-700">{song?.title || "Untitled"}</h1>
             <p className="truncate text-sm text-muted-foreground">{artist?.name} · {fmtRange(campaign)}</p>

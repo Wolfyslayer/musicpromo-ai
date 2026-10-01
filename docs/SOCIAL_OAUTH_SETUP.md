@@ -237,9 +237,9 @@ Based on [SOCIAL_OAUTH_ARCHITECTURE.md](./SOCIAL_OAUTH_ARCHITECTURE.md) and the 
 2. Add **Instagram API with Instagram Login** (Business Login for Instagram).
 3. Configure **Valid OAuth Redirect URI** = your exact `META_REDIRECT_URI`.
 4. Use the **Instagram app ID** and **Instagram app secret** as `META_CLIENT_ID` / `META_CLIENT_SECRET`.
-5. **Scopes:** `instagram_business_basic` + `instagram_business_content_publish` (see `instagramOAuth.ts` / `socialOAuthStart`). Enable both under **App Dashboard → Instagram → API setup with Instagram login → Business login settings**.
-6. **Reconnect / scope upgrades:** the app passes `force_reauth=true` so Instagram re-prompts; otherwise Meta may reuse an older grant without publishing access.
-7. **Test accounts:** use an Instagram **professional** (Business or Creator) account. Personal accounts are not supported for this API path.
+5. **Scopes (Facebook Login):** `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_read_engagement` (see `instagramOAuth.ts`).
+6. **Reconnect / scope upgrades:** the app passes `auth_type=rerequest` so Meta re-prompts; Page-linked Instagram Business/Creator required.
+7. **Test accounts:** Instagram **professional** account linked to a Facebook Page you admin. Personal IG accounts are not supported.
 8. **Development mode:** users typically must be app **admins, developers, or testers** on the Meta app.
 9. **Production / other users:** Advanced Access, **App Review**, and often **Business Verification** may be required. Approval is **not** guaranteed; plan accordingly.
 
@@ -360,10 +360,43 @@ After a successful connect:
 
 ---
 
+## TikTok / Google legal pages
+
+After **site publish**, paste these into TikTok Developer Portal and Google OAuth consent:
+
+| Purpose | URL |
+|---------|-----|
+| Privacy Policy | `https://flying-sonic-promo-flow.base44.app/privacy` |
+| Terms of Service | `https://flying-sonic-promo-flow.base44.app/terms` |
+
+Privacy and Terms are public React routes (no login).
+
+---
+
+## Campaign auto-publish + video + daily stats worker
+
+`campaignWorker` runs publish, attaches client-rendered videos, and syncs
+analytics (at most once per 24h via `AutomationCheckpoint`).
+
+**Schedule (Workflows):** this app has Workflows enabled, so legacy
+`function.jsonc` automations cannot be used. In the Base44 Dashboard →
+**Workflows**, create a **Scheduled** workflow that invokes `campaignWorker`
+every hour.
+
+**Video render:** promo MP4s are encoded in the browser with Remotion
+(WebCodecs). Campaign create / Video Studio upload the MP4, then call
+`campaignAutoVideo` to link PreparedMedia + CampaignDay rows.
+
+Schedule a day from the Campaign Plan UI (**Schedule auto-publish**) which calls
+`campaignSchedule`.
+
+Statuses: `scheduled` → `publishing` / day `processing` → `published` / day
+`posted` (or `failed` with error logs).
+
+---
+
 ## What is intentionally out of scope
 
-- TikTok / YouTube / Facebook OAuth  
-- Publishing, scheduling, analytics, `SocialPost`  
 - Background token refresh  
 - Mock credentials or fake OAuth responses  
 

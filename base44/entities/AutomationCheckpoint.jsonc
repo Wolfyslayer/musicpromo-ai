@@ -1,0 +1,28 @@
+{
+  "name": "AutomationCheckpoint",
+  "type": "object",
+  "title": "Automation Checkpoint",
+  "description": "Tracks last successful run of background automation tasks (e.g. daily stats sync).",
+  "properties": {
+    "key": {
+      "type": "string",
+      "title": "Checkpoint Key"
+    },
+    "last_run_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Last Run At"
+    },
+    "meta": {
+      "type": "string",
+      "title": "Meta JSON"
+    }
+  },
+  "required": ["key"],
+  "rls": {
+    "create": false,
+    "read": false,
+    "update": false,
+    "delete": false
+  }
+}

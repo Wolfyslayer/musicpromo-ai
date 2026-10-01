@@ -65,11 +65,6 @@ export default function Releases() {
                 <p className="truncate text-sm text-muted-foreground">{r.artist?.name || "Unknown artist"}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <StatusBadge status={r.status || "draft"} />
-                  {r.is_demo && (
-                    <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Demo
-                    </span>
-                  )}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1">
