@@ -111,10 +111,12 @@ export default function PreviewDragLayer({ look, onLook, onDragging }) {
         onPointerMove={onPointerMove}
         onPointerUp={finish}
         onPointerCancel={finish}
-        className="pointer-events-auto absolute grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-amber-200/80 bg-amber-400/25 shadow-[0_0_18px_rgba(251,191,36,0.45)]"
+        className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 bg-transparent p-6"
         style={{ left: `${placed.particleX}%`, top: `${placed.particleY}%`, touchAction: "none" }}
       >
-        <span className="h-2.5 w-2.5 rounded-full bg-amber-200" />
+        <span className="grid h-11 w-11 place-items-center rounded-full border border-amber-200/80 bg-amber-400/25 shadow-[0_0_18px_rgba(251,191,36,0.45)]">
+          <span className="h-2.5 w-2.5 rounded-full bg-amber-200" />
+        </span>
       </button>
       <button
         type="button"
@@ -123,10 +125,12 @@ export default function PreviewDragLayer({ look, onLook, onDragging }) {
         onPointerMove={onPointerMove}
         onPointerUp={finish}
         onPointerCancel={finish}
-        className="pointer-events-auto absolute grid min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-primary/70 bg-primary/30 px-3 text-[10px] font-semibold uppercase tracking-wide text-white shadow-[0_0_18px_hsl(var(--primary)/0.45)]"
+        className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 bg-transparent p-6"
         style={{ left: `${placed.lyricX}%`, top: `${placed.lyricY}%`, touchAction: "none" }}
       >
-        Lyrics
+        <span className="grid min-h-11 min-w-11 place-items-center rounded-full border border-primary/70 bg-primary/30 px-3 text-[10px] font-semibold uppercase tracking-wide text-white shadow-[0_0_18px_hsl(var(--primary)/0.45)]">
+          Lyrics
+        </span>
       </button>
     </div>
   );

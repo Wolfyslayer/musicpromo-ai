@@ -24,6 +24,7 @@ export default function MultiTrackTimeline({
   onAudioOffset,
   onDragging,
   onAudioDuration,
+  allowTrim = true,
 }) {
   const waveRef = useRef(null);
   const dockRef = useRef(null);
@@ -208,7 +209,7 @@ export default function MultiTrackTimeline({
   const activeEffect = normalizeParticleEffect(effect);
 
   return (
-    <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-stretch gap-2 border-t border-border/60 bg-card/90 px-3 py-2 text-foreground md:col-span-2 md:row-start-2">
+    <div className="grid shrink-0 grid-cols-[3.25rem_minmax(0,1fr)] items-stretch gap-2 bg-card px-3 py-1.5 text-foreground md:grid-cols-[4.5rem_minmax(0,1fr)] md:col-span-2 md:row-start-2 md:border-t md:border-border/60 md:bg-card/90 md:py-2">
       <div className="flex flex-col justify-around py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         <span>Audio</span>
         <span>Lyrics</span>
@@ -230,32 +231,40 @@ export default function MultiTrackTimeline({
           <span className="absolute -left-1.5 -top-0.5 h-3 w-3 rounded-full bg-primary" />
         </div>
         <Lane>
-          <canvas ref={waveRef} width={720} height={36} className="pointer-events-none h-9 w-full" />
-          <button
-            type="button"
-            data-trim="wave"
-            aria-label="Drag waveform to choose the audio cut"
-            onPointerDown={onTrimDown}
-            onPointerMove={onTrimMove}
-            onPointerUp={onTrimUp}
-            onPointerCancel={onTrimUp}
-            className="absolute inset-0 cursor-grab active:cursor-grabbing"
-            style={{ touchAction: "none" }}
-          />
-          <button
-            type="button"
-            data-trim="window"
-            aria-label="Drag the selected audio window"
-            onPointerDown={onTrimDown}
-            onPointerMove={onTrimMove}
-            onPointerUp={onTrimUp}
-            onPointerCancel={onTrimUp}
-            className="absolute bottom-0 top-0 z-10 cursor-grab rounded-md border-2 border-primary bg-primary/25 shadow-[0_0_16px_hsl(var(--primary)/0.45)] active:cursor-grabbing"
-            style={{ left: `${windowLeft}%`, width: `${windowWidth}%`, touchAction: "none" }}
-          />
-          <span className="pointer-events-none absolute left-1/2 top-1 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
-            Selected: {formatClock(shownOffset)} - {formatClock(shownOffset + duration)}
-          </span>
+          <canvas ref={waveRef} width={720} height={36} className="pointer-events-none h-full w-full" />
+          {allowTrim ? (
+            <>
+              <button
+                type="button"
+                data-trim="wave"
+                aria-label="Drag waveform to choose the audio cut"
+                onPointerDown={onTrimDown}
+                onPointerMove={onTrimMove}
+                onPointerUp={onTrimUp}
+                onPointerCancel={onTrimUp}
+                className="absolute inset-0 cursor-grab active:cursor-grabbing"
+                style={{ touchAction: "none" }}
+              />
+              <button
+                type="button"
+                data-trim="window"
+                aria-label="Drag the selected audio window"
+                onPointerDown={onTrimDown}
+                onPointerMove={onTrimMove}
+                onPointerUp={onTrimUp}
+                onPointerCancel={onTrimUp}
+                className="absolute bottom-0 top-0 z-10 cursor-grab rounded-md border-2 border-primary bg-primary/25 shadow-[0_0_16px_hsl(var(--primary)/0.45)] active:cursor-grabbing"
+                style={{ left: `${windowLeft}%`, width: `${windowWidth}%`, touchAction: "none" }}
+              />
+              <span className="pointer-events-none absolute left-1/2 top-1 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                Selected: {formatClock(shownOffset)} - {formatClock(shownOffset + duration)}
+              </span>
+            </>
+          ) : (
+            <span className="pointer-events-none absolute left-1/2 top-1 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+              Full track · {formatClock(duration)}
+            </span>
+          )}
         </Lane>
         <Lane>
           {visibleCues.map(({ cue, index, localStart, localEnd }) => {
@@ -295,5 +304,5 @@ export default function MultiTrackTimeline({
 }
 
 function Lane({ children }) {
-  return <div className="relative my-1 h-9 overflow-hidden rounded-md bg-muted/50">{children}</div>;
+  return <div className="relative my-0.5 h-8 overflow-hidden rounded-md bg-muted/50 md:my-1 md:h-9">{children}</div>;
 }

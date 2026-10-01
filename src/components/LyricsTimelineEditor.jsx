@@ -21,6 +21,7 @@ export default function LyricsTimelineEditor({
   audioUrl = "",
   onChange,
   onRequireAuth,
+  syncFocus = false,
 }) {
   const audioRef = useRef(null);
   const srtInputRef = useRef(null);
@@ -255,6 +256,11 @@ export default function LyricsTimelineEditor({
             />
           </label>
         </div>
+        {syncFocus ? (
+          <p className="mt-3 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-foreground">
+            Full lyrics video. Auto-sync lines the whole song. The 3-second promo intro stays off.
+          </p>
+        ) : null}
         <div className="mt-2 flex flex-wrap gap-2">
           <Button
             type="button"

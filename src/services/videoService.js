@@ -5,7 +5,7 @@
 import { getTemplate, VIDEO_RESOLUTION } from "./videoTemplates";
 import { db } from "@/api/base44Client";
 import { triggerCampaignAutoVideo } from "@/services/socialService";
-import { buildLyricCues, normalizeEditorLook, normalizeExportDuration, normalizeParticleEffect, normalizeVisualStyle } from "@/remotion/styles";
+import { buildLyricCues, normalizeEditorLook, normalizeParticleEffect, normalizeVideoType, normalizeVisualStyle, resolveStudioDuration } from "@/remotion/styles";
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -117,7 +117,8 @@ export const videoService = {
 
       const visualStyle = normalizeVisualStyle(project?.visual_style);
       const particleEffect = normalizeParticleEffect(project?.particle_effect);
-      const duration = normalizeExportDuration(project?.duration);
+      const videoType = normalizeVideoType(project?.video_type || project?.animation_settings?.videoType);
+      const duration = resolveStudioDuration(videoType, project?.duration, project?.audio_duration);
       const editorLook = normalizeEditorLook(project?.editor_look);
       const lyricCues = buildLyricCues(
         project?.lyrics,
@@ -139,6 +140,8 @@ export const videoService = {
         particleEffect,
         lyricCues,
         audioStartTimeOffset: project?.audioStartTimeOffset || 0,
+        videoType,
+        outroCta: project?.outro_cta || project?.animation_settings?.outroCta || "",
         onProgress,
       });
 

@@ -76,6 +76,8 @@ function PromoCompositionBody({
   look: lookProp,
   audioStartTimeOffset = 0,
   suspendEffects = false,
+  videoType = "",
+  outroCta = "",
   motion,
 }) {
   const frame = useCurrentFrame();
@@ -124,6 +126,9 @@ function PromoCompositionBody({
   );
 
   const hook = String(text || "").trim();
+  const promo = videoType === "promo";
+  const showIntro = promo && timeSec < 3;
+  const showOutro = promo && timeSec >= Math.max(3, videoDuration - 3);
   const fontFamily = fontForStyle(visualStyle);
   const kick = particleEffect === "shake" && !suspendEffects
     ? Math.min(1, bass * 0.35 + transient * 1.6)
@@ -263,7 +268,39 @@ function PromoCompositionBody({
             transform: "translate(-50%, -50%)",
           }}
         >
-        {activeCue ? (
+        {showOutro ? (
+          <div
+            style={{
+              width: "fit-content",
+              margin: "0 auto",
+              padding: "18px 42px",
+              borderRadius: 999,
+              background: "#f4f0ff",
+              color: "#1a1028",
+              fontFamily: lyricFont,
+              fontSize: Math.max(28, Math.round(look.fontSize * 0.5)),
+              fontWeight: 700,
+              letterSpacing: look.letterSpacing,
+              textAlign: "center",
+            }}
+          >
+            {outroCta || "Listen now"}
+          </div>
+        ) : showIntro ? (
+          <div
+            style={{
+              fontFamily: lyricFont,
+              fontSize: Math.max(28, Math.round(look.fontSize * 0.56)),
+              color: look.textColor,
+              letterSpacing: look.letterSpacing,
+              textAlign: "center",
+              padding: "0 48px",
+              textShadow: "0 4px 16px rgba(0,0,0,0.5)",
+            }}
+          >
+            {hook || title}
+          </div>
+        ) : activeCue && !showIntro && !showOutro ? (
           <LyricLine
             key={`${cueIndex}-${activeCue.text}`}
             text={activeCue.text}
@@ -276,7 +313,7 @@ function PromoCompositionBody({
             letterSpacing={look.letterSpacing}
             animationMs={look.animationMs}
           />
-        ) : hook && timeSec + 0.0005 < firstLyricStart ? (
+        ) : !promo && videoType !== "lyrics" && hook && timeSec + 0.0005 < firstLyricStart ? (
           <div
             style={{
               fontFamily: lyricFont,

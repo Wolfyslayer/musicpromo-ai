@@ -27,6 +27,7 @@ import { fmtDate } from "@/services/format";
 import { buildComposePath, loadPosts, scheduleCampaignDay } from "@/services/socialService";
 import { useCountdown } from "@/hooks/useCountdown";
 import CopyButton from "@/components/CopyButton";
+import CreateVideoButton from "@/components/video/CreateVideoButton";
 import StatusBadge from "@/components/StatusBadge";
 
 const DAY_STATUSES = [
@@ -352,7 +353,7 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
               >
                 <Share2 className="mr-1 h-3.5 w-3.5" />Post now
               </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate(`/campaigns/${campaign.id}/video?day=${day.id}`)} className="rounded-full"><Film className="mr-1 h-3.5 w-3.5" />Create Video</Button>
+              <CreateVideoButton campaignId={campaign.id} dayId={day.id} className="rounded-full"><Film className="mr-1 h-3.5 w-3.5" />Create Video</CreateVideoButton>
               <Button variant="ghost" size="sm" onClick={() => regenerateDay(day)} disabled={regenerating === day.id} className="rounded-full">
                 {regenerating === day.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1 h-3.5 w-3.5" />}Regenerate
               </Button>

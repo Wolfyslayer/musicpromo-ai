@@ -22,12 +22,15 @@ const PRESETS = [
   },
 ];
 
-export default function CampaignPresets({ activeDuration, onApply }) {
+export default function CampaignPresets({ activeDuration, onApply, allowedSeconds }) {
+  const presets = allowedSeconds?.length
+    ? PRESETS.filter((preset) => allowedSeconds.includes(preset.seconds))
+    : PRESETS;
   return (
     <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3">
       <p className="text-[10px] font-700 uppercase tracking-[0.16em] text-primary">Campaign presets</p>
       <div className="mt-2 grid gap-2 sm:grid-cols-3">
-        {PRESETS.map((preset) => {
+        {presets.map((preset) => {
           const active = Number(activeDuration) === preset.seconds;
           return (
             <button

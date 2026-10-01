@@ -1,7 +1,6 @@
 import { db } from '@/api/base44Client';
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Zap, MessageSquare, Hash, MousePointerClick, Film, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,6 +9,7 @@ import { aiService } from "@/services/aiService";
 import { PLATFORMS } from "@/services/constants";
 import { useToast } from "@/components/ui/use-toast";
 import ContentItem from "@/components/campaign/ContentItem";
+import CreateVideoButton from "@/components/video/CreateVideoButton";
 
 /**
  * Content Library — organises all AI-generated content for a campaign into
@@ -22,7 +22,6 @@ import ContentItem from "@/components/campaign/ContentItem";
 export default function ContentLibrary({ campaign, song, content = [], onRefresh }) {
   const [platform, setPlatform] = useState("TikTok");
   const [loading, setLoading] = useState(null);
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   const analysis = song?.analysis;
@@ -143,17 +142,6 @@ export default function ContentLibrary({ campaign, song, content = [], onRefresh
   const ctas = content.filter((c) => c.type === "cta");
   const concepts = content.filter((c) => c.type === "video_concept");
 
-  const openVideoFromConcept = (item) => {
-    const m = item.metadata || {};
-    const q = new URLSearchParams({
-      template: m.template || "HOOK",
-      title: m.title || "",
-      text: m.hookText || "",
-      duration: String(m.duration || 10),
-    });
-    navigate(`/campaigns/${campaign.id}/video?${q.toString()}`);
-  };
-
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -207,9 +195,18 @@ export default function ContentLibrary({ campaign, song, content = [], onRefresh
         {concepts.map((item) => (
           <ContentItem key={item.id} item={item} onEdit={(it, t) => updateRecord(it, { content: t })} onDelete={deleteRecord} onRegenerate={regenerate}
             extraActions={
-              <Button size="sm" variant="outline" className="h-7 rounded-full px-2 text-xs" onClick={() => openVideoFromConcept(item)}>
+              <CreateVideoButton
+                campaignId={campaign.id}
+                size="sm"
+                className="h-7 rounded-full px-2 text-xs"
+                query={{
+                  template: item.metadata?.template || "HOOK",
+                  title: item.metadata?.title || "",
+                  text: item.metadata?.hookText || "",
+                }}
+              >
                 <Film className="mr-1 h-3 w-3" />Create Video
-              </Button>
+              </CreateVideoButton>
             }
           >
             <div className="flex items-center gap-2">

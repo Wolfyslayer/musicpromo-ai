@@ -18,6 +18,8 @@ import { getSettings } from "@/services/settings";
 import { todayISO, addDaysISO, fmtDate } from "@/services/format";
 import ArtworkUpload from "@/components/ArtworkUpload";
 import AudioUpload from "@/components/AudioUpload";
+import AssetAnalysisPanel from "@/components/video/AssetAnalysisPanel";
+import { analyzeCampaignAssets, hooksForVibe, saveAssetSession } from "@/services/assetAnalysis";
 import VideoRenderProgress from "@/components/VideoRenderProgress";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -46,8 +48,11 @@ export default function CreateCampaign() {
       artworkUrl: "", artworkFile: null,
       audioUri: "", audioSignedUrl: "", audioDuration: null, audioName: "", audioFile: null,
       lyrics: "", goals: [], durationDays: s.defaultDuration, startDate: todayISO(),
+      assetProfile: null,
     };
   });
+  const [analyzingAssets, setAnalyzingAssets] = useState(false);
+  const [energyChoice, setEnergyChoice] = useState("");
   const [generating, setGenerating] = useState(false);
   const [stage, setStage] = useState("");
   const [renderProgress, setRenderProgress] = useState(null);
@@ -57,6 +62,49 @@ export default function CreateCampaign() {
     loadReleases().then(setReleases).catch(() => setReleases([]));
   }, []);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  useEffect(() => {
+    const artwork = form.artworkFile || form.artworkUrl;
+    const audio = form.audioFile || form.audioSignedUrl;
+    if (!artwork || !audio) return undefined;
+    let cancelled = false;
+    setAnalyzingAssets(true);
+    analyzeCampaignAssets({
+      artwork,
+      audio,
+      title: form.title,
+      energy: energyChoice,
+    }).then((profile) => {
+      if (cancelled || !profile) return;
+      saveAssetSession(profile);
+      setForm((current) => ({ ...current, assetProfile: profile }));
+    }).finally(() => {
+      if (!cancelled) setAnalyzingAssets(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.artworkFile, form.artworkUrl, form.audioFile, form.audioSignedUrl, form.title, energyChoice]);
+
+  const chooseEnergy = (energy) => {
+    setEnergyChoice(energy);
+    setForm((current) => {
+      if (!current.assetProfile) return current;
+      const profile = {
+        ...current.assetProfile,
+        energy,
+        hooks: hooksForVibe({ energy, title: current.title }),
+        keywords: [
+          current.assetProfile.theme,
+          energy === "fast" ? "Fast / Aggressive" : "Slow / Acoustic",
+          current.assetProfile.label,
+          current.assetProfile.palette,
+        ].filter(Boolean),
+      };
+      saveAssetSession(profile);
+      return { ...current, assetProfile: profile };
+    });
+  };
 
   const selectArtist = (v) => {
     if (v === "__new__") {
@@ -117,7 +165,8 @@ export default function CreateCampaign() {
       const songPayload = {
         artist_id: artistId, title: form.title.trim(), genre: form.genre, release_date: form.releaseDate,
         language: form.language, description: form.description, artwork_url: form.artworkUrl,
-        audio_url: form.audioUri, audio_duration: form.audioDuration, lyrics: form.lyrics, analysis: null, is_demo: false,
+        audio_url: form.audioUri, audio_duration: form.audioDuration, lyrics: form.lyrics,
+        analysis: form.assetProfile ? { assetProfile: form.assetProfile } : null, is_demo: false,
       };
       if (form.releaseId) songPayload.release_id = form.releaseId;
       const song = await db.entities.Song.create(songPayload);
@@ -125,7 +174,11 @@ export default function CreateCampaign() {
       const songForAI = { ...song, artistName: artist.name };
 
       setStage("Analyzing song with AI…");
-      const analysis = await aiService.analyzeSong(songForAI);
+      const generated = await aiService.analyzeSong(songForAI);
+      const analysis = {
+        ...(generated && typeof generated === "object" ? generated : {}),
+        assetProfile: form.assetProfile || null,
+      };
       await db.entities.Song.update(song.id, { analysis });
 
       setStage("Generating campaign with AI…");
@@ -186,7 +239,7 @@ export default function CreateCampaign() {
             duration,
             title: form.title.trim(),
             artistName: artist.name || form.newArtistName || "",
-            text: firstDay.hook || firstDay.caption || form.description || "",
+            text: firstDay.hook || form.assetProfile?.hooks?.[0] || firstDay.caption || form.description || "",
             lyrics: form.lyrics || "",
             visualStyle: "pop",
             lyricCues,
@@ -310,8 +363,8 @@ export default function CreateCampaign() {
                 selectRelease={selectRelease}
               />
             )}
-            {step === 1 && <StepArtwork form={form} setForm={setForm} />}
-            {step === 2 && <StepAudio form={form} setForm={setForm} />}
+            {step === 1 && <StepArtwork form={form} setForm={setForm} analyzingAssets={analyzingAssets} onEnergy={chooseEnergy} />}
+            {step === 2 && <StepAudio form={form} setForm={setForm} analyzingAssets={analyzingAssets} onEnergy={chooseEnergy} />}
             {step === 3 && <StepLyrics form={form} set={set} />}
             {step === 4 && <StepGoals form={form} set={set} toggleGoal={toggleGoal} />}
             {step === 5 && <StepSummary form={form} artists={artists} releases={releases} />}
@@ -397,7 +450,7 @@ function StepSong({ form, set, artists, releases, selectArtist, selectRelease })
   );
 }
 
-function StepArtwork({ form, setForm }) {
+function StepArtwork({ form, setForm, analyzingAssets, onEnergy }) {
   const { requireAuth } = useAuth();
   return (
     <div className="space-y-3">
@@ -411,11 +464,14 @@ function StepArtwork({ form, setForm }) {
           setForm((f) => ({ ...f, artworkUrl: url, artworkFile: file || null }));
         }}
       />
+      {form.artworkUrl && form.audioUri ? (
+        <AssetAnalysisPanel profile={form.assetProfile} analyzing={analyzingAssets} onEnergy={onEnergy} />
+      ) : null}
     </div>
   );
 }
 
-function StepAudio({ form, setForm }) {
+function StepAudio({ form, setForm, analyzingAssets, onEnergy }) {
   const { requireAuth } = useAuth();
   return (
     <div className="space-y-3">
@@ -435,6 +491,11 @@ function StepAudio({ form, setForm }) {
           }));
         }}
       />
+      {form.artworkUrl && form.audioUri ? (
+        <AssetAnalysisPanel profile={form.assetProfile} analyzing={analyzingAssets} onEnergy={onEnergy} />
+      ) : (
+        <p className="text-xs text-muted-foreground">Add artwork as well, and the cover colors and track energy will be read here.</p>
+      )}
     </div>
   );
 }
@@ -489,6 +550,8 @@ function StepSummary({ form, artists, releases }) {
     ["Artwork", form.artworkUrl ? "Uploaded" : "Not uploaded"],
     ["Audio", form.audioUri ? "Uploaded" : "Not uploaded"],
     ["Lyrics", form.lyrics ? `${form.lyrics.split("\n").length} lines` : "Skipped"],
+    ["Visual read", form.assetProfile?.label || "Waiting for artwork and audio"],
+    ["Energy", form.assetProfile ? (form.assetProfile.energy === "fast" ? "Fast / Aggressive" : "Slow / Acoustic") : "—"],
     ["Goals", form.goals.length ? form.goals.join(", ") : "None selected"],
     ["Duration", `${form.durationDays} days`],
     ["Start", fmtDate(form.startDate)],

@@ -6,9 +6,10 @@ import {
   PROMO_WIDTH,
   buildLyricCues,
   normalizeEditorLook,
-  normalizeExportDuration,
   normalizeParticleEffect,
+  normalizeVideoType,
   normalizeVisualStyle,
+  resolveStudioDuration,
 } from "./styles";
 import { waitForPromoFonts } from "./fonts";
 
@@ -17,7 +18,8 @@ import { waitForPromoFonts } from "./fonts";
  */
 export async function renderPromoRemotion(params = {}) {
   const onProgress = params.onProgress;
-  const durationSec = normalizeExportDuration(params.duration);
+  const videoType = normalizeVideoType(params.videoType || params.video_type);
+  const durationSec = resolveStudioDuration(videoType, params.duration, params.audioDuration);
   const look = normalizeEditorLook(params.look || params.editor_look);
   const durationInFrames = Math.round(durationSec * PROMO_FPS);
   const visualStyle = normalizeVisualStyle(params.visualStyle || params.visual_style);
@@ -67,6 +69,8 @@ export async function renderPromoRemotion(params = {}) {
     lyricCues,
     look,
     audioStartTimeOffset: Math.max(0, Number(params.audioStartTimeOffset) || 0),
+    videoType,
+    outroCta: params.outroCta || params.outro_cta || "",
   };
 
   const result = await renderMediaOnWeb({

@@ -143,6 +143,28 @@ export function normalizeExportDuration(value) {
   return 15;
 }
 
+export function normalizeVideoType(value) {
+  return value === "lyrics" || value === "promo" ? value : "";
+}
+
+/**
+ * Promo clips stay on 15s or 30s. A full lyrics video uses the song length,
+ * up to ten minutes, instead of the short-form duration list.
+ */
+export function resolveStudioDuration(videoType, value, audioSeconds) {
+  const type = normalizeVideoType(videoType);
+  if (type === "promo") return Number(value) === 30 ? 30 : 15;
+  if (type === "lyrics") {
+    const audio = Number(audioSeconds);
+    const requested = Number(value);
+    const full = Number.isFinite(audio) && audio >= 8
+      ? audio
+      : (Number.isFinite(requested) && requested >= 8 ? requested : 180);
+    return Math.min(600, Math.max(8, Math.round(full)));
+  }
+  return normalizeExportDuration(value);
+}
+
 function clampNum(value, min, max, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;

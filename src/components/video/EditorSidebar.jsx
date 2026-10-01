@@ -119,6 +119,8 @@ export default function EditorSidebar({
   onLook,
   onDuration,
   onEffect,
+  durationChoices = EXPORT_DURATIONS,
+  durationLocked = false,
   className = "",
 }) {
   return (
@@ -126,18 +128,24 @@ export default function EditorSidebar({
       <div>
         <p className="text-[10px] font-600 uppercase tracking-[0.16em] text-muted-foreground">Export</p>
         <Label className="mt-2 block text-xs text-muted-foreground">Duration</Label>
-        <Select value={String(duration)} onValueChange={(value) => onDuration(Number(value))}>
-          <SelectTrigger className="mt-1.5">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {EXPORT_DURATIONS.map((seconds) => (
-              <SelectItem key={seconds} value={String(seconds)}>
-                {seconds}s
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {durationLocked ? (
+          <p className="mt-1.5 rounded-lg border border-border bg-muted px-3 py-2 text-sm font-600">
+            Full track · {duration}s
+          </p>
+        ) : (
+          <Select value={String(durationChoices.includes(Number(duration)) ? duration : durationChoices[0])} onValueChange={(value) => onDuration(Number(value))}>
+            <SelectTrigger className="mt-1.5">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {durationChoices.map((seconds) => (
+                <SelectItem key={seconds} value={String(seconds)}>
+                  {seconds}s
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div className="space-y-3 border-t border-border pt-4">

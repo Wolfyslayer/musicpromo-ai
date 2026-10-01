@@ -9,6 +9,7 @@ import { useCountdown } from "@/hooks/useCountdown";
 import StatusBadge from "@/components/StatusBadge";
 import VideoPreview from "@/components/VideoPreview";
 import PromoTextCard from "@/components/campaign/PromoTextCard";
+import CreateVideoButton from "@/components/video/CreateVideoButton";
 
 /**
  * One CampaignDay's promotional assets (fields live on CampaignDay itself).
@@ -152,14 +153,9 @@ export default function CampaignDayContentCard({
       {showVideos && !video && filter === "videos" && (
         <div className="mt-3 flex flex-wrap gap-2">
           <p className="w-full text-sm text-muted-foreground">No video linked to this day yet.</p>
-          <Button
-            size="sm"
-            variant="outline"
-            className="rounded-full"
-            onClick={() => navigate(`/campaigns/${campaignId}/video?day=${day.id}`)}
-          >
+          <CreateVideoButton campaignId={campaignId} dayId={day.id} className="rounded-full">
             <Film className="mr-1.5 h-3.5 w-3.5" /> Create Video
-          </Button>
+          </CreateVideoButton>
         </div>
       )}
 

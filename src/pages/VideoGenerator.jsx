@@ -26,6 +26,8 @@ import ArtworkUpload from "@/components/ArtworkUpload";
 import AudioUpload from "@/components/AudioUpload";
 import { useWorkspaceRefresh } from "@/lib/AuthContext";
 import { useIsolatedPreviewAudio } from "@/hooks/useIsolatedPreviewAudio";
+import { loadAssetSession } from "@/services/assetAnalysis";
+import VideoTypeModal from "@/components/video/VideoTypeModal";
 import {
   VISUAL_STYLES,
   PROMO_FPS,
@@ -33,11 +35,38 @@ import {
   cuesInAudioWindow,
   normalizeEditorLook,
   clampAudioOffset,
-  normalizeExportDuration,
   normalizeParticleEffect,
+  normalizeVideoType,
   normalizeVisualStyle,
+  resolveStudioDuration,
   scaleLyricCues,
 } from "@/remotion/styles";
+
+function packVideoProject(project, audioSeconds) {
+  const videoType = normalizeVideoType(project?.video_type || project?.animation_settings?.videoType);
+  const duration = resolveStudioDuration(videoType, project?.duration, audioSeconds);
+  const {
+    video_type: _videoType,
+    outro_cta: outroCta,
+    asset_keywords: keywords,
+    asset_hooks: hooks,
+    asset_label: label,
+    ...rest
+  } = project || {};
+  return {
+    ...rest,
+    duration,
+    lyric_cues: buildLyricCues(project?.lyrics, duration, project?.lyric_cues),
+    animation_settings: {
+      ...(project?.animation_settings || {}),
+      videoType,
+      outroCta: outroCta || project?.animation_settings?.outroCta || "",
+      keywords: keywords || project?.animation_settings?.keywords || [],
+      hooks: hooks || project?.animation_settings?.hooks || [],
+      label: label || project?.animation_settings?.label || "",
+    },
+  };
+}
 
 const EDITOR_TABS = [
   { id: "look", label: "Look" },
@@ -64,7 +93,10 @@ function styleFingerprint(p) {
 
 export default function VideoGenerator() {
   const { id } = useParams();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const requestedType = normalizeVideoType(params.get("videoType"));
+  const requestedSeconds = Number(params.get("seconds")) === 30 ? 30 : 15;
+  const requestedText = params.get("text") || "";
   const projectId = params.get("project");
   const dayId = params.get("day");
   const wantRemake = params.get("remake") === "1";
@@ -87,6 +119,8 @@ export default function VideoGenerator() {
   const [forceLastMp4, setForceLastMp4] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(true);
   const [editorTab, setEditorTab] = useState("look");
+  const [chooseType, setChooseType] = useState(false);
+  const lyricsTabSynced = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,43 +137,79 @@ export default function VideoGenerator() {
       return undefined;
     }
     (async () => {
-      const s = getSettings();
       try {
       const data = await loadCampaign(id);
       setSong(data.song);
+      const profile = data.song?.analysis?.assetProfile || loadAssetSession();
+      let savedType = "";
+      let savedProject = null;
+      let day = null;
+      if (projectId) {
+        savedProject = await db.entities.VideoProject.get(projectId);
+        savedType = normalizeVideoType(savedProject?.animation_settings?.videoType);
+      } else if (dayId) {
+        day = await db.entities.CampaignDay.get(dayId);
+      }
+      const videoType = savedType || requestedType || (projectId ? "promo" : "");
+      if (!videoType) {
+        if (!cancelled) setChooseType(true);
+        return;
+      }
+      if (!cancelled) setChooseType(false);
+      const audioSeconds = Number(data.song?.audio_duration) || 0;
+      const duration = resolveStudioDuration(
+        videoType,
+        videoType === "promo" ? (savedProject?.duration || requestedSeconds) : (savedProject?.duration || audioSeconds),
+        audioSeconds
+      );
       let base = {
-        template: "LYRICS",
+        template: profile?.template || "LYRICS",
         title: data.song?.title || "",
         artist_name: data.artist?.name || "",
-        text: "",
+        text: videoType === "promo" ? (day?.hook || requestedText || profile?.hooks?.[0] || "") : "",
+        outro_cta: videoType === "promo" ? (day?.cta || "Listen now") : "",
         artwork_url: data.song?.artwork_url || "",
         audio_url: data.song?.audio_url || "",
+        audio_duration: audioSeconds,
         lyrics: data.song?.lyrics || "",
-        visual_style: "pop",
-        particle_effect: "none",
+        visual_style: normalizeVisualStyle(profile?.visualStyle || "pop"),
+        particle_effect: normalizeParticleEffect(profile?.particleEffect || "none"),
         editor_look: normalizeEditorLook(null),
-        lyric_cues: buildLyricCues(data.song?.lyrics || "", s.defaultVideoDuration, []),
-        duration: normalizeExportDuration(s.defaultVideoDuration),
+        lyric_cues: buildLyricCues(data.song?.lyrics || "", duration, []),
+        duration,
+        video_type: videoType,
+        asset_label: profile?.label || "",
+        asset_keywords: profile?.keywords || [],
+        asset_hooks: profile?.hooks || [],
         song_id: data.song?.id,
         campaign_id: id,
+        animation_settings: {
+          videoType,
+          outroCta: videoType === "promo" ? (day?.cta || "Listen now") : "",
+          keywords: profile?.keywords || [],
+          hooks: profile?.hooks || [],
+          label: profile?.label || "",
+        },
       };
-      if (projectId) {
-        const p = await db.entities.VideoProject.get(projectId);
+      if (savedProject) {
+        const savedDuration = resolveStudioDuration(videoType, savedProject.duration || duration, audioSeconds);
         base = {
           ...base,
-          ...p,
-          visual_style: normalizeVisualStyle(p.visual_style || base.visual_style),
-          particle_effect: normalizeParticleEffect(p.particle_effect || base.particle_effect),
-          editor_look: normalizeEditorLook(p.editor_look || base.editor_look),
-          duration: normalizeExportDuration(p.duration || base.duration),
-          lyric_cues: buildLyricCues(p.lyrics || base.lyrics, normalizeExportDuration(p.duration || base.duration), p.lyric_cues),
+          ...savedProject,
+          video_type: videoType,
+          outro_cta: savedProject.animation_settings?.outroCta || base.outro_cta,
+          visual_style: normalizeVisualStyle(savedProject.visual_style || base.visual_style),
+          particle_effect: normalizeParticleEffect(savedProject.particle_effect || base.particle_effect),
+          editor_look: normalizeEditorLook(savedProject.editor_look || base.editor_look),
+          duration: savedDuration,
+          lyric_cues: buildLyricCues(savedProject.lyrics || base.lyrics, savedDuration, savedProject.lyric_cues),
         };
-      } else if (dayId) {
-        const day = await db.entities.CampaignDay.get(dayId);
+      } else if (day) {
         base = {
           ...base,
-          text: day?.caption || day?.cta || "",
           title: data.song?.title || "",
+          text: videoType === "promo" ? (day.hook || day.caption || base.text) : "",
+          outro_cta: videoType === "promo" ? (day.cta || base.outro_cta) : "",
         };
       }
       if (cancelled) return;
@@ -161,7 +231,7 @@ export default function VideoGenerator() {
     return () => {
       cancelled = true;
     };
-  }, [id, projectId, dayId, wantRemake, refreshTick]);
+  }, [id, projectId, dayId, wantRemake, refreshTick, requestedType, requestedSeconds, requestedText]);
 
   useEffect(() => {
     let cancelled = false;
@@ -206,7 +276,7 @@ export default function VideoGenerator() {
   const audioDurationRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
   const [audioDuration, setAudioDuration] = useState(0);
-  durationRef.current = normalizeExportDuration(project?.duration);
+  durationRef.current = resolveStudioDuration(project?.video_type, project?.duration, audioDurationRef.current || audioDuration);
 
   const setDragActive = (active) => {
     dragDepth.current = Math.max(0, dragDepth.current + (active ? 1 : -1));
@@ -242,7 +312,7 @@ export default function VideoGenerator() {
       audioStartTimeOffset: clampAudioOffset(
         seconds,
         audioDurationRef.current,
-        normalizeExportDuration(current?.duration)
+        resolveStudioDuration(current?.video_type, current?.duration, audioDurationRef.current)
       ),
     }));
     touchStyle();
@@ -250,7 +320,7 @@ export default function VideoGenerator() {
 
   const moveLyricCue = (index, start) => {
     setProject((current) => {
-      const duration = normalizeExportDuration(current.duration);
+      const duration = resolveStudioDuration(current.video_type, current.duration, audioDurationRef.current);
       const cues = buildLyricCues(current.lyrics, duration, current.lyric_cues);
       const cue = cues[index];
       if (!cue) return current;
@@ -272,13 +342,15 @@ export default function VideoGenerator() {
 
   const applyPreset = (preset) => {
     setProject((current) => {
-      const from = normalizeExportDuration(current.duration);
+      if (current.video_type === "lyrics") return current;
+      const from = resolveStudioDuration(current.video_type, current.duration, audioDurationRef.current);
+      const nextDuration = resolveStudioDuration(current.video_type, preset.seconds, audioDurationRef.current);
       const cues = buildLyricCues(current.lyrics, from, current.lyric_cues);
       return {
         ...current,
-        duration: preset.seconds,
+        duration: nextDuration,
         editor_look: normalizeEditorLook({ ...normalizeEditorLook(current.editor_look), ...preset.look }),
-        lyric_cues: scaleLyricCues(cues, from, preset.seconds),
+        lyric_cues: scaleLyricCues(cues, from, nextDuration),
       };
     });
     touchStyle();
@@ -295,7 +367,7 @@ export default function VideoGenerator() {
   const audioClock = useIsolatedPreviewAudio({
     url: showLivePreview ? "" : studioAudioUrl,
     offsetSec: project?.audioStartTimeOffset || 0,
-    windowSec: normalizeExportDuration(project?.duration),
+    windowSec: resolveStudioDuration(project?.video_type, project?.duration, audioDuration),
     playing: Boolean(playing && project && !showLivePreview),
   });
   noteTimelineRef.current = audioClock.noteTimeline;
@@ -303,8 +375,21 @@ export default function VideoGenerator() {
   setHoldRef.current = audioClock.setHold;
 
   useEffect(() => {
+    if (lyricsTabSynced.current || requestedType !== "lyrics") return;
+    lyricsTabSynced.current = true;
+    setEditorTab("lyrics");
+  }, [requestedType]);
+
+  useEffect(() => {
+    if (!project || project.video_type !== "lyrics" || !audioDuration) return;
+    const next = resolveStudioDuration("lyrics", audioDuration, audioDuration);
+    if (next === project.duration && !(Number(project.audioStartTimeOffset) > 0)) return;
+    setProject((current) => (current ? { ...current, duration: next, audioStartTimeOffset: 0, audio_duration: audioDuration } : current));
+  }, [audioDuration, project?.video_type, project?.duration, project?.audioStartTimeOffset]);
+
+  useEffect(() => {
     if (!project) return;
-    const next = clampAudioOffset(project.audioStartTimeOffset, audioDuration, normalizeExportDuration(project.duration));
+    const next = clampAudioOffset(project.audioStartTimeOffset, audioDuration, resolveStudioDuration(project.video_type, project.duration, audioDuration));
     if (next === (Number(project.audioStartTimeOffset) || 0)) return;
     setProject((current) => (current ? { ...current, audioStartTimeOffset: next } : current));
   }, [audioDuration, project?.duration, project?.audioStartTimeOffset, project]);
@@ -325,24 +410,23 @@ export default function VideoGenerator() {
   const save = async () => {
     setSaving(true);
     try {
+      const packed = packVideoProject(project, audioDurationRef.current);
       const payload = {
-        ...project,
+        ...packed,
         visual_style: normalizeVisualStyle(project.visual_style),
         particle_effect: normalizeParticleEffect(project.particle_effect),
         editor_look: normalizeEditorLook(project.editor_look),
-        duration: normalizeExportDuration(project.duration),
-        lyric_cues: buildLyricCues(project.lyrics, normalizeExportDuration(project.duration), project.lyric_cues),
-        audioStartTimeOffset: clampAudioOffset(project.audioStartTimeOffset, audioDurationRef.current, normalizeExportDuration(project.duration)),
+        audioStartTimeOffset: clampAudioOffset(project.audioStartTimeOffset, audioDurationRef.current, packed.duration),
         user_id: project.user_id || user?.id || "",
         is_demo: false,
       };
       if (project.id || projectId) {
         const pid = project.id || projectId;
         await db.entities.VideoProject.update(pid, payload);
-        setProject((p) => ({ ...p, ...payload, id: pid }));
+        setProject((p) => ({ ...p, ...payload, video_type: project.video_type, id: pid }));
       } else {
         const created = await db.entities.VideoProject.create(payload);
-        setProject((p) => ({ ...p, ...payload, id: created.id }));
+        setProject((p) => ({ ...p, ...payload, video_type: project.video_type, id: created.id }));
         navigate(`/campaigns/${id}/video?project=${created.id}`, { replace: true });
       }
       toast({ title: "Video project saved" });
@@ -378,12 +462,12 @@ export default function VideoGenerator() {
 
     try {
       let working = {
-        ...project,
+        ...packVideoProject(project, audioDurationRef.current),
+        video_type: project.video_type,
+        outro_cta: project.outro_cta,
         visual_style: normalizeVisualStyle(project.visual_style),
         particle_effect: normalizeParticleEffect(project.particle_effect),
         editor_look: normalizeEditorLook(project.editor_look),
-        duration: normalizeExportDuration(project.duration),
-        lyric_cues: buildLyricCues(project.lyrics, normalizeExportDuration(project.duration), project.lyric_cues),
         user_id: project.user_id || user?.id || "",
       };
       if (!working.id && !projectId) {
@@ -449,38 +533,53 @@ export default function VideoGenerator() {
   };
 
   const globalLyricCues = useMemo(
-    () => buildLyricCues(project?.lyrics, normalizeExportDuration(project?.duration), project?.lyric_cues),
+    () => buildLyricCues(project?.lyrics, resolveStudioDuration(project?.video_type, project?.duration, audioDuration), project?.lyric_cues),
     [project?.lyrics, project?.duration, project?.lyric_cues]
   );
   const visibleLyricCues = useMemo(
     () => cuesInAudioWindow(
       globalLyricCues,
       project?.audioStartTimeOffset || 0,
-      normalizeExportDuration(project?.duration)
+      resolveStudioDuration(project?.video_type, project?.duration, audioDuration)
     ),
     [globalLyricCues, project?.audioStartTimeOffset, project?.duration]
   );
 
-  if (!project) return <div className="h-full animate-shimmer" />;
+  if (!project) {
+    return (
+      <>
+        <div className="h-full animate-shimmer" />
+        <VideoTypeModal
+          open={chooseType}
+          onOpenChange={() => {}}
+          onConfirm={(choice) => {
+            const next = new URLSearchParams(params);
+            next.set("videoType", choice.videoType);
+            if (choice.videoType === "promo") next.set("seconds", String(choice.seconds || 15));
+            else next.delete("seconds");
+            setChooseType(false);
+            setParams(next, { replace: true });
+          }}
+        />
+      </>
+    );
+  }
 
-  const tabClass = (id) => (editorTab === id ? "space-y-5" : "hidden space-y-5 md:block md:border-t md:border-border/50 md:pt-6");
+  const tabClass = (id) => (editorTab === id ? "space-y-4 md:space-y-5" : "hidden space-y-4 md:block md:space-y-5 md:border-t md:border-border/50 md:pt-6");
 
   return (
     <div
-      className={cn(
-        "grid h-full min-h-0 grid-cols-1 bg-background",
-        controlsOpen ? "grid-rows-[minmax(0,1fr)_9.5rem_minmax(8rem,40%)]" : "grid-rows-[minmax(0,1fr)_9.5rem_3rem]",
-        "transition-[grid-template-rows] duration-300 ease-out md:grid-cols-[clamp(220px,32vw,420px)_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)_9.5rem]"
-      )}
+      className="flex h-full min-h-0 flex-col overflow-hidden bg-background md:grid md:grid-cols-[clamp(220px,32vw,420px)_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)_9.5rem]"
+      style={{ "--editor-sheet": "42%" }}
     >
-      <section className="relative flex min-h-0 items-center justify-center bg-muted/40 md:col-start-1 md:row-start-1">
+      <section className="relative flex min-h-0 flex-1 items-center justify-center bg-muted/40 md:col-start-1 md:row-start-1">
         <div
-          className="flex h-full w-full items-center justify-center px-3 pb-16 pt-12 md:px-8 md:pb-20 md:pt-16"
+          className="flex h-full w-full items-center justify-center md:px-8 md:pb-20 md:pt-16"
           style={{ containerType: "size" }}
         >
           {showLivePreview ? (
             <div
-              className="relative overflow-hidden rounded-[1.6rem] border border-white/10 bg-black shadow-2xl shadow-black/40"
+              className="relative w-full max-h-full overflow-hidden bg-black shadow-2xl shadow-black/40 max-md:rounded-none md:rounded-[1.6rem] md:border md:border-white/10"
               style={{ width: "min(100cqw, calc(100cqh * 9 / 16))", height: "min(100cqh, calc(100cqw * 16 / 9))" }}
             >
               <video
@@ -500,7 +599,7 @@ export default function VideoGenerator() {
             </div>
           ) : (
             <div
-              className="relative overflow-hidden rounded-[1.6rem]"
+              className="relative w-full max-h-full overflow-hidden max-md:rounded-none md:rounded-[1.6rem]"
               style={{ width: "min(100cqw, calc(100cqh * 9 / 16))", height: "min(100cqh, calc(100cqw * 16 / 9))" }}
             >
               <RemotionPlayerPreview
@@ -519,20 +618,34 @@ export default function VideoGenerator() {
             </div>
           )}
         </div>
-        <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-2 p-3">
+        <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 p-3">
           <button
             onClick={() => navigate(id ? `/campaigns/${id}` : "/")}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-background/80 px-3 text-sm text-foreground backdrop-blur"
           >
             <ArrowLeft className="h-4 w-4" /> {id ? "Campaign" : "Home"}
           </button>
+          <div className="flex items-center gap-2 md:hidden">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPlaying((value) => !value)}
+              className="min-h-11 rounded-full bg-background/85 backdrop-blur"
+            >
+              {playing ? <Pause className="mr-1.5 h-4 w-4" /> : <Play className="mr-1.5 h-4 w-4" />}
+              {playing ? "Pause" : "Play"}
+            </Button>
+            <span className="rounded-full bg-background/80 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
+              {project.duration}s · 9:16
+            </span>
+          </div>
           {project.is_demo_preview ? (
-            <span className="rounded-full bg-background/80 px-3 py-1 text-[11px] font-600 uppercase tracking-wide text-foreground backdrop-blur">
+            <span className="hidden rounded-full bg-background/80 px-3 py-1 text-[11px] font-600 uppercase tracking-wide text-foreground backdrop-blur md:inline">
               Demo
             </span>
           ) : null}
         </div>
-        <div className="absolute inset-x-0 bottom-3 flex items-center justify-center gap-2">
+        <div className="absolute inset-x-0 bottom-3 z-20 hidden items-center justify-center gap-2 md:flex">
           <Button
             variant="outline"
             size="sm"
@@ -548,8 +661,10 @@ export default function VideoGenerator() {
         </div>
       </section>
 
+      <div className="shrink-0 border-t border-border/60 bg-card md:contents">
       <MultiTrackTimeline
-        duration={normalizeExportDuration(project.duration)}
+        duration={resolveStudioDuration(project.video_type, project.duration, audioDuration)}
+        allowTrim={project.video_type !== "lyrics"}
         audioUrl={studioAudioUrl}
         cues={globalLyricCues}
         effect={project.particle_effect}
@@ -567,49 +682,60 @@ export default function VideoGenerator() {
           scrubbingRef.current = active;
         }}
       />
-
-      <section
-        className={cn(
-          "flex min-h-0 flex-col overflow-hidden border-t border-border/60 bg-card transition-[height] duration-300 ease-out md:col-start-2 md:row-start-1 md:border-l md:border-t-0"
-        )}
-      >
-        <div className="flex h-12 shrink-0 items-center gap-1 border-b border-border/50 px-1 md:hidden">
+        {controlsOpen ? null : (
           <button
             type="button"
-            onClick={() => setControlsOpen((open) => !open)}
+            onClick={() => setControlsOpen(true)}
+            className="flex h-11 w-full items-center justify-center gap-2 border-t border-border/60 text-sm font-600 text-foreground md:hidden"
+            aria-expanded={false}
+            aria-label="Show editor"
+          >
+            <ChevronUp className="h-5 w-5" />
+            Show editor
+          </button>
+        )}
+      </div>
+
+      <div
+        className={cn(
+          "flex w-full min-h-0 shrink-0 flex-col overflow-hidden bg-slate-100/85 backdrop-blur-md transition-[height] duration-300 ease-out dark:bg-slate-900/85",
+          controlsOpen ? "max-md:h-[var(--editor-sheet)]" : "max-md:pointer-events-none max-md:h-0",
+          "md:contents md:h-auto md:overflow-visible md:bg-transparent md:backdrop-blur-none"
+        )}
+      >
+        <div className="flex h-12 shrink-0 items-center gap-1 border-b border-white/10 px-1 md:hidden">
+          <button
+            type="button"
+            onClick={() => setControlsOpen(false)}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-foreground"
             aria-expanded={controlsOpen}
-            aria-label={controlsOpen ? "Hide editor" : "Show editor"}
+            aria-label="Hide editor"
           >
-            {controlsOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+            <ChevronDown className="h-5 w-5" />
           </button>
-          {controlsOpen
-            ? EDITOR_TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setEditorTab(tab.id)}
-                  className={cn(
-                    "min-h-11 flex-1 rounded-xl px-1 text-xs font-600",
-                    editorTab === tab.id ? "bg-primary/15 text-primary" : "text-muted-foreground"
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))
-            : (
-              <span className="text-xs font-600 text-muted-foreground">Editor hidden</span>
-            )}
+          {EDITOR_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setEditorTab(tab.id)}
+              className={cn(
+                "min-h-11 flex-1 rounded-xl px-1 text-xs font-600",
+                editorTab === tab.id ? "bg-primary/15 text-primary" : "text-muted-foreground"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 md:px-6", !controlsOpen && "hidden md:block")}>
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent md:col-start-2 md:row-start-1 md:border-l md:border-border/60 md:bg-card">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-4 md:px-6">
         <div className="hidden pb-2 md:block">
           <h1 className="font-heading text-xl font-700 tracking-tight">Video Studio</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Drag lyrics and the particle source on the frame. Presets, effects, and playback stay available before sign-in.
           </p>
         </div>
-        <CampaignPresets activeDuration={normalizeExportDuration(project.duration)} onApply={applyPreset} />
 
           {exporting && renderProgress ? (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
@@ -662,13 +788,25 @@ export default function VideoGenerator() {
               </span>
             </div>
           ) : (
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
+            <div className="hidden rounded-xl border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground md:block">
               Live Remotion preview. Click{" "}
               <span className="font-600 text-foreground">Export Video</span> to encode an MP4 on
               this device.
             </div>
           )}
         <div className={tabClass("look")}>
+          {project.video_type === "lyrics" ? null : (
+            <CampaignPresets
+              activeDuration={resolveStudioDuration(project.video_type, project.duration, audioDuration)}
+              allowedSeconds={project.video_type === "promo" ? [15, 30] : undefined}
+              onApply={applyPreset}
+            />
+          )}
+          {project.asset_label ? (
+            <p className="text-xs text-muted-foreground">
+              Artwork read as {project.asset_label}. Keywords: {(project.asset_keywords || []).join(" · ")}
+            </p>
+          ) : null}
           <div>
             <Label className="text-xs text-muted-foreground">Visual style</Label>
             <div className="mt-2 grid gap-2 sm:grid-cols-3">
@@ -776,6 +914,7 @@ export default function VideoGenerator() {
             cues={project.lyric_cues}
             duration={project.duration}
             audioUrl={previewAudioUrl}
+            syncFocus={project.video_type === "lyrics"}
             onChange={({ lyric_cues, lyrics }) => {
               setProject((p) => ({ ...p, lyric_cues, lyrics }));
               touchStyle();
@@ -786,11 +925,13 @@ export default function VideoGenerator() {
         <div className={tabClass("effects")}>
           <EditorSidebar
             look={normalizeEditorLook(project.editor_look)}
-            duration={normalizeExportDuration(project.duration)}
+            duration={resolveStudioDuration(project.video_type, project.duration, audioDuration)}
+            durationLocked={project.video_type === "lyrics"}
+            durationChoices={project.video_type === "promo" ? [15, 30] : [15, 30, 60]}
             particleEffect={project.particle_effect}
             onLook={setLook}
             onDuration={(seconds) => {
-              set("duration", normalizeExportDuration(seconds));
+              set("duration", resolveStudioDuration(project.video_type, seconds, audioDuration));
               touchStyle();
             }}
             onEffect={(effectId) => {
@@ -801,7 +942,7 @@ export default function VideoGenerator() {
           />
         </div>
 
-          <div className="mt-6 flex flex-wrap gap-2 border-t border-border/50 pt-4">
+          <div className="flex flex-wrap gap-2 border-t border-border/50 pt-4">
             <Button onClick={() => requireAuth(save)} disabled={saving || exporting} className="rounded-full">
               <Save className="mr-1.5 h-4 w-4" />
               {saving ? "Saving…" : "Save Project"}
@@ -855,6 +996,7 @@ export default function VideoGenerator() {
           )}
         </div>
       </section>
+      </div>
     </div>
   );
 }

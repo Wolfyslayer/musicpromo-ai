@@ -7,9 +7,10 @@ import {
   PROMO_WIDTH,
   buildLyricCues,
   normalizeEditorLook,
-  normalizeExportDuration,
   normalizeParticleEffect,
+  normalizeVideoType,
   normalizeVisualStyle,
+  resolveStudioDuration,
 } from "./styles";
 import { waitForPromoFonts } from "./fonts";
 import { cn } from "@/lib/utils";
@@ -32,7 +33,8 @@ export default function RemotionPlayerPreview({
     playerRef.current = node;
     if (externalRef) externalRef.current = node;
   };
-  const durationSec = normalizeExportDuration(project?.duration);
+  const videoType = normalizeVideoType(project?.video_type || project?.animation_settings?.videoType);
+  const durationSec = resolveStudioDuration(videoType, project?.duration, project?.audio_duration);
   const durationInFrames = Math.round(durationSec * PROMO_FPS);
 
   const inputProps = useMemo(
@@ -47,6 +49,8 @@ export default function RemotionPlayerPreview({
       look: normalizeEditorLook(project?.editor_look),
       audioStartTimeOffset: Math.max(0, Number(project?.audioStartTimeOffset) || 0),
       suspendEffects: Boolean(project?.suspendEffects),
+      videoType,
+      outroCta: project?.outro_cta || project?.animation_settings?.outroCta || "",
       lyricCues: Array.isArray(project?.windowLyricCues)
         ? project.windowLyricCues
         : buildLyricCues(project?.lyrics, durationSec, project?.lyric_cues),
@@ -63,6 +67,9 @@ export default function RemotionPlayerPreview({
       project?.editor_look,
       project?.audioStartTimeOffset,
       project?.suspendEffects,
+      videoType,
+      project?.outro_cta,
+      project?.animation_settings,
       project?.windowLyricCues,
       project?.lyrics,
       project?.lyric_cues,
