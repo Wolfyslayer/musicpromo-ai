@@ -111,9 +111,64 @@
       "type": "boolean",
       "default": false,
       "title": "Is Demo Data"
+    },
+    "user_id": {
+      "type": "string",
+      "title": "Owner User ID"
+    },
+    "visual_style": {
+      "type": "string",
+      "enum": ["pop", "hiphop", "rock"],
+      "default": "pop",
+      "title": "Visual Style"
+    },
+    "particle_effect": {
+      "type": "string",
+      "enum": ["none", "stardust", "smoke", "sparks"],
+      "default": "none",
+      "title": "Particle Effect"
+    },
+    "editor_look": {
+      "type": "object",
+      "title": "Editor Look",
+      "description": "Live typography, lyric position, and particle source settings."
+    },
+    "lyric_cues": {
+      "type": "array",
+      "title": "Lyric Cues",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string" },
+          "start": { "type": "number" },
+          "end": { "type": "number" },
+          "timeSeconds": { "type": "number" }
+        }
+      }
     }
   },
   "required": [
     "song_id"
-  ]
+  ],
+  "rls": {
+    "create": true,
+    "read": {
+      "$or": [
+        { "created_by": "{{user.email}}" },
+        { "data.user_id": "{{user.id}}" }
+      ]
+    },
+    "update": {
+      "$or": [
+        { "created_by": "{{user.email}}" },
+        { "data.user_id": "{{user.id}}" }
+      ]
+    },
+    "delete": {
+      "$or": [
+        { "created_by": "{{user.email}}" },
+        { "data.user_id": "{{user.id}}" }
+      ]
+    }
+  }
 }

@@ -38,3 +38,6 @@ dist-ssr
 .env
 .vite
 base44/.app.jsonc
+
+# ONNX Runtime wasm copied from node_modules on dev/build
+public/ort/

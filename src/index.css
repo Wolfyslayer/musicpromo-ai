@@ -4,25 +4,26 @@
 
 @layer base {
   :root {
-    /* Dark premium music-industry palette (default) */
-    --background: 250 16% 5%;
-    --foreground: 0 0% 98%;
-    --card: 250 12% 8%;
-    --card-foreground: 0 0% 98%;
-    --popover: 250 14% 9%;
-    --popover-foreground: 0 0% 98%;
+    /* Light: crisp neutrals. Brand purple and pink stay on buttons and highlights. */
+    color-scheme: light;
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
     --primary: 265 90% 68%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 250 10% 13%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 250 8% 13%;
-    --muted-foreground: 240 6% 62%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
     --accent: 326 85% 62%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 56%;
+    --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 250 10% 16%;
-    --input: 250 10% 16%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
     --ring: 265 90% 68%;
     --chart-1: 265 90% 68%;
     --chart-2: 326 85% 62%;
@@ -34,45 +35,52 @@
     --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
     --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    --sidebar-background: 250 14% 7%;
-    --sidebar-foreground: 0 0% 90%;
+    --sidebar-background: 210 40% 98%;
+    --sidebar-foreground: 222 47% 11%;
     --sidebar-primary: 265 90% 68%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 250 10% 13%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 250 10% 16%;
+    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
     --sidebar-ring: 265 90% 68%;
   }
 
-  /* Optional light theme (Settings can toggle .light on <html>) */
-  .light {
-    --background: 0 0% 100%;
-    --foreground: 250 16% 8%;
-    --card: 0 0% 100%;
-    --card-foreground: 250 16% 8%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 250 16% 8%;
-    --primary: 265 85% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 250 10% 96%;
-    --secondary-foreground: 250 16% 8%;
-    --muted: 250 10% 96%;
-    --muted-foreground: 250 6% 42%;
-    --accent: 326 80% 55%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 50%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 250 10% 90%;
-    --input: 250 10% 90%;
-    --ring: 265 85% 60%;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 250 16% 20%;
-    --sidebar-primary: 265 85% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 250 10% 94%;
-    --sidebar-accent-foreground: 250 16% 8%;
-    --sidebar-border: 250 10% 90%;
-    --sidebar-ring: 265 85% 60%;
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --background: 250 16% 5%;
+      --foreground: 0 0% 98%;
+      --card: 250 12% 8%;
+      --card-foreground: 0 0% 98%;
+      --popover: 250 14% 9%;
+      --popover-foreground: 0 0% 98%;
+      --primary: 265 90% 68%;
+      --primary-foreground: 0 0% 100%;
+      --secondary: 250 10% 13%;
+      --secondary-foreground: 0 0% 98%;
+      --muted: 250 8% 13%;
+      --muted-foreground: 240 6% 62%;
+      --accent: 326 85% 62%;
+      --accent-foreground: 0 0% 100%;
+      --destructive: 0 72% 56%;
+      --destructive-foreground: 0 0% 98%;
+      --border: 250 10% 16%;
+      --input: 250 10% 16%;
+      --ring: 265 90% 68%;
+      --chart-1: 265 90% 68%;
+      --chart-2: 326 85% 62%;
+      --chart-3: 190 90% 55%;
+      --chart-4: 43 90% 60%;
+      --chart-5: 0 80% 62%;
+      --sidebar-background: 250 14% 7%;
+      --sidebar-foreground: 0 0% 90%;
+      --sidebar-primary: 265 90% 68%;
+      --sidebar-primary-foreground: 0 0% 100%;
+      --sidebar-accent: 250 10% 13%;
+      --sidebar-accent-foreground: 0 0% 98%;
+      --sidebar-border: 250 10% 16%;
+      --sidebar-ring: 265 90% 68%;
+    }
   }
 }
 
@@ -103,7 +111,49 @@
   }
 
   .card-gradient {
-    background-image: linear-gradient(160deg, hsl(var(--card)) 0%, hsl(250 14% 6%) 100%);
+    background-image: linear-gradient(160deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%);
+  }
+
+  /* Phone tables become stacked cards. data-label supplies the field name. */
+  @media (max-width: 767px) {
+    .responsive-cards table,
+    .responsive-cards thead,
+    .responsive-cards tbody,
+    .responsive-cards tr,
+    .responsive-cards td {
+      display: block;
+      width: 100%;
+    }
+    .responsive-cards thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+    .responsive-cards tr {
+      margin-bottom: 0.75rem;
+      overflow: hidden;
+      border: 1px solid hsl(var(--border));
+      border-radius: 0.9rem;
+      background: hsl(var(--card));
+    }
+    .responsive-cards td {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      text-align: right;
+    }
+    .responsive-cards td::before {
+      content: attr(data-label);
+      flex: 1;
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: hsl(var(--muted-foreground));
+    }
   }
 
   .text-gradient {
@@ -141,6 +191,16 @@
   .animate-float {
     animation: float 6s ease-in-out infinite;
   }
+  .auth-success-pulse {
+    animation: authPulse 0.85s ease-out;
+  }
+
+  @keyframes authPulse {
+    0% { box-shadow: inset 0 0 0 0 hsl(var(--primary) / 0); }
+    40% { box-shadow: inset 0 0 0 12px hsl(var(--primary) / 0.38); }
+    100% { box-shadow: inset 0 0 0 20px hsl(var(--primary) / 0); }
+  }
+
   .animate-shimmer {
     background: linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(var(--muted) / 0.4) 50%, hsl(var(--muted)) 100%);
     background-size: 200% 100%;

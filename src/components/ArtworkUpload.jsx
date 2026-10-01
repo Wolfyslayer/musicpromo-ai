@@ -12,11 +12,26 @@ const ACCEPT = ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp";
  * Artwork uploader. Artwork is promotional album art that is displayed
  * throughout the app and used in exported promo content, so it is stored
  * PUBLICLY (permanent URL) via UploadPublicFile.
+ *
+ * onChange(url) or onChange({ url, file }) when the parent wants the local File
+ * for client-side Remotion rendering.
  */
-export default function ArtworkUpload({ value, onChange }) {
+export default function ArtworkUpload({ value, onChange, guard }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
+
+  const openPicker = () => {
+    const open = () => inputRef.current?.click();
+    if (typeof guard === "function") guard(open);
+    else open();
+  };
+
+  const emit = (url, file) => {
+    if (typeof onChange !== "function") return;
+    // CreateCampaign expects { url, file }; ReleaseEditor and others still pass a string setter.
+    onChange({ url: url || "", file: file || null });
+  };
 
   const handleFile = async (file) => {
     if (!file) return;
@@ -27,7 +42,7 @@ export default function ArtworkUpload({ value, onChange }) {
     setBusy(true);
     try {
       const { file_url } = await db.integrations.Core.UploadPublicFile({ file });
-      onChange(file_url);
+      emit(file_url, file);
     } catch (e) {
       toast({ variant: "destructive", title: "Upload failed", description: e.message });
     } finally {
@@ -51,16 +66,16 @@ export default function ArtworkUpload({ value, onChange }) {
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/80 to-transparent p-3">
             <button
               type="button"
-              onClick={() => inputRef.current?.click()}
+              onClick={openPicker}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-500 text-white backdrop-blur hover:bg-white/25"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white/15 px-4 text-xs font-500 text-white backdrop-blur hover:bg-white/25"
             >
               <RefreshCw className="h-3.5 w-3.5" /> Replace
             </button>
             <button
               type="button"
-              onClick={() => onChange("")}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-500 text-white backdrop-blur hover:bg-white/25"
+              onClick={() => emit("", null)}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white/15 px-4 text-xs font-500 text-white backdrop-blur hover:bg-white/25"
             >
               <X className="h-3.5 w-3.5" /> Remove
             </button>
@@ -74,7 +89,7 @@ export default function ArtworkUpload({ value, onChange }) {
       ) : (
         <button
           type="button"
-          onClick={() => inputRef.current?.click()}
+          onClick={openPicker}
           disabled={busy}
           className="mx-auto flex aspect-square w-full max-w-xs flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-border/70 bg-muted/30 text-muted-foreground transition hover:border-primary/50 hover:text-primary"
         >

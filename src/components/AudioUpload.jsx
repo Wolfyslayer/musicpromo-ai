@@ -13,15 +13,22 @@ const ACCEPT = ".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/x-wav,audio/mp4";
  * PRIVATELY via UploadPrivateFile (no public URL). A short-lived signed URL
  * is generated for in-app playback only.
  *
- * onChange({ file_uri, signed_url, duration, name })
+ * onChange({ file_uri, signed_url, duration, name, file })
+ * `file` is the local Blob kept for client-side Remotion rendering.
  */
-export default function AudioUpload({ value, signedUrl, onChange }) {
+export default function AudioUpload({ value, signedUrl, onChange, guard }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
   const [duration, setDuration] = useState(null);
   const [playUrl, setPlayUrl] = useState(signedUrl || "");
   const { toast } = useToast();
+
+  const openPicker = () => {
+    const open = () => inputRef.current?.click();
+    if (typeof guard === "function") guard(open);
+    else open();
+  };
 
   const handleFile = async (file) => {
     if (!file) return;
@@ -41,13 +48,13 @@ export default function AudioUpload({ value, signedUrl, onChange }) {
       audio.onloadedmetadata = () => {
         const d = isFinite(audio.duration) ? audio.duration : null;
         setDuration(d);
-        onChange({ file_uri, signed_url, duration: d, name: file.name });
+        onChange({ file_uri, signed_url, duration: d, name: file.name, file });
       };
       audio.onerror = () => {
         setDuration(null);
-        onChange({ file_uri, signed_url, duration: null, name: file.name });
+        onChange({ file_uri, signed_url, duration: null, name: file.name, file });
       };
-      onChange({ file_uri, signed_url, duration: null, name: file.name });
+      onChange({ file_uri, signed_url, duration: null, name: file.name, file });
     } catch (e) {
       toast({ variant: "destructive", title: "Upload failed", description: e.message });
     } finally {
@@ -80,17 +87,17 @@ export default function AudioUpload({ value, signedUrl, onChange }) {
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => inputRef.current?.click()}
+                onClick={openPicker}
                 disabled={busy}
-                className="grid h-9 w-9 place-items-center rounded-lg bg-muted text-muted-foreground hover:text-foreground"
+                className="grid h-11 w-11 place-items-center rounded-lg bg-muted text-muted-foreground hover:text-foreground"
                 aria-label="Replace audio"
               >
                 <RefreshCw className="h-4 w-4" />
               </button>
               <button
                 type="button"
-                onClick={() => { onChange({ file_uri: "", signed_url: "", duration: null, name: "" }); setPlayUrl(""); setName(""); setDuration(null); }}
-                className="grid h-9 w-9 place-items-center rounded-lg bg-muted text-muted-foreground hover:text-foreground"
+                onClick={() => { onChange({ file_uri: "", signed_url: "", duration: null, name: "", file: null }); setPlayUrl(""); setName(""); setDuration(null); }}
+                className="grid h-11 w-11 place-items-center rounded-lg bg-muted text-muted-foreground hover:text-foreground"
                 aria-label="Remove audio"
               >
                 <X className="h-4 w-4" />
@@ -104,7 +111,7 @@ export default function AudioUpload({ value, signedUrl, onChange }) {
       ) : (
         <button
           type="button"
-          onClick={() => inputRef.current?.click()}
+          onClick={openPicker}
           disabled={busy}
           className="flex w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border/70 bg-muted/30 px-6 py-10 text-muted-foreground transition hover:border-primary/50 hover:text-primary"
         >

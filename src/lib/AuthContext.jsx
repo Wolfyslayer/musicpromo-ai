@@ -1,10 +1,22 @@
 import { db } from '@/api/base44Client';
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
+import { toast } from '@/components/ui/use-toast';
 
 import { appParams } from '@/lib/app-params';
 
 const AuthContext = createContext();
+
+export const WORKSPACE_REFRESH_EVENT = "musicpromo:workspace-refresh";
+
+export function useWorkspaceRefresh(reload) {
+  useEffect(() => {
+    if (typeof reload !== "function") return undefined;
+    const onRefresh = () => reload();
+    window.addEventListener(WORKSPACE_REFRESH_EVENT, onRefresh);
+    return () => window.removeEventListener(WORKSPACE_REFRESH_EVENT, onRefresh);
+  }, [reload]);
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -14,6 +26,12 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [authPulse, setAuthPulse] = useState(false);
+  const pendingActionRef = useRef(null);
+  const closingForAuthRef = useRef(false);
+  const isAuthenticatedRef = useRef(false);
+  isAuthenticatedRef.current = isAuthenticated;
 
   useEffect(() => {
     checkAppState();
@@ -67,6 +85,8 @@ export const AuthProvider = ({ children }) => {
         }
         setIsLoadingPublicSettings(false);
         setIsLoadingAuth(false);
+        setIsAuthenticated(false);
+        setAuthChecked(true);
       }
     } catch (error) {
       console.error('Unexpected error:', error);
@@ -76,6 +96,8 @@ export const AuthProvider = ({ children }) => {
       });
       setIsLoadingPublicSettings(false);
       setIsLoadingAuth(false);
+      setIsAuthenticated(false);
+      setAuthChecked(true);
     }
   };
 
@@ -105,6 +127,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = (shouldRedirect = true) => {
+    pendingActionRef.current = null;
+    setIsLoginModalOpen(false);
     setUser(null);
     setIsAuthenticated(false);
     
@@ -118,9 +142,51 @@ export const AuthProvider = ({ children }) => {
   };
 
   const navigateToLogin = () => {
-    // Use the SDK's redirectToLogin method
-    db.auth.redirectToLogin(window.location.href);
+    setIsLoginModalOpen(true);
   };
+
+  const requireAuth = useCallback((actionCallback) => {
+    if (isAuthenticatedRef.current) {
+      if (typeof actionCallback === "function") actionCallback();
+      return true;
+    }
+    pendingActionRef.current = typeof actionCallback === "function" ? actionCallback : null;
+    setIsLoginModalOpen(true);
+    return false;
+  }, []);
+
+  const onLoginModalOpenChange = useCallback((open) => {
+    if (open) {
+      setIsLoginModalOpen(true);
+      return;
+    }
+    setIsLoginModalOpen(false);
+    if (closingForAuthRef.current) {
+      closingForAuthRef.current = false;
+      return;
+    }
+    pendingActionRef.current = null;
+  }, []);
+
+  const finishLogin = useCallback(async () => {
+    const currentUser = await db.auth.me();
+    const action = pendingActionRef.current;
+    pendingActionRef.current = null;
+    closingForAuthRef.current = true;
+    setUser(currentUser);
+    setIsAuthenticated(true);
+    setAuthChecked(true);
+    setAuthError(null);
+    setIsLoadingAuth(false);
+    setIsLoginModalOpen(false);
+    setAuthPulse(true);
+    window.setTimeout(() => setAuthPulse(false), 900);
+    toast({ title: "You're signed in" });
+    window.setTimeout(() => {
+      if (typeof action === "function") action();
+      else window.dispatchEvent(new CustomEvent(WORKSPACE_REFRESH_EVENT));
+    }, 480);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ 
@@ -134,7 +200,12 @@ export const AuthProvider = ({ children }) => {
       logout,
       navigateToLogin,
       checkUserAuth,
-      checkAppState
+      checkAppState,
+      isLoginModalOpen,
+      authPulse,
+      requireAuth,
+      onLoginModalOpenChange,
+      finishLogin,
     }}>
       {children}
     </AuthContext.Provider>

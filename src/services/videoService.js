@@ -1,57 +1,210 @@
 /**
- * Video service — development / mock implementation.
- *
- * ====================================================================
- *  MOCK / DEVELOPMENT IMPLEMENTATION
- *  This does NOT render a real MP4. It produces a previewable project
- *  description and a placeholder export marker. Real server-side
- *  rendering (FFmpeg on Replit) should be implemented behind the same
- *  `renderVideo` / `exportVideo` interface — only this file changes.
- * ====================================================================
- *
- * Portable interface (implement for production later):
- *   renderVideo(project)  -> { previewUrl, duration, status }
- *   exportVideo(project)  -> { downloadUrl, status }
- *
- * The UI never assumes a real file exists; it always shows a clear
- * "Preview (mock)" badge until a real renderer is connected.
+ * Video service — client-side Remotion (WebCodecs) render/export.
  */
 
 import { getTemplate, VIDEO_RESOLUTION } from "./videoTemplates";
-
-const MOCK_RENDER_DELAY = 900; // ms, simulates render time
+import { db } from "@/api/base44Client";
+import { triggerCampaignAutoVideo } from "@/services/socialService";
+import { buildLyricCues, normalizeEditorLook, normalizeExportDuration, normalizeParticleEffect, normalizeVisualStyle } from "@/remotion/styles";
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export const videoService = {
-  isMock: true,
+/** Resolve a private file URI or HTTPS URL into a fetchable audio URL. */
+export async function resolvePlayableAudioUrl(audioRef) {
+  const raw = String(audioRef || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw) || raw.startsWith("/")) return raw;
+  try {
+    const { signed_url } = await db.integrations.Core.CreateFileSignedUrl({
+      file_uri: raw,
+      expires_in: 3600,
+    });
+    return signed_url || "";
+  } catch (err) {
+    console.warn("[videoService] signed audio URL", err?.message || err);
+    return "";
+  }
+}
 
-  /** Build a preview descriptor for the editor. No real file is produced. */
+/** Resolve artwork to a fetchable HTTPS URL (upload File when needed). */
+export async function resolvePublicArtworkUrl(artworkUrl, artworkFile) {
+  if (artworkFile instanceof Blob) {
+    const uploaded = await db.integrations.Core.UploadPublicFile({ file: artworkFile });
+    return uploaded?.file_url || uploaded?.url || "";
+  }
+  const raw = String(artworkUrl || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  try {
+    const { signed_url } = await db.integrations.Core.CreateFileSignedUrl({
+      file_uri: raw,
+      expires_in: 3600,
+    });
+    return signed_url || "";
+  } catch {
+    return raw;
+  }
+}
+
+export const videoService = {
+  isMock: false,
+
   async renderVideo(project) {
-    await wait(MOCK_RENDER_DELAY);
+    await wait(200);
     const template = getTemplate(project.template);
+    const live =
+      project?.rendering_status === "complete" &&
+      project?.render_output_url &&
+      /^https:\/\//i.test(project.render_output_url);
     return {
-      status: "ready",
-      isMock: true,
+      status: live ? "ready" : project?.rendering_status || "ready",
+      isMock: !live,
       resolution: VIDEO_RESOLUTION,
       duration: project.duration || template.defaultDuration,
       template,
-      // The editor renders a live CSS preview from the project; this is just metadata.
-      previewUrl: null,
+      previewUrl: live ? project.render_output_url : null,
     };
   },
 
-  /** Simulate an export. Returns a marker, never a real download URL. */
-  async exportVideo(project) {
-    await wait(MOCK_RENDER_DELAY * 2);
-    return {
-      status: "exported",
-      isMock: true,
-      downloadUrl: null,
-      message:
-        "Export is a mock in development. Connect an FFmpeg-based renderer (e.g. on Replit) to produce a real MP4.",
-      project,
-    };
+  /**
+   * Encode promo MP4 in the browser with Remotion, upload, update VideoProject.
+   */
+  async exportVideo(project, options = {}) {
+    const onProgress = options.onProgress;
+    const artworkFile = options.artworkFile;
+    const audioFile = options.audioFile;
+
+    if (!artworkFile && !project?.artwork_url) {
+      return {
+        status: "failed",
+        isMock: false,
+        downloadUrl: null,
+        message: "Artwork is required to render a promo video.",
+        project,
+      };
+    }
+
+    try {
+      onProgress?.({ phase: "assets", progress: 3, message: "Preparing artwork & audio…" });
+
+      let audioUrl = options.audioUrl || "";
+      if (audioFile instanceof Blob) {
+        const uploadedAudio = await db.integrations.Core.UploadPublicFile({ file: audioFile });
+        audioUrl = uploadedAudio?.file_url || uploadedAudio?.url || "";
+      } else if (!audioUrl) {
+        audioUrl = await resolvePlayableAudioUrl(project?.audio_url);
+      }
+      if (!audioUrl) {
+        return {
+          status: "failed",
+          isMock: false,
+          downloadUrl: null,
+          message: "Audio is required to render a promo video. Re-upload the song on the campaign.",
+          project,
+        };
+      }
+
+      const artworkUrl = await resolvePublicArtworkUrl(project?.artwork_url, artworkFile);
+      if (!artworkUrl) {
+        return {
+          status: "failed",
+          isMock: false,
+          downloadUrl: null,
+          message: "Artwork is required to render a promo video.",
+          project,
+        };
+      }
+
+      const visualStyle = normalizeVisualStyle(project?.visual_style);
+      const particleEffect = normalizeParticleEffect(project?.particle_effect);
+      const duration = normalizeExportDuration(project?.duration);
+      const editorLook = normalizeEditorLook(project?.editor_look);
+      const lyricCues = buildLyricCues(
+        project?.lyrics,
+        duration,
+        project?.lyric_cues
+      );
+
+      const { renderPromoRemotion } = await import("@/remotion/renderPromoRemotion");
+      const rendered = await renderPromoRemotion({
+        artworkUrl,
+        audioUrl,
+        duration,
+        look: editorLook,
+        title: project?.title || "",
+        artistName: project?.artist_name || "",
+        text: project?.text || "",
+        lyrics: project?.lyrics || "",
+        visualStyle,
+        particleEffect,
+        lyricCues,
+        audioStartTimeOffset: project?.audioStartTimeOffset || 0,
+        onProgress,
+      });
+
+      onProgress?.({ phase: "uploading", progress: 96, message: "Uploading MP4…" });
+      const uploaded = await db.integrations.Core.UploadPublicFile({ file: rendered.file });
+      const videoUrl = uploaded?.file_url || uploaded?.url || "";
+      if (!videoUrl) {
+        throw new Error("Upload succeeded but no public video URL was returned.");
+      }
+
+      const projectPatch = {
+        rendering_status: "complete",
+        render_output_url: videoUrl,
+        status: "ready",
+        output_format: "mp4",
+        aspect_ratio: "9:16",
+        resolution: `${rendered.width}x${rendered.height}`,
+        duration: rendered.duration,
+        editor_look: editorLook,
+        visual_style: rendered.visualStyle,
+        particle_effect: rendered.particleEffect,
+        lyric_cues: rendered.lyricCues,
+        template: project?.template || "LYRICS",
+      };
+
+      let savedProject = { ...project, ...projectPatch };
+      if (project?.id) {
+        await db.entities.VideoProject.update(project.id, projectPatch);
+        savedProject = { ...savedProject, id: project.id };
+      }
+
+      if (project?.campaign_id) {
+        onProgress?.({ phase: "linking", progress: 98, message: "Linking to campaign…" });
+        const res = await triggerCampaignAutoVideo({
+          campaignId: project.campaign_id,
+          videoUrl,
+        }).catch((err) => ({ ok: false, error: err?.message || String(err) }));
+
+        return {
+          status: "ready",
+          isMock: false,
+          downloadUrl: videoUrl,
+          message: res?.ok
+            ? "Promo video rendered on your device and saved to the campaign."
+            : "Promo video rendered. Campaign link skipped — you can still download the MP4.",
+          project: savedProject,
+          result: res,
+        };
+      }
+
+      return {
+        status: "ready",
+        isMock: false,
+        downloadUrl: videoUrl,
+        message: "Promo video rendered on your device.",
+        project: savedProject,
+      };
+    } catch (err) {
+      return {
+        status: "failed",
+        isMock: false,
+        downloadUrl: null,
+        message: err?.message || "Client video render failed.",
+        project,
+      };
+    }
   },
 };
 
