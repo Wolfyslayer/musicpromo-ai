@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { PARTICLE_EFFECTS, clampAudioOffset, formatClock, normalizeParticleEffect } from "@/remotion/styles";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { PARTICLE_EFFECTS, clampAudioOffset, cuesInAudioWindow, formatClock, normalizeParticleEffect } from "@/remotion/styles";
 import { loadAudioProfile } from "@/services/waveform";
 
 function effectLabel(id) {
@@ -131,8 +131,10 @@ export default function MultiTrackTimeline({
     if (!drag || drag.pointerId !== event.pointerId) return;
     const width = dockRef.current?.getBoundingClientRect().width || 1;
     const delta = ((event.clientX - drag.origin) / width) * duration;
-    const nextStart = Math.max(0, Math.min(duration - drag.length, drag.start + delta));
-    drag.node.style.left = `${(nextStart / duration) * 100}%`;
+    const localStart = drag.start - shownOffset;
+    const nextLocal = Math.max(0, Math.min(duration - drag.length, localStart + delta));
+    drag.nextGlobal = shownOffset + nextLocal;
+    drag.node.style.left = `${(nextLocal / duration) * 100}%`;
   };
 
   const onClipUp = (event) => {
@@ -141,7 +143,9 @@ export default function MultiTrackTimeline({
     clipDrag.current = null;
     const width = dockRef.current?.getBoundingClientRect().width || 1;
     const delta = ((event.clientX - drag.origin) / width) * duration;
-    onCueMove?.(drag.index, Math.max(0, Math.min(duration - drag.length, drag.start + delta)));
+    const localStart = drag.start - shownOffset;
+    const nextLocal = Math.max(0, Math.min(duration - drag.length, localStart + delta));
+    onCueMove?.(drag.index, drag.nextGlobal ?? shownOffset + nextLocal);
     onDragging?.(false);
   };
 
@@ -187,6 +191,19 @@ export default function MultiTrackTimeline({
 
   const windowWidth = audioDuration > duration ? (duration / audioDuration) * 100 : 100;
   const windowLeft = audioDuration > 0 ? (shownOffset / audioDuration) * 100 : 0;
+  const visibleCues = useMemo(
+    () => cuesInAudioWindow(cues, shownOffset, duration).map((cue) => {
+      const start = Number(cue.timeSeconds ?? cue.start) || 0;
+      const end = Math.max(start, Number(cue.end) || start);
+      return {
+        cue,
+        index: cues.indexOf(cue),
+        localStart: start - shownOffset,
+        localEnd: end - shownOffset,
+      };
+    }),
+    [cues, shownOffset, duration]
+  );
 
   const activeEffect = normalizeParticleEffect(effect);
 
@@ -241,11 +258,9 @@ export default function MultiTrackTimeline({
           </span>
         </Lane>
         <Lane>
-          {cues.map((cue, index) => {
-            const start = Number(cue.timeSeconds ?? cue.start) || 0;
-            const end = Math.max(start + 0.2, Number(cue.end) || start + 0.4);
-            const left = (start / duration) * 100;
-            const width = Math.max(4, ((Math.min(duration, end) - start) / duration) * 100);
+          {visibleCues.map(({ cue, index, localStart, localEnd }) => {
+            const left = (localStart / duration) * 100;
+            const width = Math.max(4, ((localEnd - localStart) / duration) * 100);
             return (
               <button
                 key={`${cue.text}-${index}`}

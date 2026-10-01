@@ -2,7 +2,7 @@ import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } fr
 import { Audio } from "@remotion/media";
 import { PromoAudioMotion } from "./audioReactive";
 import ParticleOverlay from "./ParticleOverlay";
-import { activeLyricCueIndex, normalizeEditorLook, normalizeParticleEffect, normalizeVisualStyle } from "./styles";
+import { activeLyricCueIndex, cuesInAudioWindow, normalizeEditorLook, normalizeParticleEffect, normalizeVisualStyle } from "./styles";
 import { fontForChoice, fontForStyle } from "./fonts";
 
 function LyricLine({
@@ -86,15 +86,20 @@ function PromoCompositionBody({
   const lyricFont = fontForChoice(look.fontId);
   const { bassScale, transientScale, bass, mid, high, energy, transient } = motion;
   const timeSec = frame / fps;
-  const cues = Array.isArray(lyricCues) ? lyricCues : [];
-  const cueIndex = activeLyricCueIndex(cues, timeSec);
+  const audioOffset = Math.max(0, Number(audioStartTimeOffset) || 0);
+  const videoDuration = durationInFrames / Math.max(1, fps);
+  const targetSyncTime = timeSec + audioOffset;
+  const cues = cuesInAudioWindow(Array.isArray(lyricCues) ? lyricCues : [], audioOffset, videoDuration);
+  const cueIndex = activeLyricCueIndex(cues, targetSyncTime);
   const activeCue = cueIndex >= 0 ? cues[cueIndex] : null;
   const firstLyricStart = cues.reduce((min, cue) => {
     const start = Number(cue?.timeSeconds ?? cue?.start);
-    return Number.isFinite(start) ? Math.min(min, start) : min;
+    return Number.isFinite(start) ? Math.min(min, start - audioOffset) : min;
   }, Infinity);
   const appearFrame =
-    activeCue != null ? Math.round(Number(activeCue.timeSeconds) * fps) : 0;
+    activeCue != null
+      ? Math.max(0, Math.round((Number(activeCue.timeSeconds ?? activeCue.start) - audioOffset) * fps))
+      : 0;
 
   const titleIn = spring({
     frame,
@@ -120,7 +125,6 @@ function PromoCompositionBody({
 
   const hook = String(text || "").trim();
   const fontFamily = fontForStyle(visualStyle);
-  const audioOffset = Math.max(0, Number(audioStartTimeOffset) || 0);
   const kick = particleEffect === "shake" && !suspendEffects
     ? Math.min(1, bass * 0.35 + transient * 1.6)
     : 0;

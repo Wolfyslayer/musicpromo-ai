@@ -30,6 +30,7 @@ import {
   VISUAL_STYLES,
   PROMO_FPS,
   buildLyricCues,
+  cuesInAudioWindow,
   normalizeEditorLook,
   clampAudioOffset,
   normalizeExportDuration,
@@ -255,8 +256,10 @@ export default function VideoGenerator() {
       if (!cue) return current;
       const cueStart = Number(cue.timeSeconds ?? cue.start) || 0;
       const length = Math.max(0.2, (Number(cue.end) || cueStart) - cueStart);
-      const nextStart = Math.round(Math.max(0, Math.min(duration - length, start)) * 1000) / 1000;
-      const nextEnd = Math.round(Math.min(duration, nextStart + length) * 1000) / 1000;
+      const offset = Math.max(0, Number(current.audioStartTimeOffset) || 0);
+      const windowEnd = offset + duration;
+      const nextStart = Math.round(Math.max(offset, Math.min(windowEnd - length, start)) * 1000) / 1000;
+      const nextEnd = Math.round(Math.min(windowEnd, nextStart + length) * 1000) / 1000;
       return {
         ...current,
         lyric_cues: cues.map((item, itemIndex) =>
@@ -445,6 +448,19 @@ export default function VideoGenerator() {
     }
   };
 
+  const globalLyricCues = useMemo(
+    () => buildLyricCues(project?.lyrics, normalizeExportDuration(project?.duration), project?.lyric_cues),
+    [project?.lyrics, project?.duration, project?.lyric_cues]
+  );
+  const visibleLyricCues = useMemo(
+    () => cuesInAudioWindow(
+      globalLyricCues,
+      project?.audioStartTimeOffset || 0,
+      normalizeExportDuration(project?.duration)
+    ),
+    [globalLyricCues, project?.audioStartTimeOffset, project?.duration]
+  );
+
   if (!project) return <div className="h-full animate-shimmer" />;
 
   const tabClass = (id) => (editorTab === id ? "space-y-5" : "hidden space-y-5 md:block md:border-t md:border-border/50 md:pt-6");
@@ -488,7 +504,12 @@ export default function VideoGenerator() {
               style={{ width: "min(100cqw, calc(100cqh * 9 / 16))", height: "min(100cqh, calc(100cqw * 16 / 9))" }}
             >
               <RemotionPlayerPreview
-                project={{ ...project, preview_audio_url: previewAudioUrl, suspendEffects: isDragging }}
+                project={{
+                  ...project,
+                  preview_audio_url: previewAudioUrl,
+                  suspendEffects: isDragging,
+                  windowLyricCues: visibleLyricCues,
+                }}
                 playing={playing}
                 playerRef={playerRef}
                 onFrame={onFrame}
@@ -530,7 +551,7 @@ export default function VideoGenerator() {
       <MultiTrackTimeline
         duration={normalizeExportDuration(project.duration)}
         audioUrl={studioAudioUrl}
-        cues={buildLyricCues(project.lyrics, project.duration, project.lyric_cues)}
+        cues={globalLyricCues}
         effect={project.particle_effect}
         playheadRef={playheadRef}
         onSeek={seekToTime}

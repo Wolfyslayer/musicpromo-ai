@@ -47,11 +47,9 @@ export default function RemotionPlayerPreview({
       look: normalizeEditorLook(project?.editor_look),
       audioStartTimeOffset: Math.max(0, Number(project?.audioStartTimeOffset) || 0),
       suspendEffects: Boolean(project?.suspendEffects),
-      lyricCues: buildLyricCues(
-        project?.lyrics,
-        durationSec,
-        project?.lyric_cues
-      ),
+      lyricCues: Array.isArray(project?.windowLyricCues)
+        ? project.windowLyricCues
+        : buildLyricCues(project?.lyrics, durationSec, project?.lyric_cues),
     }),
     [
       project?.artwork_url,
@@ -65,6 +63,7 @@ export default function RemotionPlayerPreview({
       project?.editor_look,
       project?.audioStartTimeOffset,
       project?.suspendEffects,
+      project?.windowLyricCues,
       project?.lyrics,
       project?.lyric_cues,
       durationSec,

@@ -257,6 +257,29 @@ export function buildLyricCues(lyrics, durationSec = 15, existing = []) {
  * Cue visible at `timeSec`. A line is on screen from its start through its end.
  * When end is missing or equal to start, it stays up until a later cue begins.
  */
+function cueBounds(cue) {
+  const start = Number(cue?.timeSeconds ?? cue?.start);
+  if (!Number.isFinite(start)) return null;
+  const endRaw = Number(cue?.end);
+  const end = Number.isFinite(endRaw) ? Math.max(start, endRaw) : start;
+  return { start, end };
+}
+
+/**
+ * Global lyric cues whose start and end both sit inside the trimmed audio window.
+ * Stored timestamps are left unchanged.
+ */
+export function cuesInAudioWindow(cues, offsetSec, durationSec) {
+  const offset = Math.max(0, Number(offsetSec) || 0);
+  const span = Math.max(0.2, Number(durationSec) || 15);
+  const windowEnd = offset + span;
+  return (cues || []).filter((cue) => {
+    const bounds = cueBounds(cue);
+    if (!bounds) return false;
+    return bounds.start >= offset - 0.0005 && bounds.end <= windowEnd + 0.0005;
+  });
+}
+
 export function activeLyricCueIndex(cues, timeSec) {
   if (!Array.isArray(cues) || !cues.length) return -1;
   const time = Number(timeSec) || 0;
