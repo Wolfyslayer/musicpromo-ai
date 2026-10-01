@@ -1,8 +1,17 @@
-import { db } from '@/api/base44Client';
-
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Pencil, Film, Clock, RefreshCw, Loader2, CalendarDays, LayoutGrid, Share2 } from "lucide-react";
+import {
+  Pencil,
+  Film,
+  Clock,
+  RefreshCw,
+  Loader2,
+  CalendarDays,
+  LayoutGrid,
+  Share2,
+  CalendarClock,
+  ExternalLink,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,27 +20,167 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
+import { db } from "@/api/base44Client";
 import { aiService } from "@/services/aiService";
 import { platformColor } from "@/services/constants";
 import { fmtDate } from "@/services/format";
-import { buildComposePath } from "@/services/socialService";
+import { buildComposePath, loadPosts, scheduleCampaignDay } from "@/services/socialService";
+import { useCountdown } from "@/hooks/useCountdown";
 import CopyButton from "@/components/CopyButton";
+import StatusBadge from "@/components/StatusBadge";
 
 const DAY_STATUSES = [
   { id: "planned", label: "Planned", color: "#8b8b9a" },
   { id: "ready", label: "Ready", color: "#3b82f6" },
-  { id: "posted", label: "Posted", color: "#22c55e" },
+  { id: "scheduled", label: "Scheduled", color: "#f59e0b" },
+  { id: "processing", label: "Publishing", color: "#3b82f6" },
+  { id: "posted", label: "Live", color: "#22c55e" },
+  { id: "failed", label: "Failed", color: "#ef4444" },
   { id: "skipped", label: "Skipped", color: "#f59e0b" },
 ];
 
+function DayScheduleMeta({ day, posts }) {
+  const countdown = useCountdown(day.scheduled_at);
+  const live = posts.find((p) => p.status === "published" && p.externalPermalink);
+  const anyPublishing = posts.some((p) => p.status === "publishing") || day.status === "processing";
+  const anyScheduled = posts.some((p) => p.status === "scheduled") || day.status === "scheduled";
+  const anyFailed = posts.some((p) => p.status === "failed") || day.status === "failed";
+
+  if (live || day.status === "posted") {
+    return (
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <StatusBadge status="posted" />
+        {(live?.externalPermalink || day.live_permalink) && (
+          <a
+            href={live?.externalPermalink || day.live_permalink}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-primary hover:underline"
+          >
+            Live link <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+        {posts
+          .filter((p) => p.status === "published")
+          .map((p) => (
+            <span key={p.id} className="rounded-full border border-border/60 px-2 py-0.5 capitalize text-muted-foreground">
+              {p.provider}
+              {p.externalPermalink ? (
+                <>
+                  {" · "}
+                  <a href={p.externalPermalink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                    open
+                  </a>
+                </>
+              ) : null}
+            </span>
+          ))}
+      </div>
+    );
+  }
+
+  if (anyPublishing) {
+    return (
+      <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+        <StatusBadge status="processing" />
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Auto-publishing across connected platforms…
+      </div>
+    );
+  }
+
+  if (anyScheduled && day.scheduled_at) {
+    return (
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <StatusBadge status="scheduled" />
+        <span className="inline-flex items-center gap-1 text-muted-foreground">
+          <Clock className="h-3 w-3" />
+          {countdown.label || new Date(day.scheduled_at).toLocaleString()}
+        </span>
+      </div>
+    );
+  }
+
+  if (anyFailed || day.publish_error) {
+    return (
+      <div className="mt-2 space-y-1 text-xs">
+        <StatusBadge status="failed" />
+        <p className="text-destructive/90">{day.publish_error || posts.find((p) => p.errorMessage)?.errorMessage}</p>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function CampaignPlan({ campaign, days, song, onRefresh }) {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [editing, setEditing] = useState(null);
   const [regenerating, setRegenerating] = useState(null);
+  const [schedulingId, setSchedulingId] = useState(null);
+  const [posts, setPosts] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!campaign?.id) return;
+      try {
+        const res = await loadPosts({ campaignId: campaign.id });
+        if (!cancelled) setPosts(res?.posts || []);
+      } catch {
+        if (!cancelled) setPosts([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [campaign?.id, days]);
+
+  const postsByDay = useMemo(() => {
+    const map = {};
+    for (const p of posts) {
+      const key = p.campaignDayId || "";
+      if (!key) continue;
+      if (!map[key]) map[key] = [];
+      map[key].push(p);
+    }
+    return map;
+  }, [posts]);
 
   const setStatus = async (day, status) => {
     await db.entities.CampaignDay.update(day.id, { status });
     onRefresh();
+  };
+
+  const scheduleDay = async (day) => {
+    setSchedulingId(day.id);
+    try {
+      const res = await scheduleCampaignDay({ campaignDayId: day.id });
+      if (!res?.ok) {
+        toast({
+          variant: "destructive",
+          title: "Could not schedule",
+          description: res?.error || "Connect social accounts and try again.",
+        });
+        return;
+      }
+      toast({
+        title: "Auto-publish scheduled",
+        description: `Worker will publish around ${new Date(res.scheduledAt).toLocaleString()}.`,
+      });
+      const refreshed = await loadPosts({ campaignId: campaign.id });
+      setPosts(refreshed?.posts || []);
+      onRefresh();
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "Could not schedule",
+        description: e?.message || "Please try again.",
+      });
+    } finally {
+      setSchedulingId(null);
+    }
   };
 
   const regenerateDay = async (day) => {
@@ -50,7 +199,7 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
       await db.entities.CampaignDay.update(day.id, { caption, hashtags, cta: ctaText });
       onRefresh();
     } catch (e) {
-      // surface via toast in parent? keep simple
+      // keep simple
     } finally {
       setRegenerating(null);
     }
@@ -86,6 +235,10 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
 
   return (
     <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Use <span className="text-foreground">Schedule auto-publish</span> to queue Instagram, TikTok, and YouTube.
+        The background worker runs hourly (:38 UTC) and publishes due posts without manual action.
+      </p>
       {campaign?.release_id && (
         <div className="flex flex-wrap justify-end gap-2">
           <Button
@@ -120,6 +273,8 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
       )}
       {days.map((day) => {
         const sm = DAY_STATUSES.find((s) => s.id === day.status) || DAY_STATUSES[0];
+        const dayPosts = postsByDay[day.id] || [];
+        const canSchedule = !["processing", "posted"].includes(day.status);
         return (
           <div key={day.id} className="rounded-2xl border border-border/60 bg-card/50 p-4 animate-slide-up">
             <div className="flex items-start justify-between gap-3">
@@ -135,10 +290,11 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
                     </span>
                     <span className="text-xs text-muted-foreground">{day.content_type}</span>
                   </div>
+                  <DayScheduleMeta day={day} posts={dayPosts} />
                 </div>
               </div>
               <Select value={sm.id} onValueChange={(v) => setStatus(day, v)}>
-                <SelectTrigger className="h-7 w-28 rounded-full text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-7 w-32 rounded-full text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {DAY_STATUSES.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
                 </SelectContent>
@@ -160,6 +316,21 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
+              {canSchedule && (
+                <Button
+                  size="sm"
+                  onClick={() => scheduleDay(day)}
+                  disabled={schedulingId === day.id}
+                  className="rounded-full"
+                >
+                  {schedulingId === day.id ? (
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CalendarClock className="mr-1 h-3.5 w-3.5" />
+                  )}
+                  {day.status === "scheduled" || day.status === "failed" ? "Reschedule" : "Schedule auto-publish"}
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={() => setEditing(day)} className="rounded-full"><Pencil className="mr-1 h-3.5 w-3.5" />Edit</Button>
               <CopyButton text={day.caption} label="Copy Caption" />
               {day.hook && <CopyButton text={day.hook} label="Copy Hook" />}
@@ -179,7 +350,7 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
                 }
                 className="rounded-full"
               >
-                <Share2 className="mr-1 h-3.5 w-3.5" />Post to Social
+                <Share2 className="mr-1 h-3.5 w-3.5" />Post now
               </Button>
               <Button variant="outline" size="sm" onClick={() => navigate(`/campaigns/${campaign.id}/video?day=${day.id}`)} className="rounded-full"><Film className="mr-1 h-3.5 w-3.5" />Create Video</Button>
               <Button variant="ghost" size="sm" onClick={() => regenerateDay(day)} disabled={regenerating === day.id} className="rounded-full">
@@ -224,7 +395,7 @@ function EditDayDialog({ day, onClose, onSaved }) {
           <div><Label className="text-xs text-muted-foreground">Hashtags</Label><Input value={f.hashtags} onChange={(e) => set("hashtags", e.target.value)} className="mt-1.5 rounded-xl" /></div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label className="text-xs text-muted-foreground">CTA</Label><Input value={f.cta} onChange={(e) => set("cta", e.target.value)} className="mt-1.5 rounded-xl" /></div>
-            <div><Label className="text-xs text-muted-foreground">Posting Time</Label><Input value={f.posting_time} onChange={(e) => set("posting_time", e.target.value)} className="mt-1.5 rounded-xl" /></div>
+            <div><Label className="text-xs text-muted-foreground">Posting Time</Label><Input value={f.posting_time} onChange={(e) => set("posting_time", e.target.value)} className="mt-1.5 rounded-xl" placeholder="HH:mm" /></div>
           </div>
         </div>
         <DialogFooter>

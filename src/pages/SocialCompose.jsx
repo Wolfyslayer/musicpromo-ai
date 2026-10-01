@@ -277,7 +277,8 @@ export default function SocialCompose() {
 
       setPublishPhase("publishing");
       const res = await publishPost(post.id);
-      if (res?.error && !res?.ok) {
+      // Treat any error payload as failure (ok may be omitted on some SDK error shapes).
+      if (res?.error && res?.ok !== true) {
         if (res.post) setPost(res.post);
         toast({
           variant: "destructive",

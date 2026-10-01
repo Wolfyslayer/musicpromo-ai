@@ -1,27 +1,71 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Sparkles, BarChart3, CalendarDays, Film, ArrowRight } from "lucide-react";
+import { Plus, Sparkles, BarChart3, CalendarDays, Film, ArrowRight, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { loadCampaigns } from "@/services/data";
-import { campaignProgress } from "@/services/format";
+import { db } from "@/api/base44Client";
 import ArtworkImage from "@/components/ArtworkImage";
 import StatusBadge from "@/components/StatusBadge";
 import ProgressBar from "@/components/ProgressBar";
 import EmptyState from "@/components/EmptyState";
 import CampaignCard from "@/components/CampaignCard";
+import { useAuth, useWorkspaceRefresh } from "@/lib/AuthContext";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [data, setData] = useState(null);
+  const [readyVideos, setReadyVideos] = useState([]);
   const [error, setError] = useState("");
 
+  const reload = useCallback(() => {
+    setError("");
+    loadCampaigns()
+      .then(async (campaigns) => {
+        setData(campaigns);
+        const active = campaigns.find((c) =>
+          ["active", "scheduled", "preparing"].includes(c.status)
+        );
+        if (!active?.id) {
+          setReadyVideos([]);
+          return;
+        }
+        try {
+          const videos = await db.entities.VideoProject.filter(
+            { campaign_id: active.id },
+            "-created_date",
+            20
+          );
+          setReadyVideos(
+            (videos || []).filter(
+              (v) =>
+                v.rendering_status === "complete" &&
+                v.render_output_url &&
+                /^https:\/\//i.test(v.render_output_url)
+            )
+          );
+        } catch {
+          setReadyVideos([]);
+        }
+      })
+      .catch((e) => {
+        setData([]);
+        setReadyVideos([]);
+        setError(isAuthenticated ? e.message || "Could not load campaigns." : "");
+      });
+  }, [isAuthenticated]);
+
   useEffect(() => {
-    loadCampaigns().then(setData).catch((e) => setError(e.message));
-  }, []);
+    reload();
+  }, [reload]);
+  useWorkspaceRefresh(reload);
 
   const campaigns = data || [];
   const active = campaigns.find((c) => ["active", "scheduled", "preparing"].includes(c.status));
   const recent = campaigns.slice(0, 6);
+  const renderingCount = active
+    ? (active.videosCount || 0) - readyVideos.length
+    : 0;
 
   const quickActions = [
     { label: "New Campaign", icon: Plus, to: "/create" },
@@ -32,13 +76,12 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Hero */}
       <div className="animate-fade-in">
         <h1 className="font-heading text-3xl font-700 tracking-tight md:text-4xl">
           MusicPromo <span className="text-gradient">AI</span>
         </h1>
         <p className="mt-2 max-w-md text-muted-foreground">
-          Turn one song into a complete promotion campaign.
+          Hands-off promo: auto videos, scheduled publishing, and live analytics.
         </p>
         <Button
           onClick={() => navigate("/create")}
@@ -51,7 +94,6 @@ export default function Dashboard() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      {/* Active campaign */}
       {active ? (
         <section>
           <SectionTitle>Active Campaign</SectionTitle>
@@ -64,7 +106,6 @@ export default function Dashboard() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <StatusBadge status={active.status} />
-                  {active.is_demo && <DemoTag />}
                 </div>
                 <h2 className="mt-2 truncate font-heading text-xl font-700">{active.song?.title || "Untitled"}</h2>
                 <p className="truncate text-sm text-muted-foreground">{active.artist?.name}</p>
@@ -75,9 +116,16 @@ export default function Dashboard() {
                   </div>
                   <ProgressBar value={active.progressValue || 0} />
                 </div>
-                <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5"><Film className="h-4 w-4 text-primary" />{active.videosCount || 0} videos</span>
-                  <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4 text-primary" />{active.daysCount || 0} posts</span>
+                <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Film className="h-4 w-4 text-primary" />
+                    {readyVideos.length} ready
+                    {renderingCount > 0 ? ` · ${Math.max(0, renderingCount)} rendering` : ""}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarDays className="h-4 w-4 text-primary" />
+                    {active.daysCount || 0} posts
+                  </span>
                 </div>
               </div>
               <ArrowRight className="hidden h-5 w-5 shrink-0 text-muted-foreground transition group-hover:translate-x-1 sm:block" />
@@ -88,7 +136,38 @@ export default function Dashboard() {
         !data && <div className="h-40 animate-shimmer rounded-2xl" />
       )}
 
-      {/* Quick actions */}
+      {active && readyVideos.length > 0 && (
+        <section>
+          <SectionTitle>Ready for schedule</SectionTitle>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Auto-generated 9:16 promo videos — linked to campaign days for scheduled publish.
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {readyVideos.slice(0, 8).map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => navigate(`/campaigns/${active.id}/video?project=${v.id}`)}
+                className="group relative min-h-11 w-full overflow-hidden rounded-2xl border border-border/60 bg-card/50 text-left transition hover:border-primary/40"
+              >
+                <div className="aspect-[9/16] bg-muted/40">
+                  {v.artwork_url ? (
+                    <img src={v.artwork_url} alt="" className="h-full w-full object-cover opacity-90" />
+                  ) : null}
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 transition group-hover:opacity-100">
+                    <PlayCircle className="h-8 w-8 text-white" />
+                  </span>
+                </div>
+                <div className="p-2">
+                  <p className="truncate text-xs font-600">{v.title || "Promo video"}</p>
+                  <p className="text-[10px] text-muted-foreground">{v.duration || 15}s · ready</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <SectionTitle>Quick Actions</SectionTitle>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -110,7 +189,6 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Recent campaigns */}
       <section>
         <SectionTitle>Recent Campaigns</SectionTitle>
         {recent.length ? (
@@ -124,7 +202,7 @@ export default function Dashboard() {
             <EmptyState
               icon={Sparkles}
               title="No campaigns yet"
-              description="Create your first campaign and let AI build a complete promotion plan."
+              description="Create your first campaign and let AI build a complete promotion plan with auto videos."
               action={<Button onClick={() => navigate("/create")} className="rounded-full"><Plus className="mr-1.5 h-4 w-4" />New Campaign</Button>}
             />
           )
@@ -136,12 +214,4 @@ export default function Dashboard() {
 
 function SectionTitle({ children }) {
   return <h2 className="mb-3 font-heading text-sm font-600 uppercase tracking-wider text-muted-foreground">{children}</h2>;
-}
-
-function DemoTag() {
-  return (
-    <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[10px] font-500 uppercase tracking-wider text-muted-foreground">
-      Demo
-    </span>
-  );
 }

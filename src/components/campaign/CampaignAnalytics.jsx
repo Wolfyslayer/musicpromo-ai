@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { useAuth } from "@/lib/AuthContext";
 
 import { aiService } from "@/services/aiService";
 import { PLATFORMS, CONTENT_TYPES, platformColor } from "@/services/constants";
@@ -175,10 +176,16 @@ function ChartCard({ title, children }) {
 
 function AddEntryDialog({ open, onClose, campaign, onSaved }) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [f, setF] = useState({ platform: "TikTok", content_type: "", date: todayISO(), views: 0, likes: 0, comments: 0, shares: 0, saves: 0, followers_gained: 0, streams: 0, playlist_adds: 0, clicks: 0 });
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
   const save = async () => {
-    await db.entities.AnalyticsEntry.create({ ...f, campaign_id: campaign.id, is_demo: false });
+    await db.entities.AnalyticsEntry.create({
+      ...f,
+      campaign_id: campaign.id,
+      is_demo: false,
+      user_id: user?.id || "",
+    });
     toast({ title: "Entry added" });
     onSaved();
   };

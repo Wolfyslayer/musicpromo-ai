@@ -14,6 +14,7 @@ import { loadArtists } from "@/services/data";
 import { RELEASE_STATUSES } from "@/services/constants";
 import { todayISO } from "@/services/format";
 import ArtworkUpload from "@/components/ArtworkUpload";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function ReleaseEditor() {
   const { id } = useParams();
@@ -23,6 +24,7 @@ export default function ReleaseEditor() {
   const releaseId = isNew ? null : id;
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { requireAuth } = useAuth();
   const [artists, setArtists] = useState([]);
   const [loading, setLoading] = useState(!isNew);
   const [busy, setBusy] = useState(false);
@@ -122,7 +124,13 @@ export default function ReleaseEditor() {
         <div>
           <Label className="text-xs text-muted-foreground">Artwork</Label>
           <div className="mt-2">
-            <ArtworkUpload value={form.artwork_url} onChange={(url) => set("artwork_url", url)} />
+            <ArtworkUpload
+              guard={requireAuth}
+              value={form.artwork_url}
+              onChange={(payload) =>
+                set("artwork_url", typeof payload === "string" ? payload : payload?.url || "")
+              }
+            />
           </div>
         </div>
 

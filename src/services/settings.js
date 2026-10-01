@@ -11,7 +11,7 @@ export const DEFAULT_SETTINGS = {
   defaultPostingTime: "18:00",
   defaultTemplate: "HOOK",
   defaultVideoDuration: 15,
-  theme: "dark",
+  theme: "system",
   notifications: { campaignReady: true, weeklyReport: false, performanceTips: true },
   aiProvider: "Base44 InvokeLLM (default)",
 };
@@ -26,12 +26,11 @@ export function getSettings() {
 }
 
 export function saveSettings(s) {
-  localStorage.setItem(KEY, JSON.stringify(s));
-  applyTheme(s.theme);
+  localStorage.setItem(KEY, JSON.stringify({ ...s, theme: "system" }));
+  applyTheme("system");
 }
 
-export function applyTheme(theme) {
-  const root = document.documentElement;
-  if (theme === "light") root.classList.add("light");
-  else root.classList.remove("light");
+/** Appearance follows the device. Class overrides are cleared so `prefers-color-scheme` wins. */
+export function applyTheme() {
+  document.documentElement.classList.remove("light", "dark");
 }

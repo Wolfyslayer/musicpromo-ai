@@ -1,0 +1,11 @@
+{
+  "name": "socialOAuthStart",
+  "entry": "entry.ts",
+  // SPA invoke must reach this function; handler still enforces base44.auth.me().
+  "authRequired": false,
+  "access": "public",
+  "permission": "user",
+  "permissions": {
+    "invoke": "public"
+  }
+}

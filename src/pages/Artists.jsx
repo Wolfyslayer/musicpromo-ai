@@ -44,7 +44,6 @@ export default function Artists() {
                   {a.genre && <span className="inline-flex items-center gap-1"><Music2 className="h-3 w-3" />{a.genre}</span>}
                   {a.location && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{a.location}</span>}
                 </div>
-                {a.is_demo && <span className="mt-1 inline-block rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">Demo</span>}
               </div>
             </button>
           ))}

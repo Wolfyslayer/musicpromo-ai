@@ -55,12 +55,24 @@
       "type": "string",
       "title": "Suggested Posting Time"
     },
+    "scheduled_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Scheduled Auto-Publish At"
+    },
+    "user_id": {
+      "type": "string",
+      "title": "Owner User ID"
+    },
     "status": {
       "type": "string",
       "enum": [
         "planned",
         "ready",
+        "scheduled",
+        "processing",
         "posted",
+        "failed",
         "skipped",
         "pending",
         "complete"
@@ -71,9 +83,38 @@
     "video_project_id": {
       "type": "string",
       "title": "Video Project ID"
+    },
+    "publish_error": {
+      "type": "string",
+      "title": "Auto-Publish Error"
+    },
+    "live_permalink": {
+      "type": "string",
+      "title": "Primary Live Permalink"
     }
   },
   "required": [
     "campaign_id"
-  ]
+  ],
+  "rls": {
+    "create": true,
+    "read": {
+      "$or": [
+        { "created_by": "{{user.email}}" },
+        { "data.user_id": "{{user.id}}" }
+      ]
+    },
+    "update": {
+      "$or": [
+        { "created_by": "{{user.email}}" },
+        { "data.user_id": "{{user.id}}" }
+      ]
+    },
+    "delete": {
+      "$or": [
+        { "created_by": "{{user.email}}" },
+        { "data.user_id": "{{user.id}}" }
+      ]
+    }
+  }
 }

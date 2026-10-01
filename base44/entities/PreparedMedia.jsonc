@@ -30,7 +30,7 @@
     "purpose": {
       "type": "string",
       "title": "Purpose",
-      "enum": ["instagram_feed_image", "instagram_reel", "generic_social_image"],
+      "enum": ["instagram_feed_image", "instagram_reel", "generic_social_image", "campaign_reel_video"],
       "default": "instagram_feed_image"
     },
     "prepared_url": {

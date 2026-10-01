@@ -18,6 +18,7 @@ function safePost(row: Record<string, unknown>) {
     videoProjectId: row.video_project_id || null,
     generatedContentId: row.generated_content_id || null,
     status: row.status,
+    scheduledAt: row.scheduled_at || null,
     publishedAt: row.published_at || null,
     externalPostId: row.external_post_id || null,
     externalPermalink: row.external_permalink || null,
@@ -76,7 +77,7 @@ export default async function (req: Request): Promise<Response> {
     }
     if (body.socialAccountId != null && String(body.socialAccountId).trim()) {
       const owned = await base44.asServiceRole.entities.SocialAccount.filter(
-        { user_id: user.id, provider: "instagram" },
+        { user_id: user.id, provider: post.provider || "instagram" },
         "-connected_at",
         20
       );
@@ -89,10 +90,21 @@ export default async function (req: Request): Promise<Response> {
     if (body.generatedContentId != null) updates.generated_content_id = String(body.generatedContentId);
     if (body.videoProjectId != null) updates.video_project_id = String(body.videoProjectId);
     if (body.contentType != null) updates.content_type = String(body.contentType);
+    if (body.scheduledAt != null) {
+      const scheduledAt = String(body.scheduledAt);
+      if (Number.isNaN(Date.parse(scheduledAt))) {
+        return Response.json({ error: "scheduledAt must be a valid ISO datetime.", code: "VALIDATION" }, { status: 400 });
+      }
+      updates.scheduled_at = new Date(scheduledAt).toISOString();
+      updates.status = "scheduled";
+    }
+    if (body.status === "draft" || body.status === "scheduled") {
+      updates.status = String(body.status);
+    }
 
     // Clear prior failure when editing a failed draft for retry
-    if (post.status === "failed") {
-      updates.status = "draft";
+    if (post.status === "failed" && body.status !== "scheduled") {
+      updates.status = updates.status || "draft";
       updates.error_code = "";
       updates.error_message = "";
     }

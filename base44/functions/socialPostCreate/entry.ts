@@ -1,5 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.52";
 import { INSTAGRAM_CAPTION_MAX } from "../../shared/instagramPublishing.ts";
+import { recordOwnedByUser } from "../../shared/ownership.ts";
 
 function buildSuggestedCaption(day: Record<string, unknown> | null): string {
   if (!day) return "";
@@ -97,13 +98,22 @@ export default async function (req: Request): Promise<Response> {
       }
     }
 
-    if (campaignId && !releaseId) {
+    if (campaignId) {
       try {
         const campaign = await base44.asServiceRole.entities.Campaign.get(campaignId);
-        if (campaign?.release_id) releaseId = String(campaign.release_id);
+        if (!campaign || !recordOwnedByUser(campaign, user)) {
+          return Response.json({ error: "Forbidden" }, { status: 403 });
+        }
+        if (!releaseId && campaign.release_id) releaseId = String(campaign.release_id);
       } catch {
-        /* optional */
+        return Response.json({ error: "Campaign not found." }, { status: 404 });
       }
+    }
+
+    if (campaignDayId && day && !recordOwnedByUser(day, user) && campaignId) {
+      // Day may lack user_id on older rows; campaign ownership already enforced above.
+    } else if (campaignDayId && day && !recordOwnedByUser(day, user) && !campaignId) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
     if (generatedContentId && !caption) {

@@ -28,7 +28,8 @@ export const base44 = createClient({
 
 /**
  * Sync the live session token onto the shared client before function calls.
- * Cookie-only SSO may have no bearer token; callers should still use credentials: "include".
+ * Auth is Bearer-only via the SDK — never pair with credentials: "include"
+ * against base44.app (CORS rejects ACAO:* with credentialed requests).
  */
 export function ensureClientSessionToken() {
   const token = getSessionAccessToken();
@@ -40,7 +41,7 @@ export function ensureClientSessionToken() {
       base44.setToken(token);
     }
   } catch {
-    /* ignore — invoke/fetch may still attach cookies */
+    /* ignore — invoke still uses the client token when set at createClient time */
   }
   return token;
 }

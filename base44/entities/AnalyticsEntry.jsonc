@@ -68,9 +68,48 @@
       "type": "boolean",
       "default": false,
       "title": "Is Demo Data"
+    },
+    "social_post_id": {
+      "type": "string",
+      "title": "Social Post ID"
+    },
+    "external_post_id": {
+      "type": "string",
+      "title": "External Post ID"
+    },
+    "source": {
+      "type": "string",
+      "title": "Source",
+      "enum": ["manual", "synced"],
+      "default": "manual"
+    },
+    "user_id": {
+      "type": "string",
+      "title": "Owner User ID"
     }
   },
   "required": [
     "campaign_id"
-  ]
+  ],
+  "rls": {
+    "create": true,
+    "read": {
+      "$or": [
+        { "created_by": "{{user.email}}" },
+        { "data.user_id": "{{user.id}}" }
+      ]
+    },
+    "update": {
+      "$or": [
+        { "created_by": "{{user.email}}" },
+        { "data.user_id": "{{user.id}}" }
+      ]
+    },
+    "delete": {
+      "$or": [
+        { "created_by": "{{user.email}}" },
+        { "data.user_id": "{{user.id}}" }
+      ]
+    }
+  }
 }

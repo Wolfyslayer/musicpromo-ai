@@ -1,0 +1,16 @@
+{
+  "name": "campaignWorker",
+  "entry": "entry.ts",
+  // Cron runs without an end-user session; handler uses asServiceRole only.
+  "authRequired": false,
+  "access": "public",
+  "permission": "user",
+  "permissions": {
+    "invoke": "public"
+  }
+  // NOTE: This app has Workflows enabled — legacy function.jsonc `automations`
+  // are rejected (409 workflows_enabled). Create a Scheduled Workflow in the
+  // Base44 Dashboard that invokes `campaignWorker` every hour (e.g. at :38).
+  // Suggested prompt: "Create a recurring scheduled workflow that runs the
+  // campaignWorker backend function every hour."
+}

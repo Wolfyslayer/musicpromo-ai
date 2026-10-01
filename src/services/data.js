@@ -4,16 +4,23 @@ import { db } from '@/api/base44Client';
  * Data-access helpers. Centralises entity joins so pages stay thin and the
  * data layer is easy to swap when porting off Base44 (replace these functions
  * with your own API calls; page code imports only from here).
+ *
+ * Ownership is enforced by entity RLS (created_by / user_id). Demo rows are
+ * excluded client-side as a safety net.
  */
 
 const L = 300;
 
+function notDemo(rows) {
+  return (rows || []).filter((r) => !r?.is_demo);
+}
+
 export async function loadArtists() {
-  return db.entities.Artist.list("-created_date", L);
+  return notDemo(await db.entities.Artist.list("-created_date", L));
 }
 
 export async function loadSongs() {
-  return db.entities.Song.list("-created_date", L);
+  return notDemo(await db.entities.Song.list("-created_date", L));
 }
 
 export async function loadReleases() {
@@ -23,16 +30,16 @@ export async function loadReleases() {
     db.entities.Song.list("-created_date", L),
     db.entities.Campaign.list("-created_date", L),
   ]);
-  const artistMap = Object.fromEntries(artists.map((a) => [a.id, a]));
+  const artistMap = Object.fromEntries(notDemo(artists).map((a) => [a.id, a]));
   const songCount = {};
   const campaignCount = {};
-  for (const s of songs) {
+  for (const s of notDemo(songs)) {
     if (s.release_id) songCount[s.release_id] = (songCount[s.release_id] || 0) + 1;
   }
-  for (const c of campaigns) {
+  for (const c of notDemo(campaigns)) {
     if (c.release_id) campaignCount[c.release_id] = (campaignCount[c.release_id] || 0) + 1;
   }
-  return releases.map((r) => ({
+  return notDemo(releases).map((r) => ({
     ...r,
     artist: artistMap[r.artist_id],
     songsCount: songCount[r.id] || 0,
@@ -143,18 +150,18 @@ export async function loadCampaigns() {
     db.entities.VideoProject.list("-created_date", L),
     db.entities.Release.list("-created_date", L).catch(() => []),
   ]);
-  const songMap = Object.fromEntries(songs.map((s) => [s.id, s]));
-  const artistMap = Object.fromEntries(artists.map((a) => [a.id, a]));
-  const releaseMap = Object.fromEntries(releases.map((r) => [r.id, r]));
+  const songMap = Object.fromEntries(notDemo(songs).map((s) => [s.id, s]));
+  const artistMap = Object.fromEntries(notDemo(artists).map((a) => [a.id, a]));
+  const releaseMap = Object.fromEntries(notDemo(releases).map((r) => [r.id, r]));
   const dayCount = {};
   const dayDone = {};
-  for (const d of days) {
+  for (const d of days || []) {
     dayCount[d.campaign_id] = (dayCount[d.campaign_id] || 0) + 1;
     if (d.status === "complete") dayDone[d.campaign_id] = (dayDone[d.campaign_id] || 0) + 1;
   }
   const vidCount = {};
-  for (const v of videos) vidCount[v.campaign_id] = (vidCount[v.campaign_id] || 0) + 1;
-  return campaigns.map((c) => {
+  for (const v of notDemo(videos)) vidCount[v.campaign_id] = (vidCount[v.campaign_id] || 0) + 1;
+  return notDemo(campaigns).map((c) => {
     const total = dayCount[c.id] || 0;
     const done = dayDone[c.id] || 0;
     return {
@@ -183,7 +190,16 @@ export async function loadCampaign(id) {
       : Promise.resolve(null),
   ]);
   const artist = artists.find((a) => a.id === campaign.artist_id);
-  return { campaign, song, artist, days, analytics, videos, content, release };
+  return {
+    campaign,
+    song,
+    artist,
+    days,
+    analytics: notDemo(analytics),
+    videos: notDemo(videos),
+    content,
+    release,
+  };
 }
 
 /**
@@ -211,7 +227,15 @@ export async function loadCampaignContent(campaignId) {
       : Promise.resolve(null),
   ]);
   const artist = artists.find((a) => a.id === campaign.artist_id) || null;
-  return { campaign, song, artist, release, days: days || [], videos: videos || [], content: content || [] };
+  return {
+    campaign,
+    song,
+    artist,
+    release,
+    days: days || [],
+    videos: notDemo(videos || []),
+    content: content || [],
+  };
 }
 
 /**
@@ -259,5 +283,5 @@ export async function loadReleaseContent(releaseId) {
 }
 
 export async function loadAnalytics() {
-  return db.entities.AnalyticsEntry.list("-date", L);
+  return notDemo(await db.entities.AnalyticsEntry.list("-date", L));
 }

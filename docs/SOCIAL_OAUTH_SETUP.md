@@ -360,10 +360,43 @@ After a successful connect:
 
 ---
 
+## TikTok / Google legal pages
+
+After **site publish**, paste these into TikTok Developer Portal and Google OAuth consent:
+
+| Purpose | URL |
+|---------|-----|
+| Privacy Policy | `https://flying-sonic-promo-flow.base44.app/privacy` |
+| Terms of Service | `https://flying-sonic-promo-flow.base44.app/terms` |
+
+Privacy and Terms are public React routes (no login).
+
+---
+
+## Campaign auto-publish + video + daily stats worker
+
+`campaignWorker` runs publish, attaches client-rendered videos, and syncs
+analytics (at most once per 24h via `AutomationCheckpoint`).
+
+**Schedule (Workflows):** this app has Workflows enabled, so legacy
+`function.jsonc` automations cannot be used. In the Base44 Dashboard →
+**Workflows**, create a **Scheduled** workflow that invokes `campaignWorker`
+every hour.
+
+**Video render:** promo MP4s are encoded in the browser with Remotion
+(WebCodecs). Campaign create / Video Studio upload the MP4, then call
+`campaignAutoVideo` to link PreparedMedia + CampaignDay rows.
+
+Schedule a day from the Campaign Plan UI (**Schedule auto-publish**) which calls
+`campaignSchedule`.
+
+Statuses: `scheduled` → `publishing` / day `processing` → `published` / day
+`posted` (or `failed` with error logs).
+
+---
+
 ## What is intentionally out of scope
 
-- TikTok / YouTube / Facebook OAuth  
-- Publishing, scheduling, analytics, `SocialPost`  
 - Background token refresh  
 - Mock credentials or fake OAuth responses  
 
