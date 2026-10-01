@@ -1,12 +1,12 @@
 import { db } from '@/api/base44Client';
 
 /**
- * Data-access helpers. Centralises entity joins so pages stay thin and the
- * data layer is easy to swap when porting off Base44 (replace these functions
- * with your own API calls; page code imports only from here).
+ * Data-access helpers. Pages keep importing these joins. The `db` client
+ * writes them to Supabase: campaigns, days, and generated copy live in
+ * campaign_days; artists, songs, releases, and video projects live in
+ * prepared_media; metrics live in analytics_entries.
  *
- * Ownership is enforced by entity RLS (created_by / user_id). Demo rows are
- * excluded client-side as a safety net.
+ * Row access is limited to the signed-in user. Demo rows are excluded here.
  */
 
 const L = 300;

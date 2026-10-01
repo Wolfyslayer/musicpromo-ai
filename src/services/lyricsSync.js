@@ -118,43 +118,52 @@ export function groupWhisperChunks(chunks, durationSec = 30) {
   }));
 }
 
-async function decodeAudioTo16k(url, maxSeconds) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error("Could not load the song audio for lyrics sync.");
-  }
-  const encoded = await response.arrayBuffer();
+async function readAudioBytes(source) {
+  if (source instanceof Blob) return source.arrayBuffer();
+  const response = await fetch(String(source || ""));
+  if (!response.ok) throw new Error("Could not load the song audio for lyrics sync.");
+  return response.arrayBuffer();
+}
+
+/** Decode the uploaded track in the browser. Whisper reads the buffer's samples. */
+async function decodeToAudioBuffer(source) {
+  const encoded = await readAudioBytes(source);
   const ctx = new AudioContext();
   try {
     if (ctx.state === "suspended") await ctx.resume();
-    const audio = await ctx.decodeAudioData(encoded);
-    const seconds = Math.min(maxSeconds, Number.isFinite(audio.duration) ? audio.duration : maxSeconds);
-    const length = Math.max(1, Math.ceil(seconds * SAMPLE_RATE));
-    const offline = new OfflineAudioContext(1, length, SAMPLE_RATE);
-    const source = offline.createBufferSource();
-    source.buffer = audio;
-    source.connect(offline.destination);
-    source.start(0);
-    const rendered = await offline.startRendering();
-    const pcm = new Float32Array(rendered.length);
-    pcm.set(rendered.getChannelData(0));
-    return pcm;
+    return await ctx.decodeAudioData(encoded.slice(0));
   } finally {
     await ctx.close().catch(() => {});
   }
 }
 
+async function audioBufferTo16k(audioBuffer, maxSeconds) {
+  const seconds = Math.min(
+    maxSeconds,
+    Number.isFinite(audioBuffer.duration) ? audioBuffer.duration : maxSeconds
+  );
+  const length = Math.max(1, Math.ceil(seconds * SAMPLE_RATE));
+  const offline = new OfflineAudioContext(1, length, SAMPLE_RATE);
+  const source = offline.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(offline.destination);
+  source.start(0);
+  const rendered = await offline.startRendering();
+  return new Float32Array(rendered.getChannelData(0));
+}
+
 /**
  * Transcribe a playable audio URL in the browser and return timed lyric lines.
  */
-export async function syncLyricsFromAudio({ audioUrl, durationSec = 15, onProgress } = {}) {
-  const url = String(audioUrl || "").trim();
-  if (!url) throw new Error("Upload song audio before syncing lyrics.");
+export async function syncLyricsFromAudio({ audioUrl, audioFile, durationSec = 15, onProgress } = {}) {
+  const source = audioFile instanceof Blob ? audioFile : String(audioUrl || "").trim();
+  if (!source) throw new Error("Upload song audio before syncing lyrics.");
 
-  const duration = Math.min(60, Math.max(1, Number(durationSec) || 15));
+  const duration = Math.min(600, Math.max(1, Number(durationSec) || 15));
   onProgress?.({ phase: "decode", progress: 3, message: LISTENING });
 
-  const pcm = await decodeAudioTo16k(url, duration);
+  const audioBuffer = await decodeToAudioBuffer(source);
+  const pcm = await audioBufferTo16k(audioBuffer, duration);
   const activeWorker = getWorker();
   const id = ++requestId;
 

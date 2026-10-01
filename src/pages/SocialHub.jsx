@@ -5,14 +5,13 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
 import {
-  getConnectionStatus,
   startOAuth,
-  disconnectSocial,
   mergeProvidersWithConnections,
-  loadPosts,
   buildComposePath,
   POST_STATUS,
 } from "@/services/socialService";
+import { deleteSocialAccount, selectSocialWorkspace } from "@/services/studioRecords";
+import { OAUTH_REDIRECTS } from "@/lib/oauthRedirects";
 import SocialPlatformCard from "@/components/social/SocialPlatformCard";
 import { useAuth, useWorkspaceRefresh } from "@/lib/AuthContext";
 import EmptyState from "@/components/EmptyState";
@@ -35,7 +34,7 @@ const ERROR_MESSAGES = {
   bad_credentials:
     "The provider rejected the app credentials. Check the secrets configured in Base44.",
   redirect_mismatch:
-    "OAuth redirect URI mismatch. Register https://flying-sonic-promo-flow.base44.app/functions/metaCustomCallback under Valid OAuth Redirect URIs.",
+    `OAuth redirect URI mismatch. Register ${OAUTH_REDIRECTS.instagram} in Meta, ${OAUTH_REDIRECTS.tiktok} in TikTok, and ${OAUTH_REDIRECTS.youtube} in Google.`,
   profile_failed:
     "Login succeeded but no account profile was returned. Check account type and try Connect again.",
   encrypt_failed:
@@ -62,27 +61,9 @@ export default function SocialHub() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const [data, postData] = await Promise.all([
-        getConnectionStatus(),
-        loadPosts({}).catch(() => ({ posts: [] })),
-      ]);
-      const statusFailed = Boolean(data?.error) || data?.ok === false;
-      // Keep Connect enabled for IG/TikTok/YouTube even if status fails —
-      // do not fall back to static "unavailable / add secrets" gating.
-      setProviders(
-        mergeProvidersWithConnections(
-          statusFailed ? [] : data?.connections || [],
-          statusFailed ? {} : data?.providersConfigured || {}
-        )
-      );
-      setPosts(postData?.posts || []);
-      if (statusFailed && isAuthenticated) {
-        toast({
-          variant: "destructive",
-          title: "Could not load social connections",
-          description: data?.error || "Connect may still work — try again if a platform fails.",
-        });
-      }
+      const { connections, posts: savedPosts } = await selectSocialWorkspace();
+      setProviders(mergeProvidersWithConnections(connections, {}));
+      setPosts(savedPosts);
     } catch (e) {
       // Keep oauth platforms connectable even when status request throws.
       setProviders(mergeProvidersWithConnections([], {}));
@@ -232,7 +213,7 @@ export default function SocialHub() {
     if (!CONNECTABLE.has(provider.id)) return;
     setDisconnectingId(provider.id);
     try {
-      await disconnectSocial(provider.id, provider.connection?.id);
+      if (provider.connection?.id) await deleteSocialAccount(provider.connection.id);
       toast({ title: "Disconnected", description: `${provider.name} has been disconnected.` });
       await reload();
     } catch (e) {

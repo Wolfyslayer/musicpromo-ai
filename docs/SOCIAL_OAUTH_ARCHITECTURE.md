@@ -432,17 +432,17 @@ META_APP_ID
 META_APP_SECRET
 INSTAGRAM_APP_ID
 INSTAGRAM_APP_SECRET
-META_OAUTH_REDIRECT_URI          # https://<app>/functions/socialOAuthCallback
+META_OAUTH_REDIRECT_URI          # https://hmqxptxtcejhmuwbegvq.supabase.co/functions/v1/meta-oauth-callback
 
 # TikTok
 TIKTOK_CLIENT_KEY
 TIKTOK_CLIENT_SECRET
-TIKTOK_OAUTH_REDIRECT_URI
+TIKTOK_OAUTH_REDIRECT_URI         # https://hmqxptxtcejhmuwbegvq.supabase.co/functions/v1/tiktok-oauth-callback
 
 # Google / YouTube
 GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET
-GOOGLE_OAUTH_REDIRECT_URI
+GOOGLE_OAUTH_REDIRECT_URI         # https://hmqxptxtcejhmuwbegvq.supabase.co/functions/v1/youtube-oauth-callback
 
 # App crypto
 SOCIAL_TOKEN_ENCRYPTION_KEY      # for encrypting stored tokens

@@ -1,17 +1,15 @@
-import { db } from '@/api/base44Client';
-
 import { useRef, useState } from "react";
 import { ImagePlus, RefreshCw, X, Loader2 } from "lucide-react";
 
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/lib/supabaseClient";
 import ArtworkImage from "./ArtworkImage";
 
 const ACCEPT = ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp";
 
 /**
- * Artwork uploader. Artwork is promotional album art that is displayed
- * throughout the app and used in exported promo content, so it is stored
- * PUBLICLY (permanent URL) via UploadPublicFile.
+ * Artwork uploader. Album art goes to the public music-promo-assets bucket
+ * and the returned URL is passed into analysis and the Remotion preview.
  *
  * onChange(url) or onChange({ url, file }) when the parent wants the local File
  * for client-side Remotion rendering.
@@ -41,8 +39,18 @@ export default function ArtworkUpload({ value, onChange, guard }) {
     }
     setBusy(true);
     try {
-      const { file_url } = await db.integrations.Core.UploadPublicFile({ file });
-      emit(file_url, file);
+      if (!supabase) throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to upload.");
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError || !auth?.user) throw new Error("Sign in to upload artwork.");
+      const safeName = String(file.name || "artwork").replace(/[^\w.\-]+/g, "_");
+      const path = `${auth.user.id}/artwork/${Date.now()}-${safeName}`;
+      const { error } = await supabase.storage.from("music-promo-assets").upload(path, file, {
+        contentType: file.type || "image/jpeg",
+        upsert: false,
+      });
+      if (error) throw new Error(error.message);
+      const { data } = supabase.storage.from("music-promo-assets").getPublicUrl(path);
+      emit(data.publicUrl, file);
     } catch (e) {
       toast({ variant: "destructive", title: "Upload failed", description: e.message });
     } finally {

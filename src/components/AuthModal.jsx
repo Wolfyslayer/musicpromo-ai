@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { db } from "@/api/base44Client";
 import { Loader2, Lock, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import GoogleIcon from "@/components/GoogleIcon";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
+import { resendSignupOtp, signInWithGoogle, verifyEmailOtp } from "@/lib/supabaseAuth";
 import { cn } from "@/lib/utils";
 
 export function AuthSuccessPulse() {
@@ -26,7 +26,7 @@ export function AuthSuccessPulse() {
 }
 
 export default function AuthModal() {
-  const { isLoginModalOpen, onLoginModalOpenChange, finishLogin } = useAuth();
+  const { isLoginModalOpen, onLoginModalOpenChange, finishLogin, signInWithPassword, signUp } = useAuth();
   const [tab, setTab] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,8 +48,13 @@ export default function AuthModal() {
     onLoginModalOpenChange(open);
   };
 
-  const handleGoogle = () => {
-    db.auth.loginWithProvider("google", window.location.href);
+  const handleGoogle = async () => {
+    setError("");
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      setError(err?.message || "Google sign-in failed");
+    }
   };
 
   const handleLogin = async (event) => {
@@ -57,7 +62,7 @@ export default function AuthModal() {
     setError("");
     setLoading(true);
     try {
-      await db.auth.loginViaEmailPassword(email, password);
+      await signInWithPassword(email, password);
       await finishLogin();
     } catch (err) {
       setError(err?.message || "Invalid email or password");
@@ -75,8 +80,9 @@ export default function AuthModal() {
     }
     setLoading(true);
     try {
-      await db.auth.register({ email, password });
-      setShowOtp(true);
+      const result = await signUp(email, password);
+      if (result?.session) await finishLogin();
+      else setShowOtp(true);
     } catch (err) {
       setError(err?.message || "Registration failed");
     } finally {
@@ -88,10 +94,7 @@ export default function AuthModal() {
     setError("");
     setLoading(true);
     try {
-      const result = await db.auth.verifyOtp({ email, otpCode });
-      if (result?.access_token) {
-        db.auth.setToken(result.access_token);
-      }
+      await verifyEmailOtp(email, otpCode);
       await finishLogin();
       setShowOtp(false);
       setOtpCode("");
@@ -105,7 +108,7 @@ export default function AuthModal() {
   const handleResend = async () => {
     setError("");
     try {
-      await db.auth.resendOtp(email);
+      await resendSignupOtp(email);
       toast({ title: "Code sent", description: "Check your email for the new code." });
     } catch (err) {
       setError(err?.message || "Failed to resend code");

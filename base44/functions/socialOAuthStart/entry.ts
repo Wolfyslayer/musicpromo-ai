@@ -9,11 +9,12 @@ import {
 import {
   buildTikTokAuthorizeUrl,
   TIKTOK_CONNECT_SCOPES,
-  SOCIAL_OAUTH_REDIRECT_URI,
+  TIKTOK_OAUTH_REDIRECT_URI,
 } from "../../shared/tiktokOAuth.ts";
 import {
   buildYouTubeAuthorizeUrl,
   YOUTUBE_CONNECT_SCOPES,
+  YOUTUBE_OAUTH_REDIRECT_URI,
 } from "../../shared/youtubeOAuth.ts";
 
 const SUPPORTED = new Set(["instagram", "tiktok", "youtube"]);
@@ -250,7 +251,7 @@ export default async function (req: Request): Promise<Response> {
         clientKey,
         state,
         scopes,
-        redirectUri: SOCIAL_OAUTH_REDIRECT_URI,
+        redirectUri: TIKTOK_OAUTH_REDIRECT_URI,
       });
     } else if (provider === "youtube") {
       const clientId = secretValue("GOOGLE_CLIENT_ID", "YOUTUBE_CLIENT_ID");
@@ -276,7 +277,7 @@ export default async function (req: Request): Promise<Response> {
         clientId,
         state,
         scopes,
-        redirectUri: SOCIAL_OAUTH_REDIRECT_URI,
+        redirectUri: YOUTUBE_OAUTH_REDIRECT_URI,
         forceConsent: forceReauth,
       });
     }
@@ -293,7 +294,12 @@ export default async function (req: Request): Promise<Response> {
       authorizationUrl,
       provider,
       scopes,
-      redirectUri: provider === "instagram" ? META_OAUTH_REDIRECT_URI : SOCIAL_OAUTH_REDIRECT_URI,
+      redirectUri:
+        provider === "instagram"
+          ? META_OAUTH_REDIRECT_URI
+          : provider === "tiktok"
+            ? TIKTOK_OAUTH_REDIRECT_URI
+            : YOUTUBE_OAUTH_REDIRECT_URI,
       forceReauth,
     });
   } catch (error) {

@@ -1,5 +1,3 @@
-import { db } from "@/api/base44Client";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, Download, Play, Pause, CheckCircle2, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
@@ -11,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 
 import { loadCampaign } from "@/services/data";
+import { saveCampaignLyrics, saveVideoProject, selectCampaignDay, selectVideoProject } from "@/services/studioRecords";
 import { videoService, resolvePlayableAudioUrl } from "@/services/videoService";
 import { getSettings } from "@/services/settings";
 import { DEMO_AUDIO_URL, createDemoProject } from "@/services/demoMedia";
@@ -121,6 +120,7 @@ export default function VideoGenerator() {
   const [editorTab, setEditorTab] = useState("look");
   const [chooseType, setChooseType] = useState(false);
   const lyricsTabSynced = useRef(false);
+  const [audioFile, setAudioFile] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,10 +145,10 @@ export default function VideoGenerator() {
       let savedProject = null;
       let day = null;
       if (projectId) {
-        savedProject = await db.entities.VideoProject.get(projectId);
+        savedProject = await selectVideoProject(projectId);
         savedType = normalizeVideoType(savedProject?.animation_settings?.videoType);
       } else if (dayId) {
-        day = await db.entities.CampaignDay.get(dayId);
+        day = await selectCampaignDay(dayId);
       }
       const videoType = savedType || requestedType || (projectId ? "promo" : "");
       if (!videoType) {
@@ -422,10 +422,10 @@ export default function VideoGenerator() {
       };
       if (project.id || projectId) {
         const pid = project.id || projectId;
-        await db.entities.VideoProject.update(pid, payload);
+        await saveVideoProject({ ...payload, id: pid });
         setProject((p) => ({ ...p, ...payload, video_type: project.video_type, id: pid }));
       } else {
-        const created = await db.entities.VideoProject.create(payload);
+        const created = await saveVideoProject(payload);
         setProject((p) => ({ ...p, ...payload, video_type: project.video_type, id: created.id }));
         navigate(`/campaigns/${id}/video?project=${created.id}`, { replace: true });
       }
@@ -471,7 +471,7 @@ export default function VideoGenerator() {
         user_id: project.user_id || user?.id || "",
       };
       if (!working.id && !projectId) {
-        const created = await db.entities.VideoProject.create({
+        const created = await saveVideoProject({
           ...working,
           rendering_status: "rendering",
           is_demo: false,
@@ -481,7 +481,7 @@ export default function VideoGenerator() {
         navigate(`/campaigns/${id}/video?project=${created.id}`, { replace: true });
       } else if (working.id || projectId) {
         working = { ...working, id: working.id || projectId };
-        await db.entities.VideoProject.update(working.id, {
+        await saveVideoProject({
           ...working,
           rendering_status: "rendering",
         }).catch(() => {});
@@ -884,7 +884,8 @@ export default function VideoGenerator() {
                 value={project.audio_url}
                 signedUrl={previewAudioUrl}
                 guard={requireAuth}
-                onChange={({ file_uri, signed_url }) => {
+                onChange={({ file, file_uri, signed_url }) => {
+                  setAudioFile(file instanceof Blob ? file : null);
                   setProject((current) => ({ ...current, audio_url: file_uri || "", is_demo_preview: false }));
                   setSong((songState) => ({ ...(songState || {}), audio_url: file_uri || "" }));
                   if (signed_url) setPreviewAudioUrl(signed_url);
@@ -914,10 +915,22 @@ export default function VideoGenerator() {
             cues={project.lyric_cues}
             duration={project.duration}
             audioUrl={previewAudioUrl}
+            audioFile={audioFile}
             syncFocus={project.video_type === "lyrics"}
+            onRequireAuth={requireAuth}
             onChange={({ lyric_cues, lyrics }) => {
               setProject((p) => ({ ...p, lyric_cues, lyrics }));
               touchStyle();
+            }}
+            onSynced={async ({ lyricCues, lyrics }) => {
+              if (!id && !dayId) return;
+              await saveCampaignLyrics({
+                campaignId: id,
+                dayId,
+                lyricCues,
+                lyrics,
+              });
+              toast({ title: "Lyrics saved" });
             }}
           />
         </div>
