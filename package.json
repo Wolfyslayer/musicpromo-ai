@@ -50,6 +50,7 @@
     "@remotion/web-renderer": "^4.0.532",
     "@stripe/react-stripe-js": "^3.0.0",
     "@stripe/stripe-js": "^5.2.0",
+    "@supabase/supabase-js": "^2.117.2",
     "@tanstack/react-query": "^5.84.1",
     "@xenova/transformers": "^2.17.2",
     "canvas-confetti": "^1.9.4",
@@ -101,6 +102,7 @@
     "globals": "^15.14.0",
     "nitro": "^3.0.260610-beta",
     "postcss": "^8.5.3",
+    "supabase": "^2.119.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.2",
     "vite": "^8.2.0"

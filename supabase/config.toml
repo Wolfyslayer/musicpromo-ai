@@ -1,0 +1,19 @@
+# OAuth providers redirect the browser here with no Supabase user JWT.
+[functions.meta-oauth-callback]
+verify_jwt = false
+
+[functions.tiktok-oauth-callback]
+verify_jwt = false
+
+[functions.youtube-oauth-callback]
+verify_jwt = false
+
+[functions.metaCustomCallback]
+verify_jwt = false
+
+[functions.socialOAuthCallback]
+verify_jwt = false
+
+# Scheduled worker is called with the service role, not a user session.
+[functions.campaignWorker]
+verify_jwt = false

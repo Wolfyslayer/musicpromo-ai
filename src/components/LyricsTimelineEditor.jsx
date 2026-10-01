@@ -19,7 +19,9 @@ export default function LyricsTimelineEditor({
   cues = [],
   duration = 15,
   audioUrl = "",
+  audioFile = null,
   onChange,
+  onSynced,
   onRequireAuth,
   syncFocus = false,
 }) {
@@ -151,13 +153,14 @@ export default function LyricsTimelineEditor({
   };
 
   const autoSync = async () => {
-    if (!audioUrl || syncing) return;
+    if ((!audioUrl && !(audioFile instanceof Blob)) || syncing) return;
     setSyncing(true);
     setSyncError("");
     setSyncProgress(2);
     try {
       const cues = await syncLyricsFromAudio({
         audioUrl,
+        audioFile,
         durationSec: duration,
         onProgress: (info) => {
           if (typeof info.progress === "number") {
@@ -173,6 +176,7 @@ export default function LyricsTimelineEditor({
       setDraftLyrics(nextLyrics);
       setStampIndex(0);
       emit(cues, nextLyrics);
+      if (typeof onSynced === "function") await onSynced({ lyricCues: cues, lyrics: nextLyrics });
     } catch (err) {
       setSyncError(err?.message || "Lyrics sync failed.");
     } finally {
@@ -267,7 +271,7 @@ export default function LyricsTimelineEditor({
             size="sm"
             variant="outline"
             className="rounded-full"
-            disabled={!audioUrl || syncing}
+            disabled={(!audioUrl && !(audioFile instanceof Blob)) || syncing}
             onClick={() => {
               if (typeof onRequireAuth === "function") onRequireAuth(autoSync);
               else autoSync();

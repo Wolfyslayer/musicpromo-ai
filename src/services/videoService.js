@@ -4,6 +4,7 @@
 
 import { getTemplate, VIDEO_RESOLUTION } from "./videoTemplates";
 import { db } from "@/api/base44Client";
+import { resolveAssetUrl, uploadPromoAsset } from "@/services/supabaseStore";
 import { triggerCampaignAutoVideo } from "@/services/socialService";
 import { buildLyricCues, normalizeEditorLook, normalizeParticleEffect, normalizeVideoType, normalizeVisualStyle, resolveStudioDuration } from "@/remotion/styles";
 
@@ -15,11 +16,7 @@ export async function resolvePlayableAudioUrl(audioRef) {
   if (!raw) return "";
   if (/^https?:\/\//i.test(raw) || raw.startsWith("/")) return raw;
   try {
-    const { signed_url } = await db.integrations.Core.CreateFileSignedUrl({
-      file_uri: raw,
-      expires_in: 3600,
-    });
-    return signed_url || "";
+    return (await resolveAssetUrl(raw)) || "";
   } catch (err) {
     console.warn("[videoService] signed audio URL", err?.message || err);
     return "";
@@ -29,18 +26,14 @@ export async function resolvePlayableAudioUrl(audioRef) {
 /** Resolve artwork to a fetchable HTTPS URL (upload File when needed). */
 export async function resolvePublicArtworkUrl(artworkUrl, artworkFile) {
   if (artworkFile instanceof Blob) {
-    const uploaded = await db.integrations.Core.UploadPublicFile({ file: artworkFile });
-    return uploaded?.file_url || uploaded?.url || "";
+    const uploaded = await uploadPromoAsset(artworkFile, "artwork");
+    return uploaded?.publicUrl || "";
   }
   const raw = String(artworkUrl || "").trim();
   if (!raw) return "";
   if (/^https?:\/\//i.test(raw)) return raw;
   try {
-    const { signed_url } = await db.integrations.Core.CreateFileSignedUrl({
-      file_uri: raw,
-      expires_in: 3600,
-    });
-    return signed_url || "";
+    return (await resolveAssetUrl(raw)) || "";
   } catch {
     return raw;
   }
@@ -89,8 +82,8 @@ export const videoService = {
 
       let audioUrl = options.audioUrl || "";
       if (audioFile instanceof Blob) {
-        const uploadedAudio = await db.integrations.Core.UploadPublicFile({ file: audioFile });
-        audioUrl = uploadedAudio?.file_url || uploadedAudio?.url || "";
+        const uploadedAudio = await uploadPromoAsset(audioFile, "audio");
+        audioUrl = uploadedAudio?.publicUrl || "";
       } else if (!audioUrl) {
         audioUrl = await resolvePlayableAudioUrl(project?.audio_url);
       }
@@ -146,8 +139,8 @@ export const videoService = {
       });
 
       onProgress?.({ phase: "uploading", progress: 96, message: "Uploading MP4…" });
-      const uploaded = await db.integrations.Core.UploadPublicFile({ file: rendered.file });
-      const videoUrl = uploaded?.file_url || uploaded?.url || "";
+      const uploaded = await uploadPromoAsset(rendered.file, "video");
+      const videoUrl = uploaded?.publicUrl || "";
       if (!videoUrl) {
         throw new Error("Upload succeeded but no public video URL was returned.");
       }

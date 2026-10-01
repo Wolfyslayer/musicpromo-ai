@@ -1,52 +1,77 @@
-import { createClient } from '@base44/sdk';
-import { appParams, getSessionAccessToken } from '@/lib/app-params';
+import { supabase } from "@/lib/supabaseClient";
+import {
+  getCurrentUser,
+  requestPasswordReset,
+  resendSignupOtp,
+  signInWithGoogle,
+  signInWithPassword,
+  signOut,
+  signUpWithPassword,
+  updatePassword,
+  verifyEmailOtp,
+} from "@/lib/supabaseAuth";
+import { createEntityApi, resolveAssetUrl, uploadPromoAsset } from "@/services/supabaseStore";
 
 /**
- * Single frontend Base44 client for this app.
- *
- * All frontend code should import from this module — do not create additional
- * clients and do not fall back to silent no-op stubs.
- *
- * `base44 link` / `base44 dev` / `base44 build` inject VITE_BASE44_APP_ID.
- * Without an app ID the SDK cannot talk to your backend; fail loudly instead
- * of pretending operations succeeded.
+ * Supabase gateway. Pages still import `db` so the studio screens stay put.
+ * Every entity call runs supabase.from(...) inside the store, and every
+ * file call uploads into the public music-promo-assets bucket.
  */
-if (!appParams.appId) {
-  console.error(
-    '[base44] VITE_BASE44_APP_ID is missing. Run `base44 link` then `base44 dev` (or `base44 build`) so the app can reach your Base44 backend.'
-  );
-}
+export const db = {
+  entities: createEntityApi(),
+  auth: {
+    me: () => getCurrentUser(),
+    loginViaEmailPassword: (email, password) => signInWithPassword(email, password),
+    register: (payload) => signUpWithPassword(payload?.email, payload?.password),
+    verifyOtp: ({ email, otpCode }) => verifyEmailOtp(email, otpCode),
+    resendOtp: (email) => resendSignupOtp(email),
+    loginWithProvider: (provider, returnTo) => {
+      if (provider !== "google") throw new Error("Only Google sign-in is connected.");
+      return signInWithGoogle(returnTo);
+    },
+    resetPasswordRequest: (email) => requestPasswordReset(email),
+    resetPassword: ({ newPassword }) => updatePassword(newPassword),
+    setToken: () => {},
+    logout: () => signOut(),
+  },
+  integrations: {
+    Core: {
+      UploadPublicFile: async ({ file }) => uploadPromoAsset(file, "artwork"),
+      UploadPrivateFile: async ({ file }) => uploadPromoAsset(file, "audio"),
+      CreateFileSignedUrl: async ({ file_uri }) => ({ signed_url: await resolveAssetUrl(file_uri) }),
+    },
+  },
+  functions: {
+    invoke: async (name, payload) => {
+      if (!supabase) {
+        throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before calling a function.");
+      }
+      const { data, error } = await supabase.functions.invoke(name, { body: payload || {} });
+      if (error) {
+        let message = error.message || "Function failed";
+        try {
+          const context = error.context;
+          if (context && typeof context.json === "function") {
+            const body = await context.json();
+            message = body?.error || body?.message || message;
+          }
+        } catch {
+          /* keep the client message */
+        }
+        const err = new Error(message);
+        err.status = error.status || 500;
+        throw err;
+      }
+      return { data };
+    },
+  },
+  app: {
+    getPublicSettings: async () => ({ id: "supabase", public_settings: {} }),
+  },
+};
 
-const initialToken = getSessionAccessToken() || appParams.token || undefined;
-
-export const base44 = createClient({
-  appId: appParams.appId,
-  ...(initialToken ? { token: initialToken } : {}),
-  ...(appParams.appBaseUrl ? { appBaseUrl: appParams.appBaseUrl } : {}),
-  ...(appParams.functionsVersion ? { functionsVersion: appParams.functionsVersion } : {}),
-});
-
-/**
- * Sync the live session token onto the shared client before function calls.
- * Auth is Bearer-only via the SDK — never pair with credentials: "include"
- * against base44.app (CORS rejects ACAO:* with credentialed requests).
- */
 export function ensureClientSessionToken() {
-  const token = getSessionAccessToken();
-  if (!token) return null;
-  try {
-    if (typeof base44?.auth?.setToken === 'function') {
-      base44.auth.setToken(token);
-    } else if (typeof base44?.setToken === 'function') {
-      base44.setToken(token);
-    }
-  } catch {
-    /* ignore — invoke still uses the client token when set at createClient time */
-  }
-  return token;
+  return null;
 }
 
-/** Alias kept for call sites that historically used `db`. */
-export const db = base44;
-
-export default base44;
+export default db;

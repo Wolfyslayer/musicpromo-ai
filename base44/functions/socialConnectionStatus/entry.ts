@@ -5,9 +5,10 @@ import {
   META_OAUTH_REDIRECT_URI,
 } from "../../shared/instagramOAuth.ts";
 import {
-  SOCIAL_OAUTH_REDIRECT_URI,
+  TIKTOK_OAUTH_REDIRECT_URI,
   fetchTikTokProfile,
 } from "../../shared/tiktokOAuth.ts";
+import { YOUTUBE_OAUTH_REDIRECT_URI } from "../../shared/youtubeOAuth.ts";
 import { decryptCredential } from "../../shared/socialCrypto.ts";
 
 /** True when a Base44 secret exists and is non-empty after trim. */
@@ -155,7 +156,9 @@ export default async function (req: Request): Promise<Response> {
         ),
         facebook: false,
       },
-      metaOAuthRedirectUri: META_OAUTH_REDIRECT_URI || SOCIAL_OAUTH_REDIRECT_URI,
+      metaOAuthRedirectUri: META_OAUTH_REDIRECT_URI,
+      tiktokOAuthRedirectUri: TIKTOK_OAUTH_REDIRECT_URI,
+      youtubeOAuthRedirectUri: YOUTUBE_OAUTH_REDIRECT_URI,
     });
   } catch (error) {
     console.error("[socialConnectionStatus]", error?.message || "status failed");

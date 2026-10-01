@@ -69,13 +69,15 @@ https://<your-published-app-origin>/functions/<function-name>
 For Instagram OAuth, the callback function name is **`socialOAuthCallback`**, so the redirect path is always:
 
 ```text
-/functions/socialOAuthCallback
+/functions/v1/meta-oauth-callback
 ```
 
-**Full `META_REDIRECT_URI` template:**
+**Full redirect URIs:**
 
 ```text
-https://<YOUR_PUBLISHED_APP_ORIGIN>/functions/socialOAuthCallback
+https://hmqxptxtcejhmuwbegvq.supabase.co/functions/v1/meta-oauth-callback
+https://hmqxptxtcejhmuwbegvq.supabase.co/functions/v1/tiktok-oauth-callback
+https://hmqxptxtcejhmuwbegvq.supabase.co/functions/v1/youtube-oauth-callback
 ```
 
 ### What cannot be determined from the repo alone

@@ -1,17 +1,15 @@
-import { db } from '@/api/base44Client';
-
 import { useRef, useState } from "react";
 import { Upload, X, Loader2, Music, RefreshCw } from "lucide-react";
 
 import { useToast } from "@/components/ui/use-toast";
 import { fmtDuration } from "@/services/format";
+import { supabase } from "@/lib/supabaseClient";
 
 const ACCEPT = ".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/x-wav,audio/mp4";
 
 /**
- * Audio uploader. The song file is the artist's content, so it is stored
- * PRIVATELY via UploadPrivateFile (no public URL). A short-lived signed URL
- * is generated for in-app playback only.
+ * Audio uploader. The track is stored in the public music-promo-assets bucket.
+ * The public URL is what audio analysis, Whisper, and Remotion play.
  *
  * onChange({ file_uri, signed_url, duration, name, file })
  * `file` is the local Blob kept for client-side Remotion rendering.
@@ -39,8 +37,19 @@ export default function AudioUpload({ value, signedUrl, onChange, guard }) {
     }
     setBusy(true);
     try {
-      const { file_uri } = await db.integrations.Core.UploadPrivateFile({ file });
-      const { signed_url } = await db.integrations.Core.CreateFileSignedUrl({ file_uri, expires_in: 3600 });
+      if (!supabase) throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to upload.");
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError || !auth?.user) throw new Error("Sign in to upload audio.");
+      const safeName = String(file.name || "audio").replace(/[^\w.\-]+/g, "_");
+      const path = `${auth.user.id}/audio/${Date.now()}-${safeName}`;
+      const { error } = await supabase.storage.from("music-promo-assets").upload(path, file, {
+        contentType: file.type || "audio/wav",
+        upsert: false,
+      });
+      if (error) throw new Error(error.message);
+      const { data } = supabase.storage.from("music-promo-assets").getPublicUrl(path);
+      const file_uri = data.publicUrl;
+      const signed_url = data.publicUrl;
       setName(file.name);
       setPlayUrl(signed_url);
       // measure duration
@@ -81,7 +90,7 @@ export default function AudioUpload({ value, signedUrl, onChange, guard }) {
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-600">{name || "Audio file"}</p>
               <p className="text-xs text-muted-foreground">
-                {duration ? `${fmtDuration(duration)} · ` : ""}MP3/WAV/M4A · stored privately
+                {duration ? `${fmtDuration(duration)} · ` : ""}MP3/WAV/M4A · ready for the studio
               </p>
             </div>
             <div className="flex items-center gap-1">

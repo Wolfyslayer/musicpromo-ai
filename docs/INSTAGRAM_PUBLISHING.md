@@ -40,8 +40,8 @@ Instagram Connect requests **only** those two scopes (no `pages_*` / Facebook pr
 - Authorize: `https://www.facebook.com/v21.0/dialog/oauth`
 - Token + Graph: `https://graph.facebook.com`
 - Secrets: **Facebook App ID/Secret** as `META_CLIENT_ID` / `META_CLIENT_SECRET`
-- Redirect (fixed): `https://flying-sonic-promo-flow.base44.app/functions/metaCustomCallback`  
-  Register this exact URI in Meta → Facebook Login → Valid OAuth Redirect URIs.
+- Redirect (fixed): `https://hmqxptxtcejhmuwbegvq.supabase.co/functions/v1/meta-oauth-callback`  
+  Register this exact URI in Meta → Valid OAuth Redirect URIs. TikTok uses `.../tiktok-oauth-callback` and YouTube uses `.../youtube-oauth-callback`.
 
 On connect, callback:
 1. Exchanges `code` → short-lived User token → long-lived User token  

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Plus, Sparkles, BarChart3, CalendarDays, Film, ArrowRight, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { loadCampaigns } from "@/services/data";
-import { db } from "@/api/base44Client";
+import { selectCampaignVideos } from "@/services/studioRecords";
 import ArtworkImage from "@/components/ArtworkImage";
 import StatusBadge from "@/components/StatusBadge";
 import ProgressBar from "@/components/ProgressBar";
@@ -31,11 +31,7 @@ export default function Dashboard() {
           return;
         }
         try {
-          const videos = await db.entities.VideoProject.filter(
-            { campaign_id: active.id },
-            "-created_date",
-            20
-          );
+          const videos = await selectCampaignVideos(active.id);
           setReadyVideos(
             (videos || []).filter(
               (v) =>

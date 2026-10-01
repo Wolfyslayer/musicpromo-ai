@@ -16,9 +16,8 @@ import {
   CartesianGrid,
   Legend,
 } from "recharts";
-import { loadCampaigns, loadAnalytics } from "@/services/data";
 import { sum } from "@/services/format";
-import { syncSocialStats } from "@/services/socialService";
+import { selectAnalyticsWorkspace } from "@/services/studioRecords";
 import StatCard from "@/components/StatCard";
 import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -53,8 +52,8 @@ export default function Analytics() {
 
   const reload = useCallback(
     () =>
-      Promise.all([loadCampaigns(), loadAnalytics()])
-        .then(([c, a]) => {
+      selectAnalyticsWorkspace()
+        .then(({ campaigns: c, analytics: a }) => {
           setCampaigns(c);
           setAnalytics(a);
         })
@@ -62,6 +61,7 @@ export default function Analytics() {
           console.error("--- ANALYTICS LOAD ERROR ---", err);
           setCampaigns([]);
           setAnalytics([]);
+          throw err;
         }),
     []
   );
@@ -132,21 +132,11 @@ export default function Analytics() {
   const onSync = async () => {
     setSyncing(true);
     try {
-      const res = await syncSocialStats();
-      if (res?.error && res?.ok !== true) {
-        console.error("--- SOCIAL STATS SYNC ERROR ---", res);
-        toast({
-          variant: "destructive",
-          title: "Sync failed",
-          description: res.error || "Could not sync platform stats.",
-        });
-        return;
-      }
-      toast({
-        title: "Stats synced",
-        description: "Pulled latest views, likes, and engagement from connected platforms.",
-      });
       await reload();
+      toast({
+        title: "Analytics refreshed",
+        description: "Loaded the latest views, likes, and engagement saved to your account.",
+      });
     } catch (err) {
       console.error("--- SOCIAL STATS SYNC ERROR ---", err);
       toast({

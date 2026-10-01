@@ -31,7 +31,11 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      await db.auth.register({ email, password });
+      const result = await db.auth.register({ email, password });
+      if (result?.session) {
+        window.location.href = safeReturnTo();
+        return;
+      }
       setShowOtp(true);
     } catch (err) {
       setError(err.message || "Registration failed");
