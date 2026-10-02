@@ -63,10 +63,7 @@ export function buildDraftVideoProject({
   const videoType = look.template === "LYRICS" ? "lyrics" : "promo";
   const text = hookTextForDay(aiDay, song, song?.analysis?.assetProfile);
   const lyricCues = buildLyricCues(lyrics || song?.lyrics || "", duration, []);
-  const assetEnergy = song?.analysis?.assetProfile?.energy;
-  const artworkMotion = normalizeArtworkMotion(
-    assetEnergy === "fast" ? "hype" : assetEnergy === "slow" ? "cinematic" : "standard"
-  );
+  const artworkMotion = normalizeArtworkMotion("ai-feel");
 
   return {
     campaign_id: campaignId,
@@ -81,7 +78,10 @@ export function buildDraftVideoProject({
     audio_url: song?.audio_url || "",
     lyrics: String(lyrics || song?.lyrics || "").slice(0, 8000),
     visual_style: look.visualStyle,
-    particle_effect: look.particleEffect,
+    particle_effect:
+      look.particleEffect === "none" && artworkMotion === "ai-feel"
+        ? "prism"
+        : look.particleEffect,
     editor_look: normalizeEditorLook(null),
     lyric_cues: lyricCues,
     duration,
