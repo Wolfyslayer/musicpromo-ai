@@ -63,13 +63,21 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return undefined;
 
+    let recoveryOpened = false;
+    const openRecovery = () => {
+      setRecoveryMode(true);
+      if (recoveryOpened) return;
+      recoveryOpened = true;
+      router.push("/reset-password");
+    };
+
     supabase.auth
       .getSession()
       .then(({ data }) => applySessionUser(data.session?.user))
       .catch(() => applySessionUser(null));
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY") setRecoveryMode(true);
+      if (event === "PASSWORD_RECOVERY") openRecovery();
       if (!session?.user && event !== "SIGNED_OUT") return;
       applySessionUser(session?.user);
     });
@@ -81,7 +89,7 @@ export function AuthProvider({ children }) {
         const session = await completeAuthFromUrl(url);
         if (session?.user) {
           applySessionUser(session.user);
-          if (url.includes("reset-password")) setRecoveryMode(true);
+          if (url.includes("reset-password")) openRecovery();
         }
       } catch (error) {
         toast({ variant: "destructive", title: "Sign-in link failed", description: error?.message });

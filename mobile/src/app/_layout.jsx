@@ -46,8 +46,8 @@ export default function RootLayout() {
               <Stack screenOptions={stackScreenOptions(c)}>
                 <Stack.Screen name="(app)" options={{ headerShown: false }} />
                 <Stack.Screen name="(auth)" options={{ headerShown: false, presentation: "modal" }} />
-                <Stack.Screen name="privacy" options={{ title: "Privacy Policy" }} />
-                <Stack.Screen name="terms" options={{ title: "Terms of Service" }} />
+                <Stack.Screen name="privacy" options={{ title: "" }} />
+                <Stack.Screen name="terms" options={{ title: "" }} />
                 <Stack.Screen name="+not-found" options={{ title: "Not found" }} />
               </Stack>
               <Toaster />
