@@ -12,8 +12,10 @@ function clientId(): string {
   ).trim();
 }
 
+/** Secret for the Web client used at login (may differ from YOUTUBE_* social-connect client). */
 function clientSecret(): string {
   return (
+    secrets.get("GOOGLE_LOGIN_CLIENT_SECRET") ||
     secrets.get("GOOGLE_CLIENT_SECRET") ||
     secrets.get("YOUTUBE_CLIENT_SECRET") ||
     Deno.env.get("GOOGLE_CLIENT_SECRET") ||
@@ -33,27 +35,17 @@ async function handler(req: Request): Promise<Response> {
       return jsonWithCors(req, { error: "code, codeVerifier, and redirectUri are required." }, 400);
     }
 
-    const idFromEnv = clientId();
-    const id = clientIdFromApp || idFromEnv;
+    // Login uses VITE_GOOGLE_CLIENT_ID from the app; social YouTube may use a different OAuth client in secrets.
+    const id = clientIdFromApp || clientId();
     const secret = clientSecret();
     if (!id || !secret) {
       return jsonWithCors(
         req,
         {
           error:
-            "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Supabase Edge secrets, and VITE_GOOGLE_CLIENT_ID in the app build (same Web client ID).",
+            "Set GOOGLE_CLIENT_SECRET (or GOOGLE_LOGIN_CLIENT_SECRET) in Supabase for your login Web client, and VITE_GOOGLE_CLIENT_ID in the app build.",
         },
         500
-      );
-    }
-    if (clientIdFromApp && idFromEnv && clientIdFromApp !== idFromEnv) {
-      return jsonWithCors(
-        req,
-        {
-          error:
-            "Google Client ID mismatch: VITE_GOOGLE_CLIENT_ID in the app must match GOOGLE_CLIENT_ID in Supabase secrets.",
-        },
-        400
       );
     }
 
