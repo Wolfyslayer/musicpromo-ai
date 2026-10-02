@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Camera, Globe, Loader2, Lock, Pencil, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,8 @@ import {
   uploadProfileAvatar,
 } from "@/services/userProfile";
 import { getConnectionStatus } from "@/services/socialService";
+import { enrichArtistWithConnectionUrls } from "@/services/artistSocialUrls";
+import ArtistSocialIconLinks from "@/components/ArtistSocialIconLinks";
 
 function Avatar({ url, name }) {
   const initial = (name || "?").charAt(0).toUpperCase();
@@ -64,28 +66,7 @@ function ArtistCards({ artists }) {
             {a.biography ? (
               <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">{a.biography}</p>
             ) : null}
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              {a.spotify_url ? (
-                <a href={a.spotify_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                  Spotify
-                </a>
-              ) : null}
-              {a.instagram_url ? (
-                <a href={a.instagram_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                  Instagram
-                </a>
-              ) : null}
-              {a.tiktok_url ? (
-                <a href={a.tiktok_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                  TikTok
-                </a>
-              ) : null}
-              {a.youtube_url ? (
-                <a href={a.youtube_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                  YouTube
-                </a>
-              ) : null}
-            </div>
+            <ArtistSocialIconLinks artist={a} className="mt-3" size="sm" />
           </div>
         ))}
       </div>
@@ -207,6 +188,11 @@ export default function Profile() {
   const ownVisibleArtists = form.hide_artists_on_profile
     ? []
     : artists.filter((a) => a.show_on_public_profile !== false);
+
+  const ownVisibleArtistsWithSocial = useMemo(
+    () => ownVisibleArtists.map((a) => enrichArtistWithConnectionUrls(a, socialConnections)),
+    [ownVisibleArtists, socialConnections]
+  );
 
   const save = async () => {
     if (!user?.id) return;
@@ -334,7 +320,9 @@ export default function Profile() {
               ) : null}
             </div>
           </div>
-          {ownVisibleArtists.length ? <ArtistCards artists={ownVisibleArtists} /> : null}
+          {ownVisibleArtistsWithSocial.length ? (
+            <ArtistCards artists={ownVisibleArtistsWithSocial} />
+          ) : null}
         </SurfacePanel>
       </div>
     );
