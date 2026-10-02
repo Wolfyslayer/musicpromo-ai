@@ -10,6 +10,11 @@
       "type": "string",
       "title": "Profile Image URL"
     },
+    "profile_image_from_provider": {
+      "type": "string",
+      "title": "Profile image source",
+      "description": "upload, instagram, tiktok, or youtube — which connected account supplies the roster photo."
+    },
     "biography": {
       "type": "string",
       "title": "Biography"

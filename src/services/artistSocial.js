@@ -9,6 +9,7 @@ export function normalizeArtistRow(artist) {
   return {
     ...artist,
     show_on_public_profile: artist.show_on_public_profile !== false,
+    profile_image_from_provider: artist.profile_image_from_provider || "",
   };
 }
 

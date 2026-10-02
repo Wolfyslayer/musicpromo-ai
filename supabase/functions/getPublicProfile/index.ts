@@ -1,5 +1,6 @@
 import { serveWithCors } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/runtime.ts";
+import { enrichArtistRowWithSocials } from "../_shared/artistSocialUrls.ts";
 
 function unpackArtist(row: Record<string, unknown>) {
   const data = row.data && typeof row.data === "object" ? (row.data as Record<string, unknown>) : {};
@@ -67,6 +68,7 @@ async function handler(req: Request): Promise<Response> {
         youtube_url: a.youtube_url || null,
         tiktok_url: a.tiktok_url || null,
         instagram_url: a.instagram_url || null,
+        facebook_url: a.facebook_url || null,
         website: a.website || null,
       }));
 
@@ -94,6 +96,16 @@ async function handler(req: Request): Promise<Response> {
     const displayName =
       userRow.display_name || userRow.full_name || "Artist";
 
+    const artistsForProfile =
+      userRow.hide_artists_on_profile === true
+        ? []
+        : artists.map((a) =>
+            enrichArtistRowWithSocials(
+              a as Record<string, unknown>,
+              socialByArtist[String(a.id)] || []
+            )
+          );
+
     return Response.json({
       ok: true,
       profile: {
@@ -103,7 +115,7 @@ async function handler(req: Request): Promise<Response> {
         avatarUrl: userRow.avatar_url || null,
         bio: userRow.bio || null,
         hideArtists: userRow.hide_artists_on_profile === true,
-        artists: userRow.hide_artists_on_profile === true ? [] : artists,
+        artists: artistsForProfile,
         connectedSocials: socialByArtist,
       },
     });

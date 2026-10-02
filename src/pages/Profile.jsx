@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Camera, Globe, Loader2, Lock, Pencil, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,8 @@ import {
   uploadProfileAvatar,
 } from "@/services/userProfile";
 import { getConnectionStatus } from "@/services/socialService";
+import { enrichArtistWithConnectionUrls } from "@/services/artistSocialUrls";
+import ArtistSocialIconLinks from "@/components/ArtistSocialIconLinks";
 
 function Avatar({ url, name }) {
   const initial = (name || "?").charAt(0).toUpperCase();
@@ -64,28 +66,7 @@ function ArtistCards({ artists }) {
             {a.biography ? (
               <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">{a.biography}</p>
             ) : null}
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              {a.spotify_url ? (
-                <a href={a.spotify_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                  Spotify
-                </a>
-              ) : null}
-              {a.instagram_url ? (
-                <a href={a.instagram_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                  Instagram
-                </a>
-              ) : null}
-              {a.tiktok_url ? (
-                <a href={a.tiktok_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                  TikTok
-                </a>
-              ) : null}
-              {a.youtube_url ? (
-                <a href={a.youtube_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                  YouTube
-                </a>
-              ) : null}
-            </div>
+            <ArtistSocialIconLinks artist={a} className="mt-3" size="sm" />
           </div>
         ))}
       </div>
@@ -208,6 +189,11 @@ export default function Profile() {
     ? []
     : artists.filter((a) => a.show_on_public_profile !== false);
 
+  const ownVisibleArtistsWithSocial = useMemo(
+    () => ownVisibleArtists.map((a) => enrichArtistWithConnectionUrls(a, socialConnections)),
+    [ownVisibleArtists, socialConnections]
+  );
+
   const save = async () => {
     if (!user?.id) return;
     setSaving(true);
@@ -294,7 +280,6 @@ export default function Profile() {
   }
 
   if (isOwn && !editing) {
-    const publicPath = profile?.profile_public !== false ? profilePublicPath(profile || user) : null;
     return (
       <div className="space-y-6">
         <PageHeader
@@ -328,22 +313,16 @@ export default function Profile() {
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">Add a short bio in edit mode.</p>
               )}
-              {publicPath ? (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Public link:{" "}
-                  <Link to={publicPath} className="text-primary hover:underline">
-                    {window.location.origin}
-                    {publicPath}
-                  </Link>
-                </p>
-              ) : (
+              {profile?.profile_public === false ? (
                 <p className="mt-3 flex items-center justify-center gap-1 text-xs text-muted-foreground sm:justify-start">
                   <Lock className="h-3.5 w-3.5" /> Profile is private — only you can see this page.
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
-          {ownVisibleArtists.length ? <ArtistCards artists={ownVisibleArtists} /> : null}
+          {ownVisibleArtistsWithSocial.length ? (
+            <ArtistCards artists={ownVisibleArtistsWithSocial} />
+          ) : null}
         </SurfacePanel>
       </div>
     );
@@ -391,19 +370,11 @@ export default function Profile() {
                 Use Google photo
               </Button>
             ) : null}
-            {form.profile_public && profile ? (
-              <p className="text-xs text-muted-foreground">
-                Public link:{" "}
-                <Link to={profilePublicPath({ ...profile, handle: form.handle || profile.handle })} className="text-primary hover:underline">
-                  {window.location.origin}
-                  {profilePublicPath({ ...profile, handle: form.handle || profile.handle })}
-                </Link>
-              </p>
-            ) : (
+            {form.profile_public === false ? (
               <p className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Lock className="h-3.5 w-3.5" /> Profile is private — only you can see this page.
               </p>
-            )}
+            ) : null}
           </div>
         </div>
 

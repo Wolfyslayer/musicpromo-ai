@@ -1,6 +1,6 @@
 import { db } from '@/api/base44Client';
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, ImagePlus, Share2, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,13 @@ import {
 import PageHeader from "@/components/PageHeader";
 import SurfacePanel from "@/components/SurfacePanel";
 import { normalizeArtistRow, openSocialConnectForArtist } from "@/services/artistSocial";
+import {
+  artistFormNeedsSocialUrlSync,
+  connectionAvatarOptions,
+  syncArtistFormFromConnections,
+} from "@/services/artistSocialUrls";
+import { getConnectionStatus } from "@/services/socialService";
+import { cn } from "@/lib/utils";
 
 const FIELDS = [
   { key: "website", label: "Website" },
@@ -54,19 +61,72 @@ export default function ArtistEditor() {
     instagram_url: "",
     facebook_url: "",
     show_on_public_profile: true,
+    profile_image_from_provider: "",
   });
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [connections, setConnections] = useState([]);
+  const initialSyncRef = useRef(false);
+
+  const refreshConnectionsAndMerge = useCallback(
+    async (baseForm, { silent = false } = {}) => {
+      if (isNew || !id) return baseForm;
+      const status = await getConnectionStatus().catch(() => null);
+      const list = status?.connections || [];
+      setConnections(list);
+      const merged = syncArtistFormFromConnections(baseForm, list, id);
+      if (!silent && artistFormNeedsSocialUrlSync(baseForm, list, id)) {
+        toast({
+          title: "Social links updated",
+          description: "Connected account URLs were filled in. Save to keep them on this artist.",
+        });
+      }
+      return merged;
+    },
+    [id, isNew, toast]
+  );
+
+  const refetchSocialMerge = useCallback(
+    async (currentForm, { silent = true } = {}) => {
+      if (isNew || !id) return currentForm;
+      const merged = await refreshConnectionsAndMerge(currentForm, { silent });
+      setForm(merged);
+      return merged;
+    },
+    [id, isNew, refreshConnectionsAndMerge]
+  );
 
   useEffect(() => {
+    initialSyncRef.current = false;
     if (!isNew) {
-      db.entities.Artist.get(id)
-        .then((a) => setForm((f) => ({ ...f, ...normalizeArtistRow(a) })))
-        .catch(() => navigate("/artists"));
+      (async () => {
+        try {
+          const a = await db.entities.Artist.get(id);
+          const base = normalizeArtistRow(a);
+          const next = await refreshConnectionsAndMerge(base, { silent: true });
+          setForm((f) => ({ ...f, ...next }));
+          initialSyncRef.current = true;
+        } catch {
+          navigate("/artists");
+        }
+      })();
     }
-  }, [id, isNew, navigate]);
+  }, [id, isNew, navigate, refreshConnectionsAndMerge]);
+
+  useEffect(() => {
+    if (isNew || !id) return undefined;
+    const onFocus = () => {
+      if (!initialSyncRef.current) return;
+      setForm((current) => {
+        void refetchSocialMerge(current, { silent: true });
+        return current;
+      });
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [id, isNew, refetchSocialMerge]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -75,7 +135,7 @@ export default function ArtistEditor() {
     setUploading(true);
     try {
       const { file_url } = await db.integrations.Core.UploadPublicFile({ file });
-      set("profile_image", file_url);
+      setForm((f) => ({ ...f, profile_image: file_url, profile_image_from_provider: "upload" }));
     } catch (e) {
       toast({ variant: "destructive", title: "Upload failed", description: e.message });
     } finally {
@@ -109,16 +169,35 @@ export default function ArtistEditor() {
     }
   };
 
+  const avatarOptions = !isNew ? connectionAvatarOptions(connections, id) : [];
+
+  const pickSocialAvatar = (provider, url) => {
+    setForm((f) => ({
+      ...f,
+      profile_image: url,
+      profile_image_from_provider: provider,
+    }));
+  };
+
+  const syncFromConnections = () => {
+    if (isNew) return;
+    setForm((current) => {
+      void refetchSocialMerge(current, { silent: false });
+      return current;
+    });
+  };
+
   const save = async () => {
     if (!form.name?.trim()) { toast({ variant: "destructive", title: "Name required" }); return; }
     setBusy(true);
     try {
+      const payload = isNew ? form : await refreshConnectionsAndMerge(form, { silent: true });
       if (isNew) {
-        const created = await db.entities.Artist.create({ ...form, is_demo: false });
+        const created = await db.entities.Artist.create({ ...payload, is_demo: false });
         toast({ title: "Artist created" });
         navigate(`/artists/${created.id}`);
       } else {
-        await db.entities.Artist.update(id, form);
+        await db.entities.Artist.update(id, payload);
         toast({ title: "Artist saved" });
         navigate("/artists");
       }
@@ -143,17 +222,58 @@ export default function ArtistEditor() {
           {form.profile_image ? (
             <div className="relative">
               <img src={form.profile_image} alt="Profile" className="h-20 w-20 rounded-full object-cover" />
-              <button onClick={() => set("profile_image", "")} className="absolute -right-1 -top-1 grid h-6 w-6 place-items-center rounded-full bg-destructive text-destructive-foreground"><X className="h-3.5 w-3.5" /></button>
+              <button
+                type="button"
+                onClick={() =>
+                  setForm((f) => ({ ...f, profile_image: "", profile_image_from_provider: "" }))
+                }
+                className="absolute -right-1 -top-1 grid h-6 w-6 place-items-center rounded-full bg-destructive text-destructive-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           ) : (
             <button onClick={() => inputRef.current?.click()} className="grid h-20 w-20 place-items-center rounded-full border-2 border-dashed border-border/70 bg-muted/30 text-muted-foreground hover:border-primary/50">
               {uploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <ImagePlus className="h-6 w-6" />}
             </button>
           )}
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-600">Profile image</p>
-            <p className="text-xs text-muted-foreground">JPG / PNG / WEBP — stored publicly.</p>
-            {form.profile_image && <button onClick={() => inputRef.current?.click()} className="mt-1 text-xs text-primary">Replace</button>}
+            <p className="text-xs text-muted-foreground">Upload your own or use a photo from a connected social account.</p>
+            {form.profile_image && (
+              <button type="button" onClick={() => inputRef.current?.click()} className="mt-1 text-xs text-primary">
+                Replace upload
+              </button>
+            )}
+            {avatarOptions.length ? (
+              <div className="mt-3">
+                <p className="text-xs font-500 text-muted-foreground">From connected accounts</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {avatarOptions.map((opt) => {
+                    const active =
+                      form.profile_image === opt.url &&
+                      form.profile_image_from_provider === opt.provider;
+                    return (
+                      <button
+                        key={opt.provider}
+                        type="button"
+                        title={opt.label}
+                        onClick={() => pickSocialAvatar(opt.provider, opt.url)}
+                        className={cn(
+                          "relative rounded-full ring-2 ring-offset-2 ring-offset-background transition",
+                          active ? "ring-primary" : "ring-transparent hover:ring-border"
+                        )}
+                      >
+                        <img src={opt.url} alt="" className="h-11 w-11 rounded-full object-cover" />
+                        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-muted px-1.5 text-[10px] font-medium capitalize">
+                          {opt.provider}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -192,17 +312,22 @@ export default function ArtistEditor() {
           <div className="rounded-2xl border border-border/60 bg-muted/15 p-4">
             <p className="text-sm font-600">Social publishing</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Connect TikTok, Instagram, and YouTube for this artist. Campaign auto-schedule uses these accounts.
+              Connect TikTok, Instagram, and YouTube for this artist. Links and profile photos can sync from these accounts.
             </p>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-3 rounded-full"
-              onClick={() => openSocialConnectForArtist(navigate, id)}
-            >
-              <Share2 className="mr-1.5 h-4 w-4" />
-              Connect platforms for {form.name || "this artist"}
-            </Button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full"
+                onClick={() => openSocialConnectForArtist(navigate, id)}
+              >
+                <Share2 className="mr-1.5 h-4 w-4" />
+                Connect platforms for {form.name || "this artist"}
+              </Button>
+              <Button type="button" variant="secondary" className="rounded-full" onClick={syncFromConnections}>
+                Sync links from connections
+              </Button>
+            </div>
           </div>
         ) : null}
 
