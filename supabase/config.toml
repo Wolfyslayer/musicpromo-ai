@@ -21,3 +21,7 @@ verify_jwt = false
 # Google login code exchange (pre-session; redirect URI is the app domain).
 [functions.googleAuthExchange]
 verify_jwt = false
+
+# Render worker callback authenticates with the x-render-secret header, not a user JWT.
+[functions.renderVideoCallback]
+verify_jwt = false
