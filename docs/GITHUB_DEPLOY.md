@@ -46,8 +46,16 @@ AI and OAuth handlers read secrets from **Supabase**, not from the frontend bund
 
 ```bash
 supabase secrets set OPENAI_API_KEY=sk-... --project-ref YOUR_REF
-# Plus any Meta/TikTok/Google OAuth secrets your social functions need.
+
+# Social connect (required for Instagram / TikTok / YouTube — not stored in GitHub)
+supabase secrets set PUBLIC_APP_URL=https://musicpromoai.site --project-ref YOUR_REF
+supabase secrets set SOCIAL_TOKEN_ENCRYPTION_KEY="$(openssl rand -base64 32)" --project-ref YOUR_REF
+# Platform OAuth (same values you used on Base44, if migrating):
+# META_CLIENT_ID, META_CLIENT_SECRET, TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET,
+# GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET (YouTube channel client), GOOGLE_LOGIN_CLIENT_SECRET (login)
 ```
+
+Values from **Base44 secrets do not copy automatically** to Supabase. After setting secrets, redeploy is optional (secrets apply to already-deployed functions).
 
 Redeploying functions from GitHub does **not** remove these; they stay on the project.
 

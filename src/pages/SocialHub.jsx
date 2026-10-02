@@ -180,8 +180,17 @@ export default function SocialHub() {
       }
       console.error("[SocialHub] connectSocialProvider failed", res);
       console.error("[SocialHub] connectSocialProvider failed JSON", JSON.stringify(res));
+      const missing = res?.missing && typeof res.missing === "object" ? res.missing : null;
+      const missingLabels = missing
+        ? Object.entries(missing)
+            .filter(([, isMissing]) => isMissing)
+            .map(([name]) => name)
+        : [];
       const detailParts = [
         res?.error || res?.message || "OAuth start failed.",
+        missingLabels.length
+          ? `Set in Supabase → Edge Functions → Secrets: ${missingLabels.join(", ")}.`
+          : null,
         res?.provider ? `Got: ${res.provider}.` : null,
         Array.isArray(res?.supported) ? `Supported: ${res.supported.join(", ")}.` : null,
         res?.bodyKeys ? `Body keys: ${res.bodyKeys.join(", ")}.` : null,
