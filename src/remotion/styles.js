@@ -51,6 +51,19 @@ export const COMPOSITING_MODES = [
   { id: "ai_background", label: "AI motion full frame", description: "AI clip fills the frame; typography and particles on top." },
 ];
 
+export const ARTWORK_MOTION_MODES = [
+  { id: "standard", label: "Standard reactive", description: "Audio-reactive zoom on cover (default)." },
+  { id: "cinematic", label: "Cinematic (free)", description: "Slow Ken Burns pan — no API, great for moody promos." },
+  { id: "hype", label: "Hype (free)", description: "Faster push-in and drift — pairs with energetic tracks." },
+];
+
+export function normalizeArtworkMotion(value) {
+  const id = String(value || "standard").toLowerCase();
+  if (id === "cinematic" || id === "film" || id === "kenburns") return "cinematic";
+  if (id === "hype" || id === "fast" || id === "aggressive") return "hype";
+  return "standard";
+}
+
 export function normalizeCompositingMode(value) {
   const id = String(value || "artwork").toLowerCase();
   if (id === "ai_background" || id === "ai_full") return "ai_background";

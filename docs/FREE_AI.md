@@ -1,7 +1,7 @@
 # Free (or cheap) AI for campaign generation
 
 Campaign **analyze** + **plan** steps call Edge Functions that use **`invokeLlm`** — an **OpenAI-compatible** HTTP API.  
-**Promo video** still renders **on your device** (Remotion/WebCodecs); that part does not use this API.
+**Promo video pixels** render **on your device** (Remotion/WebCodecs) — Groq does **not** generate video. Groq can still help with **campaign copy** and, if configured, **wording** the motion prompt before an optional paid fal/Replicate clip (see [PROMO_VIDEO.md](./PROMO_VIDEO.md)).
 
 OpenAI is the default. If you see `credit_balance_exhausted`, switch to a provider with a **free tier** by changing Supabase secrets (no app redeploy required for secret-only changes).
 

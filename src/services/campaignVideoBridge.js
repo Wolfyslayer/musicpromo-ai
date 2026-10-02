@@ -1,6 +1,7 @@
 import { getTemplate } from "@/services/videoTemplates";
 import {
   buildLyricCues,
+  normalizeArtworkMotion,
   normalizeEditorLook,
   normalizeParticleEffect,
   normalizeVisualStyle,
@@ -62,6 +63,10 @@ export function buildDraftVideoProject({
   const videoType = look.template === "LYRICS" ? "lyrics" : "promo";
   const text = hookTextForDay(aiDay, song, song?.analysis?.assetProfile);
   const lyricCues = buildLyricCues(lyrics || song?.lyrics || "", duration, []);
+  const assetEnergy = song?.analysis?.assetProfile?.energy;
+  const artworkMotion = normalizeArtworkMotion(
+    assetEnergy === "fast" ? "hype" : assetEnergy === "slow" ? "cinematic" : "standard"
+  );
 
   return {
     campaign_id: campaignId,
@@ -87,6 +92,7 @@ export function buildDraftVideoProject({
     status: "draft",
     is_demo: false,
     user_id: userId || "",
+    artwork_motion: artworkMotion,
     animation_settings: {
       videoType,
       outroCta: String(aiDay?.cta || "Listen now").slice(0, 80),

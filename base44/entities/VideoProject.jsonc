@@ -168,6 +168,12 @@
     "ai_clip_opacity": {
       "type": "number",
       "title": "AI layer opacity (0.15–1)"
+    },
+    "artwork_motion": {
+      "type": "string",
+      "enum": ["standard", "cinematic", "hype"],
+      "default": "standard",
+      "title": "Free on-device cover motion mode"
     }
   },
   "required": [

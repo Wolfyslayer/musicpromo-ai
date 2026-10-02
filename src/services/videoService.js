@@ -140,6 +140,7 @@ export const videoService = {
         aiClipUrl: project?.ai_clip_url || "",
         compositingMode: project?.compositing_mode || "artwork",
         aiClipOpacity: project?.ai_clip_opacity ?? 1,
+        artworkMotion: project?.artwork_motion || "standard",
         onProgress,
       });
 

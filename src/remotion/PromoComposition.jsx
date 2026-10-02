@@ -6,6 +6,7 @@ import {
   activeLyricCueIndex,
   cuesInAudioWindow,
   normalizeAiClipOpacity,
+  normalizeArtworkMotion,
   normalizeCompositingMode,
   normalizeEditorLook,
   normalizeParticleEffect,
@@ -90,6 +91,7 @@ function PromoCompositionBody({
   aiClipUrl = "",
   compositingMode: compositingProp = "artwork",
   aiClipOpacity: aiOpacityProp = 1,
+  artworkMotion: artworkMotionProp = "standard",
   motion,
 }) {
   const frame = useCurrentFrame();
@@ -103,6 +105,22 @@ function PromoCompositionBody({
   const showArtwork = !useAiClip || compositingMode === "ai_blend";
   const lyricFont = fontForChoice(look.fontId);
   const { bassScale, transientScale, bass, mid, high, energy, transient } = motion;
+  const artworkMotion = normalizeArtworkMotion(artworkMotionProp);
+  const motionT = frame / Math.max(1, durationInFrames - 1);
+  let bgMotionTransform = `scale(${bassScale * 1.12})`;
+  let coverMotionTransform = `scale(${transientScale})`;
+  if (artworkMotion === "cinematic") {
+    const slowScale = interpolate(motionT, [0, 1], [1.02, 1.14]);
+    const panX = interpolate(motionT, [0, 1], [0, -38]);
+    const panY = interpolate(motionT, [0, 1], [0, -26]);
+    coverMotionTransform = `translate(${panX}px, ${panY}px) scale(${slowScale * transientScale})`;
+    bgMotionTransform = `translate(${panX * 0.45}px, ${panY * 0.45}px) scale(${bassScale * 1.06 * slowScale})`;
+  } else if (artworkMotion === "hype") {
+    const punch = interpolate(motionT, [0, 1], [1, 1.16]);
+    const drift = Math.sin(motionT * Math.PI * 5) * 14;
+    coverMotionTransform = `translate(${drift}px, ${-drift * 0.35}px) scale(${punch * transientScale})`;
+    bgMotionTransform = `translate(${drift * 0.6}px, 0) scale(${bassScale * 1.14 * punch})`;
+  }
   const timeSec = frame / fps;
   const audioOffset = Math.max(0, Number(audioStartTimeOffset) || 0);
   const videoDuration = durationInFrames / Math.max(1, fps);
@@ -176,7 +194,7 @@ function PromoCompositionBody({
           style={{
             justifyContent: "center",
             alignItems: "center",
-            transform: `scale(${bassScale * 1.12})`,
+            transform: bgMotionTransform,
             opacity: useAiClip ? 0.35 : 1,
           }}
         >
@@ -227,7 +245,7 @@ function PromoCompositionBody({
                 height: 720,
                 objectFit: "cover",
                 borderRadius: 28,
-                transform: `scale(${transientScale})`,
+                transform: coverMotionTransform,
                 boxShadow: "0 30px 80px rgba(0,0,0,0.55)",
               }}
             />
