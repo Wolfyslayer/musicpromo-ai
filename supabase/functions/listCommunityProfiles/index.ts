@@ -20,7 +20,7 @@ async function handler(req: Request): Promise<Response> {
     const admin = serviceClient();
     const { data: userRows, error: userErr } = await admin
       .from("users")
-      .select("id, display_name, full_name, avatar_url, bio, hide_artists_on_profile, created_at")
+      .select("id, display_name, full_name, handle, avatar_url, bio, hide_artists_on_profile, created_at")
       .eq("profile_public", true)
       .order("created_at", { ascending: false })
       .limit(120);
@@ -59,6 +59,7 @@ async function handler(req: Request): Promise<Response> {
 
     const members = publicUsers.map((u) => ({
       id: u.id,
+      handle: u.handle || null,
       displayName: u.display_name || u.full_name || "Artist",
       avatarUrl: u.avatar_url || null,
       bio: u.bio || null,

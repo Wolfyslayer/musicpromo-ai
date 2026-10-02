@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { db } from "@/api/base44Client";
+import { normalizeHandleInput, validateHandle } from "@/services/profileHandle";
 
 function googleAvatarFromSessionUser(sessionUser) {
   const meta = sessionUser?.user_metadata || {};
@@ -11,7 +12,7 @@ export async function fetchOwnProfile(userId) {
   const { data, error } = await supabase
     .from("users")
     .select(
-      "id, email, full_name, display_name, avatar_url, avatar_override, bio, profile_public, hide_artists_on_profile, role"
+      "id, email, full_name, display_name, handle, avatar_url, avatar_override, bio, profile_public, hide_artists_on_profile, role"
     )
     .eq("id", userId)
     .maybeSingle();
@@ -48,9 +49,20 @@ export async function updateOwnProfile(userId, patch) {
     allowed.avatar_url = String(patch.avatar_url);
     allowed.avatar_override = Boolean(patch.avatar_override ?? true);
   }
+  if (patch.handle != null) {
+    const normalized = normalizeHandleInput(patch.handle);
+    const check = validateHandle(normalized);
+    if (!check.ok) throw new Error(check.error);
+    allowed.handle = normalized || null;
+  }
 
   const { data, error } = await supabase.from("users").update(allowed).eq("id", userId).select().maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("That handle is already taken. Try another one.");
+    }
+    throw new Error(error.message);
+  }
   return data;
 }
 
@@ -69,8 +81,9 @@ export async function uploadProfileAvatar(userId, file) {
   return updateOwnProfile(userId, { avatar_url: url, avatar_override: true });
 }
 
-export async function fetchPublicProfile(userId) {
-  const res = await db.functions.invoke("getPublicProfile", { userId });
+/** @param {string} profileKey — user UUID or public @handle (no @) */
+export async function fetchPublicProfile(profileKey) {
+  const res = await db.functions.invoke("getPublicProfile", { userId: profileKey });
   const body = res?.data ?? res;
   return body;
 }

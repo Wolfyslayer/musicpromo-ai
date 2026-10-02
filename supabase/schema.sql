@@ -11,6 +11,7 @@ create table if not exists public.users (
   bio text,
   profile_public boolean not null default true,
   hide_artists_on_profile boolean not null default false,
+  handle text,
   role text default 'artist',
   created_at timestamptz default now()
 );
