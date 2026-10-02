@@ -1,33 +1,14 @@
+import { jsonWithCors, serveWithCors } from "../_shared/cors.ts";
 import { createClientFromRequest } from "../_shared/runtime.ts";
 import { secrets } from "../_shared/runtime.ts";
 import { publishSocialPostCore, safeSocialPost } from "../_shared/socialPublishCore.ts";
-
-/** Allow SPA origins (local Vite + production) with credentialed POSTs. */
-function corsHeaders(req: Request): HeadersInit {
-  const origin = req.headers.get("Origin") || req.headers.get("origin") || "";
-  const allowOrigin =
-    origin &&
-    (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin) ||
-      origin.includes("base44.app") ||
-      origin.includes("flying-sonic-promo-flow"))
-      ? origin
-      : origin || "*";
-
-  return {
-    "Access-Control-Allow-Origin": allowOrigin,
-    "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, X-Requested-With",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    Vary: "Origin",
-  };
-}
 
 function jsonResponse(
   req: Request,
   body: Record<string, unknown>,
   status = 200
 ): Response {
-  return Response.json(body, { status, headers: corsHeaders(req) });
+  return jsonWithCors(req, body, status);
 }
 
 /**
@@ -35,10 +16,6 @@ function jsonResponse(
  * Auto-scheduled publishing is handled by campaignWorker.
  */
 async function handler (req: Request): Promise<Response> {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders(req) });
-  }
-
   if (req.method !== "POST") {
     return jsonResponse(req, { error: "Method not allowed.", code: "VALIDATION" }, 405);
   }
@@ -130,4 +107,4 @@ async function handler (req: Request): Promise<Response> {
 export { safeSocialPost };
 
 
-Deno.serve(handler);
+serveWithCors(handler);

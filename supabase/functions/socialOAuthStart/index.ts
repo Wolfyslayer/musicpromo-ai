@@ -1,3 +1,4 @@
+import { serveWithCors } from "../_shared/cors.ts";
 import { createClientFromRequest } from "../_shared/runtime.ts";
 import { secrets } from "../_shared/runtime.ts";
 import { generateOAuthState } from "../_shared/socialCrypto.ts";
@@ -112,17 +113,6 @@ function resolveProvider(body: Record<string, unknown>, req: Request): string {
  */
 async function handler (req: Request): Promise<Response> {
   try {
-    if (req.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
-        },
-      });
-    }
-
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) {
@@ -316,4 +306,4 @@ async function handler (req: Request): Promise<Response> {
 }
 
 
-Deno.serve(handler);
+serveWithCors(handler);

@@ -1,3 +1,4 @@
+import { serveWithCors } from "../_shared/cors.ts";
 import { createClientFromRequest } from "../_shared/runtime.ts";
 import { secrets } from "../_shared/runtime.ts";
 import { decryptCredential } from "../_shared/socialCrypto.ts";
@@ -80,4 +81,4 @@ async function handler (req: Request): Promise<Response> {
 }
 
 
-Deno.serve(handler);
+serveWithCors(handler);
