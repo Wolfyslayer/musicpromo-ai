@@ -17,3 +17,7 @@ verify_jwt = false
 # Scheduled worker is called with the service role, not a user session.
 [functions.campaignWorker]
 verify_jwt = false
+
+# Google login code exchange (pre-session; redirect URI is the app domain).
+[functions.googleAuthExchange]
+verify_jwt = false

@@ -98,7 +98,8 @@ export const AuthProvider = ({ children }) => {
       if (recovered?.user) welcomeFromOAuth();
     } catch (error) {
       console.error("Session check failed:", error);
-      if (arrivedFromOAuth) {
+      const onGoogleAppCallback = window.location.pathname.endsWith("/auth/google/callback");
+      if (arrivedFromOAuth && !onGoogleAppCallback) {
         toast({ title: "Google sign-in failed", description: error?.message || "Could not finish signing in." });
       }
       setUser(null);

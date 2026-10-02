@@ -51,7 +51,7 @@ export default function AuthModal() {
   const handleGoogle = async () => {
     setError("");
     try {
-      await signInWithGoogle();
+      await signInWithGoogle(`${window.location.pathname}${window.location.search}`);
     } catch (err) {
       setError(err?.message || "Google sign-in failed");
     }
