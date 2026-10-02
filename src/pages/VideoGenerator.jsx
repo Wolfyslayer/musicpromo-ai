@@ -140,7 +140,9 @@ export default function VideoGenerator() {
       try {
       const data = await loadCampaign(id);
       setSong(data.song);
-      const profile = data.song?.analysis?.assetProfile || loadAssetSession();
+      const songAnalysis =
+        data.song?.analysis && typeof data.song.analysis === "object" ? data.song.analysis : {};
+      const profile = songAnalysis.assetProfile || loadAssetSession();
       let savedType = "";
       let savedProject = null;
       let day = null;
@@ -149,6 +151,10 @@ export default function VideoGenerator() {
         savedType = normalizeVideoType(savedProject?.animation_settings?.videoType);
       } else if (dayId) {
         day = await selectCampaignDay(dayId);
+        if (day?.video_project_id && !projectId) {
+          savedProject = await selectVideoProject(day.video_project_id).catch(() => null);
+          savedType = normalizeVideoType(savedProject?.animation_settings?.videoType || savedProject?.video_type);
+        }
       }
       const videoType = savedType || requestedType || (projectId ? "promo" : "");
       if (!videoType) {
@@ -163,7 +169,7 @@ export default function VideoGenerator() {
         audioSeconds
       );
       let base = {
-        template: profile?.template || "LYRICS",
+        template: savedProject?.template || profile?.template || "LYRICS",
         title: data.song?.title || "",
         artist_name: data.artist?.name || "",
         text: videoType === "promo" ? (day?.hook || requestedText || profile?.hooks?.[0] || "") : "",
@@ -172,8 +178,12 @@ export default function VideoGenerator() {
         audio_url: data.song?.audio_url || "",
         audio_duration: audioSeconds,
         lyrics: data.song?.lyrics || "",
-        visual_style: normalizeVisualStyle(profile?.visualStyle || "pop"),
-        particle_effect: normalizeParticleEffect(profile?.particleEffect || "none"),
+        visual_style: normalizeVisualStyle(
+          savedProject?.visual_style || profile?.visualStyle || songAnalysis.recommendedVisualStyle || "pop"
+        ),
+        particle_effect: normalizeParticleEffect(
+          savedProject?.particle_effect || profile?.particleEffect || songAnalysis.recommendedParticleEffect || "none"
+        ),
         editor_look: normalizeEditorLook(null),
         lyric_cues: buildLyricCues(data.song?.lyrics || "", duration, []),
         duration,

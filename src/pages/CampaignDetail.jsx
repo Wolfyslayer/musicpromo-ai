@@ -98,7 +98,9 @@ export default function CampaignDetail() {
               <ContentLibrary campaign={campaign} song={{ ...song, artistName: artist?.name }} content={content} onRefresh={reload} />
             </div>
           )}
-          {tab === "videos" && <CampaignVideos campaign={campaign} videos={videos} song={song} />}
+          {tab === "videos" && (
+            <CampaignVideos campaign={campaign} videos={videos} song={song} onRefresh={reload} />
+          )}
           {tab === "analytics" && <CampaignAnalytics campaign={campaign} analytics={analytics} days={days} onRefresh={reload} />}
         </div>
       </Tabs>

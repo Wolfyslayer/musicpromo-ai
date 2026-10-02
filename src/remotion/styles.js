@@ -28,12 +28,30 @@ export const VISUAL_STYLES = [
     label: "Rock / Metal",
     description: "Distressed typewriter energy and rugged fades.",
   },
+  {
+    id: "electronic",
+    label: "Electronic / Club",
+    description: "Tight kerning, strobe-friendly motion, cyber accents.",
+  },
+  {
+    id: "rnb",
+    label: "R&B / Soul",
+    description: "Smooth lowercase flow, softer fades, moody type.",
+  },
+  {
+    id: "cinematic",
+    label: "Cinematic",
+    description: "Wide letter-spacing, slow dramatic reveals.",
+  },
 ];
 
 export function normalizeVisualStyle(value) {
   const id = String(value || "pop").toLowerCase();
   if (id === "hiphop" || id === "urban") return "hiphop";
   if (id === "rock" || id === "metal") return "rock";
+  if (id === "electronic" || id === "edm" || id === "club") return "electronic";
+  if (id === "rnb" || id === "r&b" || id === "soul") return "rnb";
+  if (id === "cinematic" || id === "film") return "cinematic";
   return "pop";
 }
 

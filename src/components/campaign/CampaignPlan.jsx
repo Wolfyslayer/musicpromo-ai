@@ -353,7 +353,15 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
               >
                 <Share2 className="mr-1 h-3.5 w-3.5" />Post now
               </Button>
-              <CreateVideoButton campaignId={campaign.id} dayId={day.id} className="rounded-full"><Film className="mr-1 h-3.5 w-3.5" />Create Video</CreateVideoButton>
+              <CreateVideoButton
+                campaignId={campaign.id}
+                dayId={day.id}
+                projectId={day.video_project_id || ""}
+                className="rounded-full"
+              >
+                <Film className="mr-1 h-3.5 w-3.5" />
+                {day.video_project_id ? "Open video" : "Create video"}
+              </CreateVideoButton>
               <Button variant="ghost" size="sm" onClick={() => regenerateDay(day)} disabled={regenerating === day.id} className="rounded-full">
                 {regenerating === day.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1 h-3.5 w-3.5" />}Regenerate
               </Button>

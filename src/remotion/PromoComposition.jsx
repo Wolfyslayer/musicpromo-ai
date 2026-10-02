@@ -23,10 +23,11 @@ function LyricLine({
   const animFrames = Math.max(6, Math.round(((Number(animationMs) || 280) / 1000) * fps));
   const opacity = interpolate(local, [0, animFrames], [0, 1], { extrapolateRight: "clamp" });
   const y = interpolate(local, [0, animFrames], [36, 0], { extrapolateRight: "clamp" });
-  const display = visualStyle === "hiphop";
+  const display = visualStyle === "hiphop" || visualStyle === "electronic";
   const typeStep = Math.max(1, animFrames / Math.max(1, text.length));
   const chars = visualStyle === "rock" ? Math.min(text.length, Math.floor(local / typeStep) + 1) : text.length;
   const shown = text.slice(0, chars);
+  const rnbLower = visualStyle === "rnb";
 
   return (
     <div
@@ -35,7 +36,7 @@ function LyricLine({
         fontSize,
         fontWeight: display ? 400 : 700,
         letterSpacing,
-        textTransform: display ? "uppercase" : "none",
+        textTransform: display ? "uppercase" : rnbLower ? "lowercase" : "none",
         color,
         textAlign: "center",
         opacity,
@@ -228,14 +229,14 @@ function PromoCompositionBody({
         <div
           style={{
             fontFamily,
-            fontSize: visualStyle === "hiphop" ? 70 : 58,
-            fontWeight: visualStyle === "pop" ? 800 : 400,
-            color: "#fff",
+            fontSize: visualStyle === "hiphop" || visualStyle === "electronic" ? 70 : visualStyle === "cinematic" ? 52 : 58,
+            fontWeight: visualStyle === "pop" || visualStyle === "electronic" ? 800 : 400,
+            color: visualStyle === "rnb" ? "#f5e6ff" : "#fff",
             textAlign: "center",
             opacity: titleOpacity,
             transform: `translateY(${titleY}px)`,
-            textTransform: visualStyle === "hiphop" ? "uppercase" : "none",
-            letterSpacing: visualStyle === "hiphop" ? "0.06em" : "0",
+            textTransform: visualStyle === "hiphop" || visualStyle === "electronic" ? "uppercase" : "none",
+            letterSpacing: visualStyle === "cinematic" ? "0.14em" : visualStyle === "hiphop" ? "0.06em" : "0",
             textShadow: "0 8px 28px rgba(0,0,0,0.65)",
             padding: "0 48px",
             maxWidth: 980,

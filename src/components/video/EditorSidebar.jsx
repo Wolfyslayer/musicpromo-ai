@@ -16,6 +16,33 @@ import {
   normalizeParticleEffect,
 } from "@/remotion/styles";
 
+const PRO_MOTION_SNAPSHOTS = [
+  {
+    id: "hook-punch",
+    label: "Hook punch",
+    particle: "rings",
+    look: { fontSize: 72, letterSpacing: 0.5, lyricY: 78, animationMs: 160, particleSpeed: 0.78 },
+  },
+  {
+    id: "cinematic-slow",
+    label: "Cinematic slow",
+    particle: "leaks",
+    look: { fontSize: 56, letterSpacing: 4, lyricY: 84, animationMs: 420, particleSpeed: 0.35 },
+  },
+  {
+    id: "bass-shake",
+    label: "Bass shake",
+    particle: "shake",
+    look: { fontSize: 64, letterSpacing: 1, lyricY: 80, animationMs: 240, particleSpeed: 0.9 },
+  },
+  {
+    id: "clean-minimal",
+    label: "Clean minimal",
+    particle: "none",
+    look: { fontSize: 52, letterSpacing: -0.2, lyricY: 86, animationMs: 320, particleSpeed: 0.4 },
+  },
+];
+
 function Control({ label, value, min, max, step, suffix = "", onChange }) {
   return (
     <div>
@@ -240,6 +267,25 @@ export default function EditorSidebar({
           step={0.5}
           onChange={(particleY) => onLook({ particleY })}
         />
+      </div>
+
+      <div className="space-y-3 border-t border-border pt-4">
+        <p className="text-[10px] font-600 uppercase tracking-[0.16em] text-muted-foreground">Pro motion</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {PRO_MOTION_SNAPSHOTS.map((snap) => (
+            <button
+              key={snap.id}
+              type="button"
+              onClick={() => {
+                onLook(snap.look);
+                onEffect(snap.particle);
+              }}
+              className="rounded-xl border border-border bg-muted/60 px-2 py-2 text-left text-[11px] font-600 hover:border-primary/40"
+            >
+              {snap.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-3 border-t border-border pt-4">
