@@ -14,7 +14,7 @@ export default function StatusBadge({ status, className }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-500 capitalize",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize tracking-wide",
         COLOR_MAP[meta.color] || COLOR_MAP.muted,
         className
       )}

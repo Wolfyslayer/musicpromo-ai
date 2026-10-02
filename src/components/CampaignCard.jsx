@@ -7,8 +7,8 @@ import { fmtDate, fmtDateShort, daysUntil } from "@/services/format";
 export default function CampaignCard({ campaign, song, artist, daysCount = 0, videosCount = 0, onAction }) {
   return (
     <Link
-      to={`/campaigns/${campaign.id}`}
-      className="group block overflow-hidden rounded-2xl border border-border/60 card-gradient transition hover:border-primary/40 animate-slide-up"
+      to={`/campaigns/${campaign.id}/plan`}
+      className="surface-interactive group block overflow-hidden rounded-2xl animate-slide-up"
     >
       <div className="flex gap-3 p-3">
         <ArtworkImage

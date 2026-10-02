@@ -10,6 +10,7 @@ import ProgressBar from "@/components/ProgressBar";
 import EmptyState from "@/components/EmptyState";
 import CampaignCard from "@/components/CampaignCard";
 import { useAuth, useWorkspaceRefresh } from "@/lib/AuthContext";
+import PageHeader from "@/components/PageHeader";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -72,21 +73,20 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div className="animate-fade-in">
-        <h1 className="font-heading text-3xl font-700 tracking-tight md:text-4xl">
-          MusicPromo <span className="text-gradient">AI</span>
-        </h1>
-        <p className="mt-2 max-w-md text-muted-foreground">
-          Hands-off promo: auto videos, scheduled publishing, and live analytics.
-        </p>
-        <Button
-          onClick={() => navigate("/create")}
-          className="mt-5 h-11 rounded-full px-5 text-sm font-600"
-          size="lg"
-        >
-          <Plus className="mr-1.5 h-4 w-4" /> New Campaign
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Overview"
+        title={
+          <>
+            MusicPromo <span className="text-gradient">AI</span>
+          </>
+        }
+        description="Hands-off promo: auto videos, scheduled publishing, and live analytics."
+        actions={
+          <Button onClick={() => navigate("/create")} className="rounded-full px-5" size="lg">
+            <Plus className="mr-1.5 h-4 w-4" /> New Campaign
+          </Button>
+        }
+      />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 

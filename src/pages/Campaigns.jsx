@@ -13,6 +13,7 @@ import { CAMPAIGN_STATUSES } from "@/services/constants";
 import CampaignCard from "@/components/CampaignCard";
 import EmptyState from "@/components/EmptyState";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import PageHeader from "@/components/PageHeader";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export default function Campaigns() {
@@ -64,10 +65,16 @@ export default function Campaigns() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="font-heading text-2xl font-700 tracking-tight">Campaigns</h1>
-        <Button onClick={() => navigate("/create")} className="rounded-full"><Plus className="mr-1.5 h-4 w-4" />New</Button>
-      </div>
+      <PageHeader
+        eyebrow="Library"
+        title="Campaigns"
+        description="Search, filter, and open any release plan."
+        actions={
+          <Button onClick={() => navigate("/create")} className="rounded-full">
+            <Plus className="mr-1.5 h-4 w-4" /> New campaign
+          </Button>
+        }
+      />
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">

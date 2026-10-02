@@ -4,7 +4,7 @@ export default function ProgressBar({ value = 0, className, showLabel = false })
   const v = Math.max(0, Math.min(100, value));
   return (
     <div className="w-full">
-      <div className={cn("h-2 w-full overflow-hidden rounded-full bg-muted", className)}>
+      <div className={cn("h-1.5 w-full overflow-hidden rounded-full bg-muted/80", className)}>
         <div
           className="h-full rounded-full transition-all duration-700 ease-out"
           style={{

@@ -17,8 +17,10 @@ export default function AppNavMenu({ primary, secondary, userLine, footerActions
 
   const linkClass = (active) =>
     cn(
-      "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-500 transition",
-      active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+      "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition duration-200",
+      active
+        ? "bg-primary/12 font-semibold text-primary"
+        : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
     );
 
   return (
@@ -28,7 +30,7 @@ export default function AppNavMenu({ primary, secondary, userLine, footerActions
           type="button"
           variant="ghost"
           size="icon"
-          className="h-11 w-11 shrink-0 rounded-lg"
+          className="h-11 w-11 shrink-0 rounded-xl"
           aria-label="Open navigation menu"
         >
           <Menu className="h-5 w-5" />

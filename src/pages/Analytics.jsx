@@ -23,6 +23,7 @@ import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useWorkspaceRefresh } from "@/lib/AuthContext";
+import PageHeader from "@/components/PageHeader";
 
 const CHART_COLORS = ["hsl(265 90% 68%)", "hsl(326 85% 62%)", "hsl(190 90% 55%)", "hsl(43 90% 60%)", "hsl(0 80% 62%)", "hsl(150 70% 50%)"];
 const METRICS = ["views", "likes", "comments", "shares", "saves", "followers_gained", "streams", "playlist_adds", "clicks"];
@@ -151,25 +152,17 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-700 tracking-tight">Analytics</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Live platform stats auto-sync daily via the background worker
-            {syncedCount ? ` · ${syncedCount} synced entries` : ""}.
-          </p>
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          className="rounded-full"
-          onClick={onSync}
-          disabled={syncing}
-        >
-          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
-          {syncing ? "Syncing…" : "Sync from platforms"}
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Performance"
+        title="Analytics"
+        description={`Live platform stats auto-sync daily via the background worker${syncedCount ? ` · ${syncedCount} synced entries` : ""}.`}
+        actions={
+          <Button size="sm" variant="outline" className="rounded-full" onClick={onSync} disabled={syncing}>
+            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing…" : "Sync from platforms"}
+          </Button>
+        }
+      />
 
       {loading ? (
         <div className="h-40 animate-shimmer rounded-2xl" />
