@@ -33,10 +33,12 @@ Do **not** remove `https://<project-ref>.supabase.co/auth/v1/callback` unless yo
 - Site URL: `https://musicpromoai.site`
 - Redirect URLs: `https://musicpromoai.site/**`
 
-**Edge Function secrets** (if not already set for YouTube):
+**Edge Function secrets** for **login** (can be the same Web client as YouTube, or a separate one):
 
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_CLIENT_SECRET` — client secret for the **same** Web client as `VITE_GOOGLE_CLIENT_ID`
+- Optional alias: `GOOGLE_LOGIN_CLIENT_SECRET` (use if `YOUTUBE_CLIENT_SECRET` belongs to a different OAuth client)
+
+You do **not** need `GOOGLE_CLIENT_ID` in secrets when the app sends `VITE_GOOGLE_CLIENT_ID`; token exchange uses the app’s public client ID + the secret above.
 
 Deploy: `googleAuthExchange` (or full `supabase functions deploy`).
 
@@ -67,7 +69,8 @@ VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 | Issue | Fix |
 | --- | --- |
 | **Edge Function returned a non-2xx** | Open the error text after the fix deploy — usually Google token exchange. See rows below. |
-| **The OAuth client was not found** | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in Supabase secrets must be the **Web application** client that matches **`VITE_GOOGLE_CLIENT_ID`** (not an old or Android client ID). |
+| **The OAuth client was not found** | `GOOGLE_CLIENT_SECRET` must belong to the **same** Web client as **`VITE_GOOGLE_CLIENT_ID`**. If YouTube uses another OAuth client, set `GOOGLE_LOGIN_CLIENT_SECRET` for login. |
+| **Client ID mismatch** (old deploys) | Redeploy `googleAuthExchange`; app client ID is used for exchange — only the **secret** must match in Supabase. |
 | `redirect_uri_mismatch` | Redirect URI in Google must **exactly** match `https://musicpromoai.site/auth/google/callback` |
 | `Sign in with Google is not enabled` | Enable Google provider in Supabase with matching Client ID |
 | Edge function 401 | Deploy `googleAuthExchange`; `verify_jwt = false` in `supabase/config.toml` |
