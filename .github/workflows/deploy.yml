@@ -88,11 +88,21 @@ jobs:
 
       - name: Configure Vite base path
         run: |
+          # Custom domains are served at the site root — use "/", NOT the domain name.
           if [ -n "${{ vars.VITE_BASE_PATH }}" ]; then
-            echo "VITE_BASE_PATH=${{ vars.VITE_BASE_PATH }}" >> "$GITHUB_ENV"
+            BASE="${{ vars.VITE_BASE_PATH }}"
+          elif [ -n "${{ vars.CUSTOM_DOMAIN }}" ]; then
+            BASE="/"
           else
-            echo "VITE_BASE_PATH=/${{ github.event.repository.name }}/" >> "$GITHUB_ENV"
+            BASE="/${{ github.event.repository.name }}/"
           fi
+          case "$BASE" in
+            *.*)
+              echo "::error::VITE_BASE_PATH must be a URL path (e.g. /), not a domain. Remove or fix the VITE_BASE_PATH repository variable."
+              exit 1
+              ;;
+          esac
+          echo "VITE_BASE_PATH=$BASE" >> "$GITHUB_ENV"
 
       - name: Install and build
         env:
