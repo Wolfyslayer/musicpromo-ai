@@ -4,6 +4,7 @@
  */
 
 import { db, ensureClientSessionToken } from "@/api/base44Client";
+import { getGoogleClientId } from "@/lib/googleAuth";
 import { getSessionAccessToken } from "@/lib/app-params";
 import { SOCIAL_PROVIDERS, getSocialProviderConfig } from "@/services/social/providers";
 import { CONNECTION_STATUS, CONNECTION_STATUS_META } from "@/services/social/provider";
@@ -123,10 +124,15 @@ export async function startOAuth(provider, { forceReauth = false } = {}) {
   // Use connectSocialProvider (not socialOAuthStart): the old name is intercepted
   // by a Base44 platform handler that returns "This provider is not available…"
   // for tiktok/youtube without executing our function code.
-  return invoke("connectSocialProvider", {
+  const payload = {
     provider: id,
     forceReauth: Boolean(forceReauth),
-  });
+  };
+  if (id === "youtube") {
+    const googleClientId = getGoogleClientId();
+    if (googleClientId) payload.googleClientId = googleClientId;
+  }
+  return invoke("connectSocialProvider", payload);
 }
 
 export async function disconnectSocial(provider, accountId) {

@@ -14,6 +14,7 @@ import {
 } from "../_shared/tiktokOAuth.ts";
 import {
   buildYouTubeAuthorizeUrl,
+  readGoogleClientIdFromInvokeBody,
   YOUTUBE_CONNECT_SCOPES,
   YOUTUBE_OAUTH_REDIRECT_URI,
 } from "../_shared/youtubeOAuth.ts";
@@ -182,6 +183,12 @@ async function handler (req: Request): Promise<Response> {
       );
     }
 
+    const youtubeClientId =
+      provider === "youtube"
+        ? readGoogleClientIdFromInvokeBody(body) ||
+          secretValue("GOOGLE_CLIENT_ID", "YOUTUBE_CLIENT_ID")
+        : "";
+
     const state = generateOAuthState();
     const expiresAt = new Date(Date.now() + STATE_TTL_MS).toISOString();
     await base44.asServiceRole.entities.SocialOAuthState.create({
@@ -190,6 +197,7 @@ async function handler (req: Request): Promise<Response> {
       provider,
       expires_at: expiresAt,
       used: false,
+      ...(youtubeClientId ? { oauth_client_id: youtubeClientId } : {}),
     });
 
     let authorizationUrl = "";
@@ -244,16 +252,24 @@ async function handler (req: Request): Promise<Response> {
         redirectUri: TIKTOK_OAUTH_REDIRECT_URI,
       });
     } else if (provider === "youtube") {
-      const clientId = secretValue("GOOGLE_CLIENT_ID", "YOUTUBE_CLIENT_ID");
-      const clientSecret = secretValue("GOOGLE_CLIENT_SECRET", "YOUTUBE_CLIENT_SECRET");
+      const clientId = youtubeClientId;
+      const clientSecret = secretValue(
+        "GOOGLE_LOGIN_CLIENT_SECRET",
+        "GOOGLE_CLIENT_SECRET",
+        "YOUTUBE_CLIENT_SECRET"
+      );
       if (!clientId || !clientSecret) {
         return Response.json(
           {
-            error: "YouTube is not configured (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET).",
+            error:
+              "YouTube is not configured. Use the same Web client as Google login: set GOOGLE_CLIENT_SECRET (or GOOGLE_LOGIN_CLIENT_SECRET) in Supabase, ensure VITE_GOOGLE_CLIENT_ID is in the app build, and add the YouTube redirect URI in Google Cloud.",
             code: "not_configured",
             missing: {
-              GOOGLE_CLIENT_ID: !hasSecret("GOOGLE_CLIENT_ID", "YOUTUBE_CLIENT_ID"),
+              googleClientId:
+                !readGoogleClientIdFromInvokeBody(body) &&
+                !hasSecret("GOOGLE_CLIENT_ID", "YOUTUBE_CLIENT_ID"),
               GOOGLE_CLIENT_SECRET: !hasSecret(
+                "GOOGLE_LOGIN_CLIENT_SECRET",
                 "GOOGLE_CLIENT_SECRET",
                 "YOUTUBE_CLIENT_SECRET"
               ),
