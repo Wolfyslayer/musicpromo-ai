@@ -53,7 +53,7 @@ function SettingsShellInner() {
 
       <Outlet context={outletContext} />
 
-      <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom))] left-0 right-0 z-30 border-t border-border/60 bg-background/95 p-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0">
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-border/60 bg-background/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 md:pb-0">
         <Button onClick={save} className="w-full rounded-full md:w-auto">
           Save settings
         </Button>

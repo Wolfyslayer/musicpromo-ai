@@ -21,13 +21,6 @@ const SECONDARY = [
   { to: "/social", label: "Social", icon: Share2 },
 ];
 
-const MOBILE_NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/studio", label: "Generator", icon: Film },
-  { to: "/social", label: "Social Hub", icon: Share2 },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-];
-
 function SideLink({ item, active }) {
   const Icon = item.icon;
   return (
@@ -52,14 +45,6 @@ export default function Layout() {
 
   const isActive = (to) => (to === "/" ? location.pathname === "/" : location.pathname.startsWith(to));
   const isStudio = location.pathname === "/studio" || /\/campaigns\/[^/]+\/video$/.test(location.pathname);
-  const isCampaignSection = /^\/campaigns\/[^/]+(\/(plan|library|content|videos|analytics|song))?$/.test(
-    location.pathname
-  );
-  const isSectionHub =
-    isCampaignSection ||
-    location.pathname.startsWith("/social") ||
-    location.pathname.startsWith("/settings");
-
   const handleLogout = () => {
     logout(false);
     toast({ title: "Signed out" });
@@ -104,13 +89,7 @@ export default function Layout() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border/50 bg-background/90 px-3 backdrop-blur md:hidden">
-          {isSectionHub ? (
-            <span className="min-w-0 truncate pl-1 text-sm font-600">
-              {isCampaignSection ? "Campaign" : location.pathname.startsWith("/social") ? "Social" : "Settings"}
-            </span>
-          ) : (
-            <Logo size={26} />
-          )}
+          <Logo size={32} linkToHome />
           <AppNavMenu
             primary={NAV}
             secondary={SECONDARY}
@@ -163,26 +142,6 @@ export default function Layout() {
             </div>
           )}
         </main>
-
-        <nav className="grid shrink-0 grid-cols-4 border-t border-border/50 bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-          {MOBILE_NAV.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.to);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-600",
-                  active ? "text-primary" : "text-muted-foreground"
-                )}
-              >
-                <Icon className="h-5 w-5" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
       </div>
     </div>
   );
