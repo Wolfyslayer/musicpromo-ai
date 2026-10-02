@@ -39,7 +39,7 @@ const ERROR_MESSAGES = {
   account_save_failed: "Login worked, but saving the connection failed. Try Connect again.",
 };
 
-export const CONNECTABLE_SOCIAL = new Set(["instagram", "tiktok", "youtube"]);
+export const CONNECTABLE_SOCIAL = new Set(["instagram", "tiktok", "youtube", "facebook", "x"]);
 
 const SocialHubContext = createContext(null);
 

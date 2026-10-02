@@ -74,7 +74,7 @@ export function SocialConnectPage() {
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            Each artist can have their own TikTok, Instagram, and YouTube. Campaign scheduling uses the campaign&apos;s artist.
+            Each artist can have their own TikTok, Instagram, YouTube, Facebook Page, and X. Campaign scheduling uses the campaign&apos;s artist.
             {selectedArtist ? (
               <span className="mt-1 block font-medium text-foreground/80">
                 Connecting for: {selectedArtist.name}
