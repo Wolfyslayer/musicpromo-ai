@@ -8,6 +8,7 @@ import {
 } from "../_shared/socialPublishCore.ts";
 import { pickSocialAccountForArtist } from "../_shared/socialAccountScope.ts";
 import { recordOwnedByUser } from "../_shared/ownership.ts";
+import { kickCampaignWorkerAsync } from "../_shared/kickCampaignWorker.ts";
 
 /**
  * Schedule a CampaignDay for automatic multi-platform publish via campaignWorker.
@@ -199,12 +200,31 @@ async function handler (req: Request): Promise<Response> {
       live_permalink: "",
     });
 
+    const scheduledMs = Date.parse(scheduledAt);
+    const dueNow = !Number.isNaN(scheduledMs) && scheduledMs <= Date.now();
+    const dueWithinFiveMin =
+      !Number.isNaN(scheduledMs) && scheduledMs - Date.now() <= 5 * 60 * 1000;
+
+    kickCampaignWorkerAsync({
+      skipVideo: true,
+      skipStats: true,
+      batchLimit: dueNow ? 20 : 12,
+    });
+
     return Response.json({
       ok: true,
       day: updatedDay,
       scheduledAt,
       posts: created,
       skipped,
+      queued: true,
+      publishDueNow: dueNow,
+      workerNudged: true,
+      message: dueNow
+        ? "Queued for publish — worker notified to post now."
+        : dueWithinFiveMin
+          ? "Queued — worker will publish within a few minutes of the scheduled time."
+          : "Queued — held as scheduled until the planned time (worker runs every few minutes).",
     });
   } catch (error) {
     console.error("[campaignSchedule]", (error as Error)?.message || error);

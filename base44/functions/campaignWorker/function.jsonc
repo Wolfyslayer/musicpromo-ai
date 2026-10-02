@@ -10,7 +10,8 @@
   }
   // NOTE: This app has Workflows enabled — legacy function.jsonc `automations`
   // are rejected (409 workflows_enabled). Create a Scheduled Workflow in the
-  // Base44 Dashboard that invokes `campaignWorker` every hour (e.g. at :38).
-  // Suggested prompt: "Create a recurring scheduled workflow that runs the
-  // campaignWorker backend function every hour."
+  // Base44 Dashboard: invoke `campaignWorker` every 5–15 minutes (GitHub cron
+  // also runs every 5 min when SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY secrets
+  // are set). Scheduling via campaignSchedule queues SocialPosts until
+  // scheduled_at, then kicks the worker immediately when due.
 }

@@ -21,8 +21,12 @@ To change which paths trigger a job, edit the `filters` block in the workflow’
 | `SUPABASE_PROJECT_REF` | Project ref from the dashboard URL (`https://supabase.com/dashboard/project/<ref>`) |
 | `VITE_SUPABASE_URL` | Same as local: `https://<ref>.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | Project **anon/public** API key (Settings → API) |
+| `SUPABASE_URL` | Same as `VITE_SUPABASE_URL` — used by **Campaign worker cron** (optional) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Project **service_role** key (Settings → API) — cron only; never expose in the frontend |
 
 **Settings → Secrets and variables → Actions → New repository secret**
+
+Optional: [`.github/workflows/campaign-worker-cron.yml`](../.github/workflows/campaign-worker-cron.yml) invokes `campaignWorker` every **5 minutes** so scheduled auto-posts publish on time. If the service-role secrets are missing, the workflow skips safely.
 
 ### 2. GitHub Pages
 
