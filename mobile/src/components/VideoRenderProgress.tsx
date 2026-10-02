@@ -7,7 +7,7 @@ export default function VideoRenderProgress({
   progress = 0,
   message = 'Rendering…',
   title = 'Rendering promo video',
-  hint = 'Rendering runs on the server. You can leave this screen and come back.',
+  hint = 'This runs on your device, so keep the app open. It costs nothing.',
 }: {
   progress?: number;
   message?: string;
@@ -27,7 +27,7 @@ export default function VideoRenderProgress({
       </View>
       <View className="w-full gap-2 px-1">
         <View className="flex-row items-center justify-between">
-          <Text className="text-xs text-muted-foreground">Server render</Text>
+          <Text className="text-xs text-muted-foreground">Device encode</Text>
           <Text className="text-xs font-medium">{value}%</Text>
         </View>
         <Progress value={value} className="h-2.5" />

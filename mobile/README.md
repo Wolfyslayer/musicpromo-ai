@@ -10,5 +10,5 @@ npx expo start            # scan the QR code with Expo Go, or press i / a for a 
 ```
 
 - Conversion rules, library replacements and the native setup checklist: [MIGRATION.md](./MIGRATION.md).
-- Video rendering runs on a server: see [../docs/VIDEO_RENDER_WORKER.md](../docs/VIDEO_RENDER_WORKER.md).
+- Video rendering and lyric sync run free on the phone: a hidden WebView loads the deployed web app's headless page (`/?mobile-render=1`) and uses its Remotion/WebCodecs and Whisper pipeline. Set `EXPO_PUBLIC_WEB_APP_URL` to the deployed web app.
 - Checks: `npx tsc --noEmit`, `npx expo-doctor`, `npx expo export --platform android`.

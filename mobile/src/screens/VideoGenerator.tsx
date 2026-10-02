@@ -42,7 +42,7 @@ import { loadCampaign } from '@/services/data';
 import { triggerCampaignAutoVideo } from '@/services/socialService';
 import { saveCampaignLyrics, saveVideoProject, selectCampaignDay, selectVideoProject } from '@/services/studioRecords';
 import { VIDEO_TEMPLATES } from '@/services/videoTemplates';
-import { pollRenderStatus, resolvePlayableAudioUrl, videoService } from '@/services/videoService';
+import { resolvePlayableAudioUrl, videoService } from '@/services/videoService';
 
 const EDITOR_TABS = [
   { value: 'look', label: 'Look' },
@@ -51,8 +51,6 @@ const EDITOR_TABS = [
   { value: 'effects', label: 'FX' },
 ];
 
-const ACTIVE_RENDER_STATES = new Set(['queued', 'rendering']);
-const RESUME_WINDOW_MS = 15 * 60 * 1000;
 
 type Project = Record<string, any>;
 
@@ -161,7 +159,6 @@ export default function VideoGenerator() {
   const [linking, setLinking] = useState(false);
 
   const skipLoadFor = useRef<string | null>(null);
-  const pollAbort = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   const lyricsTabSynced = useRef(false);
 
@@ -170,7 +167,6 @@ export default function VideoGenerator() {
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
     return () => {
       mounted.current = false;
-      pollAbort.current?.abort();
     };
   }, []);
 
@@ -186,38 +182,6 @@ export default function VideoGenerator() {
   const offset = Math.max(0, Number(project?.audioStartTimeOffset) || 0);
 
   const touchStyle = useCallback(() => setForceLastMp4(false), []);
-
-  const startPolling = useCallback(
-    async (pid: string, base: Project) => {
-      pollAbort.current?.abort();
-      const controller = new AbortController();
-      pollAbort.current = controller;
-      setExporting(true);
-      setRenderProgress({ progress: 15, message: 'Waiting for a render slot…' });
-      const result = await pollRenderStatus(pid, {
-        signal: controller.signal,
-        onProgress: (info: { progress: number; message: string }) => {
-          if (mounted.current && !controller.signal.aborted) setRenderProgress({ progress: info.progress, message: info.message });
-        },
-      });
-      if (!mounted.current || controller.signal.aborted) return;
-      setExporting(false);
-      setRenderProgress(null);
-      if (result.status === 'ready' && result.downloadUrl) {
-        const next = { ...base, ...(result.project || {}), render_output_url: result.downloadUrl, rendering_status: 'complete', id: pid };
-        setProject(next);
-        setExportedFp(styleFingerprint(next));
-        setForceLastMp4(false);
-        setExportResult({ status: 'ready', message: 'Your promo video is ready.', downloadUrl: result.downloadUrl });
-        toast({ title: 'Video ready', description: 'Playing the rendered MP4.' });
-      } else {
-        if (result.project) setProject((current) => ({ ...(current || {}), ...result.project, id: pid }));
-        setExportResult({ status: 'failed', message: result.message });
-        toast({ variant: 'destructive', title: result.status === 'timeout' ? 'Still rendering' : 'Render failed', description: result.message });
-      }
-    },
-    []
-  );
 
   useEffect(() => {
     if (projectId && skipLoadFor.current === projectId) {
@@ -342,16 +306,12 @@ export default function VideoGenerator() {
       if (cancelled) return;
       const live = isHttps(base.render_output_url) && base.rendering_status === 'complete';
       setExportedFp(live ? styleFingerprint(base) : '');
-      const updated = Date.parse(base.updated_date || '') || 0;
-      if (base.id && ACTIVE_RENDER_STATES.has(base.rendering_status) && Date.now() - updated < RESUME_WINDOW_MS) {
-        startPolling(String(base.id), base);
-      }
     }
 
     return () => {
       cancelled = true;
     };
-  }, [id, projectId, dayId, refreshTick, requestedType, requestedSeconds, requestedText, startPolling]);
+  }, [id, projectId, dayId, refreshTick, requestedType, requestedSeconds, requestedText]);
 
   useEffect(() => {
     let cancelled = false;
@@ -535,17 +495,21 @@ export default function VideoGenerator() {
         onProgress: (info: { progress: number; message: string }) => setRenderProgress({ progress: info.progress, message: info.message }),
       });
 
-      if (res.status !== 'queued' || !res.project?.id) {
-        setExporting(false);
-        setRenderProgress(null);
+      setExporting(false);
+      setRenderProgress(null);
+      if (res.status !== 'ready' || !res.downloadUrl) {
         setExportResult({ status: 'failed', message: res.message });
-        toast({ variant: 'destructive', title: 'Render failed', description: res.message || 'Could not start the render.' });
+        toast({ variant: 'destructive', title: 'Render failed', description: res.message || 'Could not render the video.' });
         return;
       }
 
       const pid = adoptSaved(res.project, working);
-      setProject((p) => ({ ...(p || {}), ...res.project, render_output_url: p?.render_output_url, rendering_status: 'queued', id: pid }));
-      await startPolling(pid, { ...working, ...res.project });
+      const next = { ...working, ...res.project, render_output_url: res.downloadUrl, rendering_status: 'complete', id: pid };
+      setProject(next);
+      setExportedFp(styleFingerprint(next));
+      setForceLastMp4(false);
+      setExportResult({ status: 'ready', message: 'Your promo video is ready.', downloadUrl: res.downloadUrl });
+      toast({ title: 'Video ready', description: 'Playing the rendered MP4.' });
     } catch (e: any) {
       setExporting(false);
       setRenderProgress(null);
@@ -649,7 +613,7 @@ export default function VideoGenerator() {
             progress={renderProgress.progress}
             message={renderProgress.message}
             title="Rendering your video"
-            hint="Rendering runs on our servers, so you can leave this screen and come back."
+            hint="Rendering runs on your device, so keep the app open until it finishes."
           />
         </View>
       ) : styleDirty || wantRemake ? (
@@ -695,7 +659,7 @@ export default function VideoGenerator() {
       ) : (
         <View className="rounded-xl border border-border/60 bg-muted/20 p-3">
           <Text className="text-xs text-muted-foreground">
-            The poster previews your look. Tap <Text className="text-xs font-semibold">Render video</Text> to create the MP4 on our servers.
+            The poster previews your look. Tap <Text className="text-xs font-semibold">Render video</Text> to create the MP4 on your device.
           </Text>
         </View>
       )}

@@ -16,6 +16,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import AuthModal from '@/components/AuthModal';
+import RenderHost from '@/components/RenderHost';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/lib/AuthContext';
 import { queryClientInstance } from '@/lib/query-client';
@@ -80,6 +81,7 @@ export default function RootLayout() {
                 ))}
               </Stack>
               <AuthModal />
+              <RenderHost />
               <Toaster />
             </ThemeProvider>
           </AuthProvider>

@@ -30,7 +30,7 @@ Route files in `src/app/**` are one-line re-exports of screens in `src/screens/*
 | lucide-react | lucide-react-native |
 | recharts | react-native-gifted-charts |
 | sonner / radix toast | `use-toast` + `Toaster` |
-| remotion (client render), @xenova/transformers worker | server-side rendering / transcription (see `supabase/functions/requestVideoRender`) |
+| remotion (client render), @xenova/transformers worker | the same web pipeline, run on-device inside a hidden WebView (`RenderHost`, `/?mobile-render=1`); free |
 | Web Audio API, `<audio>` | expo-audio |
 | `<video>` | expo-video |
 | localStorage | AsyncStorage |

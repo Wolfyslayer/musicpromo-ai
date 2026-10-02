@@ -18,7 +18,7 @@ type Cue = { text: string; start?: number; end?: number; timeSeconds?: number };
 
 const NUDGES = [-1, -0.1, 0.1, 1];
 
-/** Lyric cue editor: paste lyrics, import an SRT, auto-sync on the server, then fine-tune each line with +/- nudges. */
+/** Lyric cue editor: paste lyrics, import an SRT, auto-sync on your device, then fine-tune each line with +/- nudges. */
 export default function LyricsTimelineEditor({
   lyrics = '',
   cues = [],

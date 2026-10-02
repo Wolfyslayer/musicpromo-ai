@@ -1,9 +1,9 @@
 /**
- * Lyric auto-sync: the audio is transcribed by the `transcribeLyrics` edge function.
- * The in-browser Whisper worker is not used on mobile.
+ * Lyric auto-sync. The free in-browser Whisper model runs inside the hidden WebView of <RenderHost />
+ * (the web app's own lyrics worker), so no paid transcription API is involved.
  */
 
-import { db } from "@/api/base44Client";
+import { getRenderBridge } from "@/lib/renderBridge";
 import { resolveAssetUrl, uploadPromoAsset } from "@/services/supabaseStore";
 
 const MAX_CUES = 48;
@@ -153,33 +153,22 @@ function cuesFromResponse(data, duration) {
 }
 
 /**
- * Transcribe the song on the server and return timed lyric lines.
- * Rejects with `LyricsSyncUnavailableError` when the server has no transcription key.
- * @param {{ audioUrl?: string, audioFile?: { uri: string } | null, durationSec?: number, onProgress?: (info: { phase: string, progress: number, message: string }) => void }} [options]
+ * Transcribe the song on the device (web Whisper model in the hidden WebView) and return timed lyric lines.
+ * @param {{ audioUrl?: string, audioFile?: { uri: string } | null, durationSec?: number, onProgress?: (info: { phase?: string, progress?: number, message?: string }) => void }} [options]
  */
 export async function syncLyricsFromAudio({ audioUrl, audioFile, durationSec = 15, onProgress } = {}) {
   const duration = Math.min(600, Math.max(1, Number(durationSec) || 15));
-  onProgress?.({ phase: "upload", progress: 5, message: LISTENING });
+  onProgress?.({ phase: "upload", progress: 2, message: LISTENING });
 
   const url = await publicAudioUrl({ audioUrl, audioFile });
   if (!url) throw new Error("Upload song audio before syncing lyrics.");
 
-  onProgress?.({ phase: "transcribe", progress: 30, message: LISTENING });
-  let response;
   try {
-    response = await db.functions.invoke("transcribeLyrics", { audioUrl: url });
+    const result = await getRenderBridge().transcribe({ audioUrl: url, durationSec: duration, onProgress });
+    return Array.isArray(result?.cues) ? result.cues : [];
   } catch (err) {
-    if (/TRANSCRIPTION_NOT_CONFIGURED/.test(String(err?.message || ""))) {
-      throw new LyricsSyncUnavailableError();
-    }
-    throw new Error(err?.message || "Lyrics sync failed.");
+    throw new LyricsSyncUnavailableError(
+      `${err?.message || "Lyrics sync failed."} You can still type the lyrics or import an SRT file.`
+    );
   }
-
-  const data = response?.data ?? response;
-  if (data?.ok === false) {
-    if (data.code === "TRANSCRIPTION_NOT_CONFIGURED") throw new LyricsSyncUnavailableError();
-    throw new Error(data.error || "Lyrics sync failed.");
-  }
-  onProgress?.({ phase: "done", progress: 100, message: "Lyrics synced" });
-  return cuesFromResponse(data, duration);
 }
