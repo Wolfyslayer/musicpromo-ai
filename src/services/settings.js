@@ -11,6 +11,9 @@ export const DEFAULT_SETTINGS = {
   defaultPostingTime: "18:00",
   defaultTemplate: "HOOK",
   defaultVideoDuration: 15,
+  /** all | first3 | day1 | skip — used as default on Create Campaign */
+  defaultCampaignRenderMode: "all",
+  defaultAutoSchedule: false,
   theme: "system",
   notifications: { campaignReady: true, weeklyReport: false, performanceTips: true },
   aiProvider: "Base44 InvokeLLM (default)",

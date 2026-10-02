@@ -24,6 +24,14 @@ import VideoRenderProgress from "@/components/VideoRenderProgress";
 import PromoStylePicker from "@/components/video/PromoStylePicker";
 import { getPromoStylePreset, normalizePromoStyleChoice, suggestPromoStyleFromProfile } from "@/services/promoStylePresets";
 import { linkDraftProjectsToCampaignDays, renderPromoForProject } from "@/services/campaignVideoBridge";
+import {
+  applyBestPlatformMatch,
+  buildGeneratedContentFromPlan,
+  ensureDayCopyFields,
+  renderModeLabel,
+  resolveRenderCount,
+} from "@/services/campaignPlanEnrichment";
+import { getConnectionStatus, scheduleCampaignDay } from "@/services/socialService";
 import PageHeader from "@/components/PageHeader";
 import SurfacePanel from "@/components/SurfacePanel";
 import { useAuth } from "@/lib/AuthContext";
@@ -56,7 +64,8 @@ export default function CreateCampaign() {
       assetProfile: null,
       promoStylePreset: "viral-pop",
       promoStyleManuallySet: false,
-      renderFirstThreeDays: false,
+      renderMode: s.defaultCampaignRenderMode || "all",
+      autoSchedule: Boolean(s.defaultAutoSchedule),
     };
   });
   const [analyzingAssets, setAnalyzingAssets] = useState(false);
@@ -222,6 +231,26 @@ export default function CreateCampaign() {
         promoStyle,
       });
 
+      setStage("Matching platforms & polishing copy…");
+      let connectionStatus = null;
+      try {
+        connectionStatus = await getConnectionStatus();
+      } catch {
+        connectionStatus = null;
+      }
+      const connectedProviders = (connectionStatus?.connections || [])
+        .filter((c) => c.status === "connected" && c.canPublish !== false)
+        .map((c) => c.provider);
+
+      const enrichedDays = applyBestPlatformMatch(
+        ensureDayCopyFields(result.days || [], { song: songForAI, analysis }),
+        {
+          analysis,
+          goals: form.goals,
+          connectedProviders,
+        }
+      );
+
       setStage("Building day-by-day schedule…");
       const endDate = addDaysISO(form.startDate, form.durationDays - 1);
       const campaignPayload = {
@@ -232,7 +261,7 @@ export default function CreateCampaign() {
       };
       if (form.releaseId) campaignPayload.release_id = form.releaseId;
       const campaign = await db.entities.Campaign.create(campaignPayload);
-      const days = (result.days || []).map((d) => ({
+      const days = enrichedDays.map((d) => ({
         campaign_id: campaign.id, day_number: d.dayNumber, date: d.date, platform: d.platform,
         content_type: d.contentType, objective: d.objective, video_concept: d.videoConcept,
         hook: d.hook, video_template: d.videoTemplate,
@@ -245,7 +274,7 @@ export default function CreateCampaign() {
         const me = user || (await db.auth.me().catch(() => null));
         const ownerId = me?.id || "";
         setStage("Creating video drafts for each plan day…");
-        dayProjects = await linkDraftProjectsToCampaignDays(db, createdDays, result.days || [], {
+        dayProjects = await linkDraftProjectsToCampaignDays(db, createdDays, enrichedDays, {
           campaignId: campaign.id,
           songId: song.id,
           song: { ...song, analysis },
@@ -254,22 +283,28 @@ export default function CreateCampaign() {
           styleDefaults: promoStyle,
           lyrics: form.lyrics,
         });
+
+        setStage("Saving hooks, captions & CTAs to your library…");
+        const contentRows = buildGeneratedContentFromPlan(campaign.id, enrichedDays);
+        if (contentRows.length) {
+          await db.entities.GeneratedContent.bulkCreate(contentRows);
+        }
       }
 
-      let renderedVideoUrl = "";
+      let renderedCount = 0;
+      let scheduledCount = 0;
+      let scheduleSkipped = 0;
       const canRender = form.artworkUrl && (form.audioFile || form.audioSignedUrl || form.audioUri);
-      const renderCount = form.renderFirstThreeDays
-        ? Math.min(3, dayProjects.length)
-        : Math.min(1, dayProjects.length);
+      const renderCount = resolveRenderCount(form.renderMode, dayProjects.length);
 
       if (canRender && renderCount > 0) {
         try {
           for (let i = 0; i < renderCount; i++) {
-            const { project, aiDay } = dayProjects[i];
+            const { project, aiDay, dayId } = dayProjects[i];
             const dayLabel = aiDay?.dayNumber || i + 1;
             setStage(`Rendering Day ${dayLabel} promo on your device…`);
             setRenderProgress({ progress: 0, message: `Day ${dayLabel} — starting…` });
-            const updated = await renderPromoForProject({
+            await renderPromoForProject({
               db,
               project,
               songTitle: form.title.trim(),
@@ -292,7 +327,14 @@ export default function CreateCampaign() {
                 setStage(info.message || `Rendering Day ${dayLabel}…`);
               },
             });
-            if (i === 0) renderedVideoUrl = updated.url || updated.render_output_url || "";
+            renderedCount += 1;
+
+            if (form.autoSchedule && dayId) {
+              setStage(`Scheduling Day ${dayLabel} for auto-publish…`);
+              const res = await scheduleCampaignDay({ campaignDayId: dayId });
+              if (res?.ok) scheduledCount += 1;
+              else scheduleSkipped += 1;
+            }
           }
           setRenderProgress({ progress: 100, message: "Done" });
         } catch (err) {
@@ -303,19 +345,35 @@ export default function CreateCampaign() {
             description: err?.message || "Campaign was created with video drafts; open the Videos tab to render later.",
           });
         }
+      } else if (form.autoSchedule && dayProjects.length) {
+        setStage("Scheduling plan days for auto-publish…");
+        for (const { dayId, aiDay } of dayProjects) {
+          if (!dayId) continue;
+          const res = await scheduleCampaignDay({ campaignDayId: dayId });
+          if (res?.ok) scheduledCount += 1;
+          else scheduleSkipped += 1;
+        }
       }
+
+      const scheduleNote =
+        form.autoSchedule && dayProjects.length
+          ? scheduledCount
+            ? ` ${scheduledCount} day(s) queued for auto-publish.`
+            : scheduleSkipped
+              ? " Connect TikTok, Instagram, or YouTube in Social to auto-schedule."
+              : ""
+          : "";
 
       toast({
         title: "Campaign generated!",
-        description: renderedVideoUrl
-          ? renderCount > 1
-            ? `Rendered ${renderCount} plan videos on your device. Other days have drafts in Videos.`
-            : "Day 1 promo rendered. Other plan days have video drafts ready to export."
-          : dayProjects.length
-            ? "Campaign plan ready — open Videos to render each day's promo."
-            : form.artworkUrl && form.audioUri
-              ? "Campaign ready. Add media and render from the Videos tab."
-              : undefined,
+        description:
+          renderedCount > 0
+            ? `Rendered ${renderedCount} promo video${renderedCount === 1 ? "" : "s"} on this device.${scheduleNote}`
+            : dayProjects.length
+              ? `Plan, hooks, and video drafts are ready.${scheduleNote || " Add artwork & audio to render promos."}`
+              : form.artworkUrl && form.audioUri
+                ? `Campaign ready.${scheduleNote}`
+                : scheduleNote || undefined,
       });
       navigate(`/campaigns/${campaign.id}/plan`);
     } catch (e) {
@@ -545,17 +603,33 @@ function StepGoals({ form, set, toggleGoal, setForm, styleSuggestion }) {
           suggestedId={styleSuggestion?.presetId}
           onChange={(id) => setForm((f) => ({ ...f, promoStylePreset: id, promoStyleManuallySet: true }))}
         />
-        <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-border/60 bg-muted/20 p-3 text-sm">
+        <Field label="Promo videos on this device">
+          <Select value={form.renderMode} onValueChange={(v) => set("renderMode", v)}>
+            <SelectTrigger className="rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Render every plan day (recommended)</SelectItem>
+              <SelectItem value="first3">Render first 3 days only</SelectItem>
+              <SelectItem value="day1">Render day 1 only (fastest)</SelectItem>
+              <SelectItem value="skip">Skip — keep video drafts only</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Each day uses its own hook, template, and platform match. Long campaigns take longer to encode.
+          </p>
+        </Field>
+        <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border/60 bg-muted/20 p-3 text-sm">
           <input
             type="checkbox"
             className="mt-1"
-            checked={form.renderFirstThreeDays}
-            onChange={(e) => set("renderFirstThreeDays", e.target.checked)}
+            checked={form.autoSchedule}
+            onChange={(e) => set("autoSchedule", e.target.checked)}
           />
           <span>
-            <span className="font-500 text-foreground">Render first 3 plan videos now</span>
+            <span className="font-500 text-foreground">Auto-schedule posts after generation</span>
             <span className="mt-0.5 block text-xs text-muted-foreground">
-              Slower on low-end devices. Every day still gets a draft you can edit later.
+              Queues each day on its matched platform at the planned time. Requires a connected TikTok, Instagram, or YouTube account.
             </span>
           </span>
         </label>
@@ -600,7 +674,8 @@ function StepSummary({ form, artists, releases }) {
     ["Promo style", getPromoStylePreset(form.promoStylePreset).label],
     ["Goals", form.goals.length ? form.goals.join(", ") : "None selected"],
     ["Duration", `${form.durationDays} days`],
-    ["Auto-render", form.renderFirstThreeDays ? "First 3 days" : "Day 1 only"],
+    ["Video encode", renderModeLabel(form.renderMode)],
+    ["Auto-schedule", form.autoSchedule ? "On" : "Off"],
     ["Start", fmtDate(form.startDate)],
   ];
   return (
@@ -643,7 +718,7 @@ function GeneratingScreen({ stage, renderProgress }) {
         <Loader2 className="h-4 w-4 animate-spin" /> {stage || "Working…"}
       </p>
       <p className="mt-4 max-w-sm text-xs text-muted-foreground/70">
-        AI builds your day-by-day plan and video drafts. The first promo encodes on this device — keep the tab open while rendering.
+        AI writes hooks, captions, CTAs, and platform picks for each day, then encodes promos on this device — keep the tab open while rendering.
       </p>
     </div>
   );
