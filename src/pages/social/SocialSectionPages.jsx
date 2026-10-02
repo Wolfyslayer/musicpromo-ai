@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Share2, CalendarDays, Sparkles, Send, Clock, ExternalLink, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SocialPlatformCard from "@/components/social/SocialPlatformCard";
@@ -8,9 +9,13 @@ import { CONNECTABLE_SOCIAL, useSocialHub } from "@/contexts/SocialHubContext";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { buildComposePath } from "@/services/socialService";
+import { assignLegacySocialToArtistIfNeeded } from "@/services/artistSocial";
+import { useToast } from "@/components/ui/use-toast";
 
 export function SocialConnectPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { toast } = useToast();
   const {
     providers,
     loading,
@@ -23,7 +28,29 @@ export function SocialConnectPage() {
     artists,
     socialArtistId,
     selectSocialArtist,
+    reload,
   } = useSocialHub();
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("artist") || "";
+    if (fromUrl) selectSocialArtist(fromUrl);
+  }, [searchParams, selectSocialArtist]);
+
+  const selectedArtist = artists.find((a) => a.id === socialArtistId);
+
+  const claimLegacyForArtist = async () => {
+    if (!socialArtistId) {
+      toast({ variant: "destructive", title: "Select an artist first" });
+      return;
+    }
+    const { updated } = await assignLegacySocialToArtistIfNeeded(socialArtistId, { force: true });
+    if (updated > 0) {
+      toast({ title: `Linked ${updated} account-wide connection(s) to this artist` });
+      await reload();
+    } else {
+      toast({ title: "No account-wide connections to move" });
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -48,7 +75,17 @@ export function SocialConnectPage() {
           </Select>
           <p className="text-xs text-muted-foreground">
             Each artist can have their own TikTok, Instagram, and YouTube. Campaign scheduling uses the campaign&apos;s artist.
+            {selectedArtist ? (
+              <span className="mt-1 block font-medium text-foreground/80">
+                Connecting for: {selectedArtist.name}
+              </span>
+            ) : null}
           </p>
+          {socialArtistId && artists.length > 1 ? (
+            <Button type="button" variant="ghost" size="sm" className="mt-2 h-9 rounded-full px-3 text-xs" onClick={claimLegacyForArtist}>
+              Use older account-wide connections for this artist
+            </Button>
+          ) : null}
         </div>
         <p className="text-sm text-muted-foreground">
           Connect at least one platform below. Schedule from Campaign Plan, or publish now from Compose.

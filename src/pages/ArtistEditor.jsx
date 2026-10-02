@@ -2,7 +2,7 @@ import { db } from '@/api/base44Client';
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2, ImagePlus, X } from "lucide-react";
+import { ArrowLeft, Loader2, ImagePlus, Share2, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,8 +12,19 @@ import { useToast } from "@/components/ui/use-toast";
 import { GENRES } from "@/services/constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import PageHeader from "@/components/PageHeader";
 import SurfacePanel from "@/components/SurfacePanel";
+import { normalizeArtistRow, openSocialConnectForArtist } from "@/services/artistSocial";
 
 const FIELDS = [
   { key: "website", label: "Website" },
@@ -46,10 +57,14 @@ export default function ArtistEditor() {
   });
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!isNew) {
-      db.entities.Artist.get(id).then((a) => setForm((f) => ({ ...f, ...a }))).catch(() => navigate("/artists"));
+      db.entities.Artist.get(id)
+        .then((a) => setForm((f) => ({ ...f, ...normalizeArtistRow(a) })))
+        .catch(() => navigate("/artists"));
     }
   }, [id, isNew, navigate]);
 
@@ -65,6 +80,32 @@ export default function ArtistEditor() {
       toast({ variant: "destructive", title: "Upload failed", description: e.message });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const removeArtist = async () => {
+    if (isNew) return;
+    setDeleting(true);
+    try {
+      const campaigns = await db.entities.Campaign.list("-created_date", 200);
+      const inUse = (campaigns || []).filter((c) => c.artist_id === id && !c.is_demo);
+      if (inUse.length) {
+        toast({
+          variant: "destructive",
+          title: "Artist in use",
+          description: `This artist is linked to ${inUse.length} campaign(s). Remove or reassign those first.`,
+        });
+        setDeleteOpen(false);
+        return;
+      }
+      await db.entities.Artist.delete(id);
+      toast({ title: "Artist deleted" });
+      navigate("/artists");
+    } catch (e) {
+      toast({ variant: "destructive", title: "Delete failed", description: e.message });
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
     }
   };
 
@@ -147,11 +188,70 @@ export default function ArtistEditor() {
           ))}
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => navigate("/artists")}>Cancel</Button>
-          <Button onClick={save} disabled={busy} className="rounded-full">{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}{isNew ? "Create Artist" : "Save"}</Button>
+        {!isNew ? (
+          <div className="rounded-2xl border border-border/60 bg-muted/15 p-4">
+            <p className="text-sm font-600">Social publishing</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Connect TikTok, Instagram, and YouTube for this artist. Campaign auto-schedule uses these accounts.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-3 rounded-full"
+              onClick={() => openSocialConnectForArtist(navigate, id)}
+            >
+              <Share2 className="mr-1.5 h-4 w-4" />
+              Connect platforms for {form.name || "this artist"}
+            </Button>
+          </div>
+        ) : null}
+
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+          {!isNew ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="rounded-full text-destructive hover:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="mr-1.5 h-4 w-4" />
+              Delete artist
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => navigate("/artists")} className="rounded-full">
+              Cancel
+            </Button>
+            <Button onClick={save} disabled={busy} className="rounded-full">
+              {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              {isNew ? "Create Artist" : "Save"}
+            </Button>
+          </div>
         </div>
       </SurfacePanel>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {form.name || "this artist"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the artist profile from your roster. Campaigns linked to this artist must be removed first.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleting}
+              onClick={removeArtist}
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

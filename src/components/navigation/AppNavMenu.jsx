@@ -56,19 +56,22 @@ export default function AppNavMenu({
         className="flex w-[min(100%,20rem)] flex-col border-border/60 p-0 shadow-[var(--shadow-elevated)]"
       >
         <SheetHeader className="border-b border-border/60 px-5 py-4 text-left">
+          {profileLink ? (
+            <SheetClose asChild>
+              <Link
+                to={profileLink.to}
+                className="mb-3 block rounded-xl px-1 py-1 transition hover:bg-muted/50"
+              >
+                <span className="block truncate font-heading text-base font-semibold text-foreground">
+                  {profileLink.label || userLine}
+                </span>
+                <span className="text-xs text-primary">{profileLink.hint || "Open profile"}</span>
+              </Link>
+            </SheetClose>
+          ) : null}
           <Logo size={28} />
-          {userLine ? (
-            profileLink ? (
-              <SheetClose asChild>
-                <Link
-                  to={profileLink.to}
-                  className="mt-3 block rounded-xl px-1 py-1 transition hover:bg-muted/50"
-                >
-                  <span className="block truncate text-sm font-600 text-foreground">{profileLink.label}</span>
-                  <span className="text-xs text-muted-foreground">{profileLink.hint || "View profile"}</span>
-                </Link>
-              </SheetClose>
-            ) : onGuestProfileClick ? (
+          {!profileLink && userLine ? (
+            onGuestProfileClick ? (
               <button
                 type="button"
                 onClick={() => {
