@@ -71,7 +71,8 @@ supabase functions deploy --project-ref YOUR_REF
 | Deploy job fails immediately on Supabase step | `SUPABASE_ACCESS_TOKEN` / `SUPABASE_PROJECT_REF` missing or token lacks Edge Functions deploy scope |
 | App loads but auth/API fails | `VITE_*` secrets wrong or from a different project than deployed functions |
 | Routes 404 on refresh (GitHub Pages) | Workflow copies `index.html` → `404.html`; ensure Pages source is **GitHub Actions** |
-| Blank page, broken assets | Custom domain needs `VITE_BASE_PATH=/`; project site needs default `/<repo>/` |
+| Blank page, gray/white screen | **Wrong `VITE_BASE_PATH`.** For `musicpromoai.site` use **`/`** only — never the domain (`/MusicPromoAi.site/`). Delete the bad variable or set `VITE_BASE_PATH` = `/`, then re-run **Deploy**. View page source: script `src` should be `/assets/...`, not `/yourdomain/...`. |
+| “Connection is not secure” | Site opened over **http://** or HTTPS not ready. In **Pages**, wait for DNS check → enable **Enforce HTTPS** → use **https://** |
 
 ## Other frontend hosts
 
