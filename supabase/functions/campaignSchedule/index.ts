@@ -6,6 +6,7 @@ import {
   resolveScheduledAt,
   safeSocialPost,
 } from "../_shared/socialPublishCore.ts";
+import { pickSocialAccountForArtist } from "../_shared/socialAccountScope.ts";
 import { recordOwnedByUser } from "../_shared/ownership.ts";
 
 /**
@@ -112,14 +113,16 @@ async function handler (req: Request): Promise<Response> {
     const created: Record<string, unknown>[] = [];
     const skipped: Array<{ provider: string; reason: string }> = [];
 
+    const campaignArtistId = campaign?.artist_id ? String(campaign.artist_id) : "";
+
     for (const provider of providers) {
       const accounts =
         (await base44.asServiceRole.entities.SocialAccount.filter(
           { user_id: user.id, provider, status: "connected" },
           "-connected_at",
-          5
+          20
         )) || [];
-      const account = accounts[0];
+      const account = pickSocialAccountForArtist(accounts, provider, campaignArtistId);
       if (!account) {
         skipped.push({ provider, reason: "not_connected" });
         continue;

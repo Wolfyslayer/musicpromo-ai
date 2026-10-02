@@ -125,12 +125,18 @@ async function upsertSocialAccount(
   const userId = String(fields.user_id);
   const provider = String(fields.provider);
   const providerAccountId = String(fields.provider_account_id);
+  const artistId = String(fields.artist_id || "").trim();
   const existing = await base44.asServiceRole.entities.SocialAccount.filter(
     { user_id: userId, provider },
     "-created_date",
     20
   );
-  for (const row of (existing || []).filter((a) => a.status === "connected")) {
+  for (const row of (existing || []).filter((a) => {
+    if (a.status !== "connected") return false;
+    const rowArtist = String(a.artist_id || "").trim();
+    if (artistId) return rowArtist === artistId;
+    return !rowArtist;
+  })) {
     await base44.asServiceRole.entities.SocialAccount.update(row.id, {
       status: "disconnected",
       encrypted_credentials: "",
@@ -150,6 +156,7 @@ async function handleInstagramConnect(params: {
   base44: ReturnType<typeof createClientFromRequest>;
   code: string;
   boundUserId: string;
+  boundArtistId?: string;
   home: string | null;
   encryptionKey: string;
 }): Promise<Response> {
@@ -249,6 +256,7 @@ async function handleInstagramConnect(params: {
 
   await upsertSocialAccount(params.base44, {
     user_id: params.boundUserId,
+    artist_id: params.boundArtistId || "",
     provider: "instagram",
     provider_account_id: igUserId,
     account_name: displayName || username || "Instagram",
@@ -275,6 +283,7 @@ async function handleTikTokConnect(params: {
   base44: ReturnType<typeof createClientFromRequest>;
   code: string;
   boundUserId: string;
+  boundArtistId?: string;
   home: string | null;
   encryptionKey: string;
 }): Promise<Response> {
@@ -360,6 +369,7 @@ async function handleTikTokConnect(params: {
 
   await upsertSocialAccount(params.base44, {
     user_id: params.boundUserId,
+    artist_id: params.boundArtistId || "",
     provider: "tiktok",
     provider_account_id: openId,
     account_name: displayName || username || "TikTok",
@@ -380,6 +390,7 @@ async function handleYouTubeConnect(params: {
   base44: ReturnType<typeof createClientFromRequest>;
   code: string;
   boundUserId: string;
+  boundArtistId?: string;
   home: string | null;
   encryptionKey: string;
   oauthClientId?: string | null;
@@ -391,6 +402,7 @@ async function handleYouTubeConnect(params: {
       base44: params.base44,
       code: params.code,
       boundUserId: params.boundUserId,
+      boundArtistId: params.boundArtistId || "",
       encryptionKey: params.encryptionKey,
       redirectUri,
       oauthClientId: params.oauthClientId,
@@ -480,6 +492,8 @@ export default async function (req: Request): Promise<Response> {
     const oauthRedirectUri =
       record?.oauth_redirect_uri != null ? String(record.oauth_redirect_uri).trim() : "";
     let boundUserId: string | null = record?.user_id != null ? String(record.user_id) : null;
+    const boundArtistId =
+      record?.artist_id != null ? String(record.artist_id).trim() : "";
     let provider = record?.provider != null ? String(record.provider) : "instagram";
 
     if (record?.id) {
@@ -513,6 +527,7 @@ export default async function (req: Request): Promise<Response> {
       base44,
       code,
       boundUserId,
+      boundArtistId,
       home: publicAppUrl,
       encryptionKey,
     };

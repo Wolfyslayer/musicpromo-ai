@@ -195,9 +195,11 @@ async function handler (req: Request): Promise<Response> {
 
     const state = generateOAuthState();
     const expiresAt = new Date(Date.now() + STATE_TTL_MS).toISOString();
+    const artistId = body?.artistId ? String(body.artistId).trim() : "";
     await base44.asServiceRole.entities.SocialOAuthState.create({
       state,
       user_id: user.id,
+      artist_id: artistId,
       provider,
       expires_at: expiresAt,
       used: false,

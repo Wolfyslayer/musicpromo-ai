@@ -5,16 +5,51 @@ import SocialPlatformCard from "@/components/social/SocialPlatformCard";
 import EmptyState from "@/components/EmptyState";
 import StatusBadge from "@/components/StatusBadge";
 import { CONNECTABLE_SOCIAL, useSocialHub } from "@/contexts/SocialHubContext";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { buildComposePath } from "@/services/socialService";
 
 export function SocialConnectPage() {
   const navigate = useNavigate();
-  const { providers, loading, connectingId, disconnectingId, onConnect, onDisconnect, ig, anyConnected } =
-    useSocialHub();
+  const {
+    providers,
+    loading,
+    connectingId,
+    disconnectingId,
+    onConnect,
+    onDisconnect,
+    ig,
+    anyConnected,
+    artists,
+    socialArtistId,
+    selectSocialArtist,
+  } = useSocialHub();
 
   return (
     <div className="space-y-5">
       <section className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+        <div className="mb-3 space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Connect socials for artist</Label>
+          <Select
+            value={socialArtistId || "__account__"}
+            onValueChange={(v) => selectSocialArtist(v === "__account__" ? "" : v)}
+          >
+            <SelectTrigger className="max-w-md rounded-xl">
+              <SelectValue placeholder="Account-wide (legacy)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__account__">Account-wide (any campaign)</SelectItem>
+              {artists.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Each artist can have their own TikTok, Instagram, and YouTube. Campaign scheduling uses the campaign&apos;s artist.
+          </p>
+        </div>
         <p className="text-sm text-muted-foreground">
           Connect at least one platform below. Schedule from Campaign Plan, or publish now from Compose.
         </p>

@@ -41,12 +41,18 @@ async function upsertSocialAccount(
   const userId = String(fields.user_id);
   const provider = String(fields.provider);
   const providerAccountId = String(fields.provider_account_id);
+  const artistId = String(fields.artist_id || "").trim();
   const existing = await base44.asServiceRole.entities.SocialAccount.filter(
     { user_id: userId, provider },
     "-created_date",
     20
   );
-  for (const row of (existing || []).filter((a) => a.status === "connected")) {
+  for (const row of (existing || []).filter((a) => {
+    if (a.status !== "connected") return false;
+    const rowArtist = String(a.artist_id || "").trim();
+    if (artistId) return rowArtist === artistId;
+    return !rowArtist;
+  })) {
     await base44.asServiceRole.entities.SocialAccount.update(row.id, {
       status: "disconnected",
       encrypted_credentials: "",
@@ -67,6 +73,7 @@ export async function completeYouTubeConnect(params: {
   base44: ReturnType<typeof createClientFromRequest>;
   code: string;
   boundUserId: string;
+  boundArtistId?: string;
   encryptionKey: string;
   redirectUri: string;
   oauthClientId?: string | null;
@@ -102,6 +109,7 @@ export async function completeYouTubeConnect(params: {
 
   await upsertSocialAccount(params.base44, {
     user_id: params.boundUserId,
+    artist_id: params.boundArtistId || "",
     provider: "youtube",
     provider_account_id: channel.channel_id,
     account_name: channel.title || "YouTube",

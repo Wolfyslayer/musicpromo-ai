@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/use-toast";
 
 import { GENRES } from "@/services/constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import PageHeader from "@/components/PageHeader";
 import SurfacePanel from "@/components/SurfacePanel";
 
@@ -29,7 +30,20 @@ export default function ArtistEditor() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const inputRef = useRef(null);
-  const [form, setForm] = useState({ name: "", profile_image: "", biography: "", genre: "", location: "", website: "", spotify_url: "", youtube_url: "", tiktok_url: "", instagram_url: "", facebook_url: "" });
+  const [form, setForm] = useState({
+    name: "",
+    profile_image: "",
+    biography: "",
+    genre: "",
+    location: "",
+    website: "",
+    spotify_url: "",
+    youtube_url: "",
+    tiktok_url: "",
+    instagram_url: "",
+    facebook_url: "",
+    show_on_public_profile: true,
+  });
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -115,6 +129,17 @@ export default function ArtistEditor() {
         </div>
 
         <Field label="Biography"><Textarea value={form.biography} onChange={(e) => set("biography", e.target.value)} rows={4} placeholder="Short bio…" /></Field>
+
+        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/15 px-3 py-3">
+          <div>
+            <p className="text-sm font-600">Show on public profile</p>
+            <p className="text-xs text-muted-foreground">Listed on your community profile when it is public.</p>
+          </div>
+          <Switch
+            checked={form.show_on_public_profile !== false}
+            onCheckedChange={(c) => set("show_on_public_profile", c)}
+          />
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           {FIELDS.map((f) => (

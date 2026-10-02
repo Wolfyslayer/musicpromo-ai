@@ -12,6 +12,10 @@
       "type": "string",
       "title": "User ID"
     },
+    "artist_id": {
+      "type": "string",
+      "title": "Artist ID"
+    },
     "provider": {
       "type": "string",
       "title": "Provider",

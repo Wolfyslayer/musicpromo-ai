@@ -1,0 +1,105 @@
+import { serveWithCors } from "../_shared/cors.ts";
+import { serviceClient } from "../_shared/runtime.ts";
+
+function unpackArtist(row: Record<string, unknown>) {
+  const data = row.data && typeof row.data === "object" ? (row.data as Record<string, unknown>) : {};
+  return { ...data, id: row.id };
+}
+
+/**
+ * Public profile card for future community discovery (no secrets).
+ * Body or query: userId
+ */
+async function handler(req: Request): Promise<Response> {
+  try {
+    const url = new URL(req.url);
+    let userId = url.searchParams.get("userId") || "";
+    if (req.method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      if (body?.userId) userId = String(body.userId);
+    }
+    userId = String(userId || "").trim();
+    if (!userId) {
+      return Response.json({ error: "userId is required." }, { status: 400 });
+    }
+
+    const admin = serviceClient();
+    const { data: userRow, error: userErr } = await admin
+      .from("users")
+      .select(
+        "id, display_name, full_name, avatar_url, bio, profile_public, hide_artists_on_profile"
+      )
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (userErr) throw new Error(userErr.message);
+    if (!userRow || userRow.profile_public !== true) {
+      return Response.json({ ok: false, code: "PRIVATE" }, { status: 404 });
+    }
+
+    const { data: artistRows } = await admin
+      .from("prepared_media")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("kind", "artist");
+
+    const artists = (artistRows || [])
+      .map(unpackArtist)
+      .filter((a) => a.is_demo !== true && a.show_on_public_profile !== false)
+      .map((a) => ({
+        id: a.id,
+        name: a.name,
+        genre: a.genre || null,
+        biography: a.biography || null,
+        profile_image: a.profile_image || null,
+        location: a.location || null,
+        spotify_url: a.spotify_url || null,
+        youtube_url: a.youtube_url || null,
+        tiktok_url: a.tiktok_url || null,
+        instagram_url: a.instagram_url || null,
+        website: a.website || null,
+      }));
+
+    const { data: socialRows } = await admin
+      .from("social_accounts")
+      .select("*")
+      .eq("user_id", userId);
+
+    const socialByArtist: Record<string, Array<Record<string, unknown>>> = {};
+    for (const row of socialRows || []) {
+      const payload =
+        row.data && typeof row.data === "object" ? (row.data as Record<string, unknown>) : {};
+      if (String(payload.status || "") !== "connected") continue;
+      const artistKey = String(payload.artist_id || "_account");
+      const entry = {
+        provider: payload.provider || row.platform,
+        username: payload.username || null,
+        accountName: payload.account_name || null,
+        profileImageUrl: payload.profile_image_url || null,
+      };
+      if (!socialByArtist[artistKey]) socialByArtist[artistKey] = [];
+      socialByArtist[artistKey].push(entry);
+    }
+
+    const displayName =
+      userRow.display_name || userRow.full_name || "Artist";
+
+    return Response.json({
+      ok: true,
+      profile: {
+        id: userRow.id,
+        displayName,
+        avatarUrl: userRow.avatar_url || null,
+        bio: userRow.bio || null,
+        hideArtists: userRow.hide_artists_on_profile === true,
+        artists: userRow.hide_artists_on_profile === true ? [] : artists,
+        connectedSocials: socialByArtist,
+      },
+    });
+  } catch (error) {
+    console.error("[getPublicProfile]", (error as Error)?.message || error);
+    return Response.json({ error: "Could not load profile." }, { status: 500 });
+  }
+}
+
+serveWithCors(handler);

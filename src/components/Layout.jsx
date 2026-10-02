@@ -70,7 +70,13 @@ export default function Layout() {
           ))}
         </nav>
         <div className="surface mt-auto rounded-2xl p-3.5">
-          <p className="truncate text-sm font-600">{isAuthenticated ? user?.full_name || user?.email || "Artist" : "Guest preview"}</p>
+          {isAuthenticated ? (
+            <Link to="/profile" className="block truncate text-sm font-600 hover:text-primary">
+              {user?.full_name || user?.email || "Artist"}
+            </Link>
+          ) : (
+            <p className="truncate text-sm font-600">Guest preview</p>
+          )}
           <p className="truncate text-xs text-muted-foreground">{isAuthenticated ? user?.email : "Sign in to save your work"}</p>
           {isAuthenticated ? (
             <button

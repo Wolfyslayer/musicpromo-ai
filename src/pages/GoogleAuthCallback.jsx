@@ -59,7 +59,7 @@ export default function GoogleAuthCallback() {
         if (signInError) throw signInError;
 
         const user = mapUser(data.user);
-        if (user) await upsertUserProfile(user);
+        if (user) await upsertUserProfile(user, data.user);
 
         const destination = safeStoredPath(readGoogleSignInReturnTo());
         clearGoogleSignInSession();

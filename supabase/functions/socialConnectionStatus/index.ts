@@ -121,6 +121,7 @@ async function handler (req: Request): Promise<Response> {
       return {
         id: r.id,
         provider: r.provider,
+        artistId: r.artist_id ? String(r.artist_id) : "",
         status: r.status,
         accountName: r.account_name || null,
         username: r.username || null,

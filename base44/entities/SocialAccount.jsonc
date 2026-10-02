@@ -8,6 +8,11 @@
       "type": "string",
       "title": "User ID"
     },
+    "artist_id": {
+      "type": "string",
+      "title": "Artist ID",
+      "description": "When set, this connection belongs to one artist persona (multi-artist accounts)."
+    },
     "provider": {
       "type": "string",
       "title": "Provider",

@@ -41,6 +41,7 @@ import {
   SocialActivityPage,
 } from '@/pages/social/SocialSectionPages';
 import SettingsShell, { SettingsIndexRedirect } from '@/components/settings/SettingsShell';
+import Profile from '@/pages/Profile';
 import {
   SettingsAccountPage,
   SettingsStudioPage,
@@ -126,6 +127,8 @@ const AuthenticatedApp = () => {
           <Route path="/releases/:id/calendar" element={<ReleaseCalendar />} />
           <Route path="/releases/:id/content" element={<ReleaseContent />} />
           <Route path="/releases/:id" element={<ReleaseDetail />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/:userId" element={<Profile />} />
           <Route path="/settings" element={<SettingsShell />}>
             <Route index element={<SettingsIndexRedirect />} />
             <Route path="account" element={<SettingsAccountPage />} />
