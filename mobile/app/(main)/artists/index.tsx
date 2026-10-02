@@ -1,5 +1,1 @@
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
-
-export default function ArtistsScreen() {
-  return <PlaceholderScreen title="Artists" />;
-}
+export { default } from '@/screens/ArtistsScreen';

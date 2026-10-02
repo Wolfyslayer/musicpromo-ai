@@ -1,3 +1,4 @@
+import React from 'react';
 import { Pressable, Text, type PressableProps } from 'react-native';
 import { cn } from '@/lib/utils';
 
@@ -5,9 +6,10 @@ type Variant = 'default' | 'outline' | 'ghost' | 'destructive';
 
 type Props = PressableProps & {
   variant?: Variant;
-  label: string;
+  label?: string;
   className?: string;
   textClassName?: string;
+  children?: React.ReactNode;
 };
 
 const variants: Record<Variant, { container: string; text: string }> = {
@@ -23,6 +25,7 @@ export function Button({
   className,
   textClassName,
   disabled,
+  children,
   ...props
 }: Props) {
   const v = variants[variant];
@@ -31,14 +34,16 @@ export function Button({
       accessibilityRole="button"
       disabled={disabled}
       className={cn(
-        'min-h-12 items-center justify-center rounded-xl px-4 opacity-100 active:opacity-80',
+        'min-h-12 flex-row items-center justify-center rounded-xl px-4 opacity-100 active:opacity-80',
         v.container,
         disabled && 'opacity-50',
         className,
       )}
       {...props}
     >
-      <Text className={cn('text-sm font-semibold', v.text, textClassName)}>{label}</Text>
+      {children ?? (
+        <Text className={cn('text-sm font-semibold', v.text, textClassName)}>{label}</Text>
+      )}
     </Pressable>
   );
 }
