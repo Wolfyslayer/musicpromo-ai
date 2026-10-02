@@ -90,13 +90,12 @@ jobs:
 
       - name: Configure Vite base path
         run: |
-          # Custom domains are served at the site root — use "/", NOT the domain name.
+          # musicpromoai.site (and most GitHub Pages custom domains) are served at "/".
+          # Only set VITE_BASE_PATH=/<repo>/ if you use https://user.github.io/<repo>/ without a custom domain.
           if [ -n "${{ vars.VITE_BASE_PATH }}" ]; then
             BASE="${{ vars.VITE_BASE_PATH }}"
-          elif [ -n "${{ vars.CUSTOM_DOMAIN }}" ]; then
-            BASE="/"
           else
-            BASE="/${{ github.event.repository.name }}/"
+            BASE="/"
           fi
           case "$BASE" in
             *.*)
