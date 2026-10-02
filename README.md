@@ -57,6 +57,14 @@ base44 dashboard open
 
 This repo syncs to Base44 through git, so publish from the dashboard rather than `base44 deploy` — a CLI deploy ships your local tree directly, bypassing the sync, and the deployed state silently diverges from the repo.
 
+## Mobile app (Expo)
+
+A React Native client lives in [`mobile/`](mobile/README.md) with the same Supabase backend. See [docs/MOBILE_MIGRATION.md](docs/MOBILE_MIGRATION.md) for setup, env vars, and feature parity notes.
+
+```bash
+cd mobile && cp env.example .env && npm start
+```
+
 ## Docs & Support
 
 GitHub integration: [https://docs.db.com/developers/app-code/local-development/github](https://docs.db.com/developers/app-code/local-development/github)

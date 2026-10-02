@@ -66,3 +66,7 @@ export const db = {
     getPublicSettings: async () => ({ id: 'supabase', public_settings: {} }),
   },
 };
+
+export function ensureClientSessionToken() {
+  return null;
+}
