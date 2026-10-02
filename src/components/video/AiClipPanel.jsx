@@ -29,8 +29,12 @@ export default function AiClipPanel({
   const hasClip = Boolean(project?.ai_clip_url);
 
   useEffect(() => {
-    fetchAiVideoStatus().then(setCloudStatus).catch(() => setCloudStatus({ configured: false }));
+    fetchAiVideoStatus()
+      .then(setCloudStatus)
+      .catch(() => setCloudStatus({ configured: false, showPaidClipUi: false, provider: "off" }));
   }, []);
+
+  const showPaidClipUi = cloudStatus?.showPaidClipUi === true;
 
   const generateCloud = () =>
     requireAuth(async () => {

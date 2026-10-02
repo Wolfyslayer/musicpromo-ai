@@ -32,9 +32,12 @@ export function resolveAiVideoProvider(): AiVideoProvider {
 
 export function aiVideoProviderStatus() {
   const provider = resolveAiVideoProvider();
+  const paidEnabled = provider !== "off";
   return {
     provider,
-    configured: provider !== "off",
+    configured: paidEnabled,
+    /** When false, the editor hides pay-per-use cloud clip UI (e.g. AI_VIDEO_PROVIDER=off). */
+    showPaidClipUi: paidEnabled,
     groqPromptAssist: Boolean(Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY")),
     falModel: Deno.env.get("FAL_VIDEO_MODEL") || DEFAULT_FAL_MODEL,
     replicateModel: Deno.env.get("REPLICATE_VIDEO_MODEL") || DEFAULT_REPLICATE_MODEL,

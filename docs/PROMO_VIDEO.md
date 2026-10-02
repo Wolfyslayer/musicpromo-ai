@@ -46,7 +46,7 @@ If both `FAL_KEY` and Replicate are set, **fal is preferred** unless `AI_VIDEO_P
 
 ### Disable paid video entirely
 
-Set `AI_VIDEO_PROVIDER=off` — the editor hides cloud generation (free motion still works).
+Set `AI_VIDEO_PROVIDER=off` — the **pay-per-use cloud clip block is hidden** in the video editor (free AI studio / cinematic motion still works). Same when no `FAL_KEY` or Replicate token is configured.
 
 ## Editing cloud clips
 
