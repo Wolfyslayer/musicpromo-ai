@@ -6,6 +6,7 @@ import {
   getConnectionStatus,
   mergeProvidersWithConnections,
   normalizeSocialConnection,
+  OAUTH_PROVIDERS,
   POST_STATUS,
 } from "@/services/socialService";
 import { deleteSocialAccount, selectSocialWorkspace } from "@/services/studioRecords";
@@ -40,7 +41,10 @@ const ERROR_MESSAGES = {
   account_save_failed: "Login worked, but saving the connection failed. Try Connect again.",
 };
 
-export const CONNECTABLE_SOCIAL = new Set(["instagram", "tiktok", "youtube"]);
+/** Platforms with OAuth implemented in connectSocialProvider — keep in sync via providers.js */
+export const CONNECTABLE_SOCIAL = new Set(
+  SOCIAL_PROVIDERS.filter((p) => p.oauthImplemented).map((p) => p.id)
+);
 
 const SocialHubContext = createContext(null);
 
@@ -195,7 +199,7 @@ export function SocialHubProvider({ children }) {
     const provider =
       providers.find((p) => p.id === providerId) ||
       (typeof providerIdOrObj === "object" ? providerIdOrObj : null);
-    if (!CONNECTABLE_SOCIAL.has(providerId)) return;
+    if (!OAUTH_PROVIDERS.has(providerId)) return;
     setConnectingId(providerId);
     try {
       const forceReauth =
@@ -244,7 +248,7 @@ export function SocialHubProvider({ children }) {
   };
 
   const onDisconnect = async (provider) => {
-    if (!CONNECTABLE_SOCIAL.has(provider.id)) return;
+    if (!OAUTH_PROVIDERS.has(provider.id)) return;
     setDisconnectingId(provider.id);
     try {
       if (provider.connection?.id) await deleteSocialAccount(provider.connection.id);

@@ -52,13 +52,14 @@ export default function SocialPlatformCard({
   const handleConnect = async () => {
     if (unavailable || connecting) return;
     if (!onConnect) {
-      toast({
-        title: `${provider.name} coming soon`,
-        description: "Social account connections will be available after platform OAuth is configured.",
-      });
+      if (!oauthReady) {
+        toast({
+          title: `${provider.name} coming soon`,
+          description: SECRET_HINTS[provider.id] || "This platform is not available yet.",
+        });
+      }
       return;
     }
-    // Always pass the stable string id — never the whole card object.
     await onConnect(provider.id);
   };
 

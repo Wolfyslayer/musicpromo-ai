@@ -10,7 +10,7 @@ import { SOCIAL_PROVIDERS, getSocialProviderConfig } from "@/services/social/pro
 import { CONNECTION_STATUS, CONNECTION_STATUS_META } from "@/services/social/provider";
 import { connectionForProvider } from "@/services/socialArtistScope";
 
-const OAUTH_PROVIDERS = new Set(["instagram", "tiktok", "youtube", "facebook", "x"]);
+export const OAUTH_PROVIDERS = new Set(["instagram", "tiktok", "youtube", "facebook", "x"]);
 
 /**
  * Invoke a Base44 backend function with the active user session.
