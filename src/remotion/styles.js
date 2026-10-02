@@ -55,13 +55,26 @@ export const ARTWORK_MOTION_MODES = [
   { id: "standard", label: "Standard reactive", description: "Audio-reactive zoom on cover (default)." },
   { id: "cinematic", label: "Cinematic (free)", description: "Slow Ken Burns pan — no API, great for moody promos." },
   { id: "hype", label: "Hype (free)", description: "Faster push-in and drift — pairs with energetic tracks." },
+  {
+    id: "ai-feel",
+    label: "AI studio feel (free)",
+    description: "Grain, light sweeps, chromatic cover, beat flashes — closest to generative without an API.",
+  },
 ];
 
 export function normalizeArtworkMotion(value) {
   const id = String(value || "standard").toLowerCase();
+  if (id === "ai-feel" || id === "ai_feel" || id === "ai" || id === "generative" || id === "studio") {
+    return "ai-feel";
+  }
   if (id === "cinematic" || id === "film" || id === "kenburns") return "cinematic";
   if (id === "hype" || id === "fast" || id === "aggressive") return "hype";
   return "standard";
+}
+
+/** True when Remotion should run the premium polish stack (grain, sweeps, chromatic art). */
+export function isAiStudioMotion(value) {
+  return normalizeArtworkMotion(value) === "ai-feel";
 }
 
 export function normalizeCompositingMode(value) {

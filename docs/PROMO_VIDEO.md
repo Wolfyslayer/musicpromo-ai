@@ -14,10 +14,11 @@ MusicPromo AI builds **short-form promo MP4s in your browser** with Remotion + W
 ## Recommended path (zero video API cost)
 
 1. Upload song + cover → accept **auto-suggested promo style** (cover colors + energy).
-2. In the video editor **Media** tab, choose **Cinematic (free)** or **Hype (free)** under *Free cinematic motion*.
-3. Add particles, hooks, lyrics → **Export** — full-length audio is baked in.
+2. In the video editor **Look** tab, tap **AI Studio feel** preset, or under **Media** choose **AI studio feel (free)** motion.
+3. That enables film grain, beat flashes, light sweeps, chromatic cover edges, and prism-friendly defaults — reads like generative AI without an API.
+4. Add hooks, lyrics → **Export** — full-length audio is baked in.
 
-This is the same quality path most indie artists use: motion design on the artwork, not generative B-roll.
+New campaign video drafts default to **AI studio feel** motion when possible.
 
 ## Optional cloud AI clips (cheaper than Runway)
 
@@ -45,7 +46,7 @@ If both `FAL_KEY` and Replicate are set, **fal is preferred** unless `AI_VIDEO_P
 
 ### Disable paid video entirely
 
-Set `AI_VIDEO_PROVIDER=off` — the editor hides cloud generation (free motion still works).
+Set `AI_VIDEO_PROVIDER=off` — the **pay-per-use cloud clip block is hidden** in the video editor (free AI studio / cinematic motion still works). Same when no `FAL_KEY` or Replicate token is configured.
 
 ## Editing cloud clips
 

@@ -91,6 +91,7 @@ function styleFingerprint(p) {
     p.ai_clip_url || "",
     p.compositing_mode || "",
     p.ai_clip_opacity ?? "",
+    p.artwork_motion || "",
   ].join("|");
 }
 
@@ -365,6 +366,9 @@ export default function VideoGenerator() {
         duration: nextDuration,
         editor_look: normalizeEditorLook({ ...normalizeEditorLook(current.editor_look), ...preset.look }),
         lyric_cues: scaleLyricCues(cues, from, nextDuration),
+        ...(preset.artwork_motion ? { artwork_motion: preset.artwork_motion } : {}),
+        ...(preset.particle_effect ? { particle_effect: preset.particle_effect } : {}),
+        ...(preset.visual_style ? { visual_style: preset.visual_style } : {}),
       };
     });
     touchStyle();

@@ -7,12 +7,15 @@ import {
   cuesInAudioWindow,
   normalizeAiClipOpacity,
   normalizeArtworkMotion,
+  isAiStudioMotion,
   normalizeCompositingMode,
   normalizeEditorLook,
   normalizeParticleEffect,
   normalizeVisualStyle,
 } from "./styles";
 import { fontForChoice, fontForStyle } from "./fonts";
+import ArtworkStack from "./ArtworkStack";
+import PromoPolishOverlay from "./PromoPolishOverlay";
 
 function LyricLine({
   text,
@@ -24,6 +27,7 @@ function LyricLine({
   color,
   letterSpacing,
   animationMs,
+  polish = false,
 }) {
   const frame = useCurrentFrame();
   const local = frame - appearFrame;
@@ -32,6 +36,12 @@ function LyricLine({
   const animFrames = Math.max(6, Math.round(((Number(animationMs) || 280) / 1000) * fps));
   const opacity = interpolate(local, [0, animFrames], [0, 1], { extrapolateRight: "clamp" });
   const y = interpolate(local, [0, animFrames], [36, 0], { extrapolateRight: "clamp" });
+  const blur = polish
+    ? interpolate(local, [0, animFrames], [14, 0], { extrapolateRight: "clamp" })
+    : 0;
+  const scale = polish
+    ? interpolate(local, [0, animFrames], [1.06, 1], { extrapolateRight: "clamp" })
+    : 1;
   const display = visualStyle === "hiphop" || visualStyle === "electronic";
   const typeStep = Math.max(1, animFrames / Math.max(1, text.length));
   const chars = visualStyle === "rock" ? Math.min(text.length, Math.floor(local / typeStep) + 1) : text.length;
@@ -49,8 +59,11 @@ function LyricLine({
         color,
         textAlign: "center",
         opacity,
-        transform: `translateY(${y}px)`,
-        textShadow: "0 8px 28px rgba(0,0,0,0.55)",
+        transform: `translateY(${y}px) scale(${scale})`,
+        filter: blur > 0.01 ? `blur(${blur}px)` : undefined,
+        textShadow: polish
+          ? "0 0 24px rgba(167,139,250,0.45), 0 8px 28px rgba(0,0,0,0.55)"
+          : "0 8px 28px rgba(0,0,0,0.55)",
         lineHeight: 1.15,
         padding: "0 48px",
       }}
@@ -106,10 +119,19 @@ function PromoCompositionBody({
   const lyricFont = fontForChoice(look.fontId);
   const { bassScale, transientScale, bass, mid, high, energy, transient } = motion;
   const artworkMotion = normalizeArtworkMotion(artworkMotionProp);
+  const polish = isAiStudioMotion(artworkMotion);
   const motionT = frame / Math.max(1, durationInFrames - 1);
-  let bgMotionTransform = `scale(${bassScale * 1.12})`;
-  let coverMotionTransform = `scale(${transientScale})`;
-  if (artworkMotion === "cinematic") {
+  const bassPulse = 1 + (bassScale - 1) * (polish ? 1.45 : 1);
+  const hitPulse = 1 + (transientScale - 1) * (polish ? 1.35 : 1);
+  let bgMotionTransform = `scale(${bassPulse * 1.12})`;
+  let coverMotionTransform = `scale(${hitPulse})`;
+  if (artworkMotion === "ai-feel") {
+    const slowScale = interpolate(motionT, [0, 1], [1.04, 1.18]);
+    const panX = interpolate(motionT, [0, 1], [0, -44]) + Math.sin(motionT * Math.PI * 3) * 10;
+    const panY = interpolate(motionT, [0, 1], [0, -30]) + Math.cos(motionT * Math.PI * 2.5) * 6;
+    coverMotionTransform = `translate(${panX}px, ${panY}px) scale(${slowScale * hitPulse})`;
+    bgMotionTransform = `translate(${panX * 0.5}px, ${panY * 0.45}px) scale(${bassPulse * 1.08 * slowScale}) rotate(${motionT * 1.2}deg)`;
+  } else if (artworkMotion === "cinematic") {
     const slowScale = interpolate(motionT, [0, 1], [1.02, 1.14]);
     const panX = interpolate(motionT, [0, 1], [0, -38]);
     const panY = interpolate(motionT, [0, 1], [0, -26]);
@@ -207,7 +229,9 @@ function PromoCompositionBody({
                 width: "140%",
                 height: "140%",
                 objectFit: "cover",
-                filter: "blur(36px) brightness(0.45) saturate(1.15)",
+                filter: polish
+                  ? "blur(42px) brightness(0.42) saturate(1.35) contrast(1.08)"
+                  : "blur(36px) brightness(0.45) saturate(1.15)",
               }}
             />
           ) : (
@@ -236,18 +260,12 @@ function PromoCompositionBody({
           }}
         >
           {artworkUrl ? (
-            <img
-              src={artworkUrl}
-              alt=""
-              crossOrigin="anonymous"
-              style={{
-                width: 720,
-                height: 720,
-                objectFit: "cover",
-                borderRadius: 28,
-                transform: coverMotionTransform,
-                boxShadow: "0 30px 80px rgba(0,0,0,0.55)",
-              }}
+            <ArtworkStack
+              artworkUrl={artworkUrl}
+              coverTransform={coverMotionTransform}
+              polish={polish}
+              bass={bass}
+              transient={transient}
             />
           ) : null}
         </AbsoluteFill>
@@ -266,6 +284,14 @@ function PromoCompositionBody({
         lyricY={look.lyricY}
         wind={look.wind}
         speed={look.particleSpeed}
+        suspend={suspendEffects}
+      />
+
+      <PromoPolishOverlay
+        enabled={polish}
+        bass={bass}
+        mid={mid}
+        transient={transient}
         suspend={suspendEffects}
       />
 
@@ -349,7 +375,15 @@ function PromoCompositionBody({
               letterSpacing: look.letterSpacing,
               textAlign: "center",
               padding: "0 48px",
-              textShadow: "0 4px 16px rgba(0,0,0,0.5)",
+              textShadow: polish
+                ? "0 0 28px rgba(167,139,250,0.5), 0 4px 16px rgba(0,0,0,0.5)"
+                : "0 4px 16px rgba(0,0,0,0.5)",
+              filter: polish
+                ? `blur(${interpolate(frame, [0, 20], [10, 0], { extrapolateRight: "clamp" })}px)`
+                : undefined,
+              transform: polish
+                ? `scale(${interpolate(frame, [0, 20], [1.08, 1], { extrapolateRight: "clamp" })})`
+                : undefined,
             }}
           >
             {hook || title}
@@ -366,6 +400,7 @@ function PromoCompositionBody({
             color={look.textColor}
             letterSpacing={look.letterSpacing}
             animationMs={look.animationMs}
+            polish={polish}
           />
         ) : !promo && videoType !== "lyrics" && hook && timeSec + 0.0005 < firstLyricStart ? (
           <div

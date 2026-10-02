@@ -1,5 +1,15 @@
 const PRESETS = [
   {
+    id: "ai-studio",
+    label: "AI Studio feel",
+    seconds: 15,
+    blurb: "Grain, sweeps, prism",
+    look: { fontSize: 62, letterSpacing: 0.8, lyricY: 80, animationMs: 240, particleSpeed: 0.68 },
+    artwork_motion: "ai-feel",
+    particle_effect: "prism",
+    visual_style: "electronic",
+  },
+  {
     id: "teaser",
     label: "Teaser Short",
     seconds: 15,
@@ -19,6 +29,8 @@ const PRESETS = [
     seconds: 60,
     blurb: "Full particle length",
     look: { fontSize: 72, letterSpacing: 2, lyricY: 84, animationMs: 360, particleSpeed: 0.92 },
+    artwork_motion: "hype",
+    particle_effect: "sparks",
   },
 ];
 
@@ -29,7 +41,10 @@ export default function CampaignPresets({ activeDuration, onApply, allowedSecond
   return (
     <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3">
       <p className="text-[10px] font-700 uppercase tracking-[0.16em] text-primary">Campaign presets</p>
-      <div className="mt-2 grid gap-2 sm:grid-cols-3">
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        AI Studio uses free Remotion polish — no cloud video API.
+      </p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {presets.map((preset) => {
           const active = Number(activeDuration) === preset.seconds;
           return (
