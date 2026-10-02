@@ -2,23 +2,32 @@
 
 The web app lives in `src/` (Vite + React Router + Tailwind + shadcn/Radix). The Expo app lives in `mobile/` (Expo SDK 57 + Expo Router + NativeWind).
 
+## Cost model (stay free like web)
+
+Mobile does **not** introduce new paid services by default.
+
+| Feature | Web | Mobile (default) |
+|---------|-----|------------------|
+| Supabase auth + DB | Free tier / your project | Same |
+| Promo MP4 export | Free **client-side Remotion** (WebCodecs) | Same code via **WebView bridge** to your hosted web app — no encode API fees |
+| AI lyrics sync | Free **on-device Whisper** (`@xenova/transformers`) | Same worker via **`/mobile-lyrics-sync-bridge`** WebView — no per-sync API fee |
+| Campaign AI copy / analyze | Optional **`OPENAI_API_KEY`** on Edge Functions (same as web) | Same `db.functions.invoke` — only if you already use AI on web |
+| Lyrics via OpenAI API | Not used on web | **Opt-in only:** `EXPO_PUBLIC_LYRICS_SYNC=openai` + deploy `transcribeLyrics` |
+
+**One URL ties it together:** deploy the web app once, set `EXPO_PUBLIC_WEB_APP_URL` in mobile `.env`. Mobile then reuses your **free** browser engines inside a WebView (export + lyrics), matching web behavior.
+
+No extra SaaS is required beyond what you already use for the web app (Supabase + optional OpenAI for AI features you enable on web).
+
 ## Status
 
 | Area | Status |
 |------|--------|
 | Expo + Expo Router + NativeWind | Done |
 | Supabase (AsyncStorage session) | Done |
-| Auth (email, Google PKCE, reset password) | Done |
-| Dashboard, Campaigns, Create, Detail, Content | Done |
-| Artists, Releases (full sub-routes) | Done |
-| Social Hub + Compose + OAuth (WebBrowser) | Done |
-| Analytics (`react-native-gifted-charts`) | Done |
-| Settings (AsyncStorage prefs) | Done |
-| Video Studio (native editor + `expo-av` preview + MP4 upload / optional WebView) | Done |
-| Privacy & Terms | Done |
-| Client Remotion encode (WebCodecs) | **WebView bridge** to `/mobile-export-bridge` on `EXPO_PUBLIC_WEB_APP_URL` (same Remotion pipeline as web), or MP4 upload |
-| AI lyrics sync | **Edge Function `transcribeLyrics`** (OpenAI Whisper) — same grouped cues as web |
-| `@xenova/transformers` | Replaced by server Whisper on mobile (no on-device model) |
+| Auth (email, Google PKCE, reset password, OTP register) | Done |
+| All major screens ported | Done |
+| Remotion export | WebView → `/mobile-export-bridge` (free client render) |
+| Lyrics sync | WebView → `/mobile-lyrics-sync-bridge` (free Whisper worker) |
 
 ## Run
 
@@ -29,26 +38,20 @@ npm install
 npm start
 ```
 
-Map env vars from the web app: `VITE_SUPABASE_*` → `EXPO_PUBLIC_SUPABASE_*`, `VITE_GOOGLE_CLIENT_ID` → `EXPO_PUBLIC_GOOGLE_CLIENT_ID`.
+Map env vars: `VITE_SUPABASE_*` → `EXPO_PUBLIC_SUPABASE_*`, `VITE_GOOGLE_CLIENT_ID` → `EXPO_PUBLIC_GOOGLE_CLIENT_ID`.
 
-Register OAuth redirect URIs for the native app scheme `musicpromo://` (and Expo dev URLs) in Google Cloud alongside your web callback.
+## Required for full parity (still free)
 
-## Architecture
+1. **Publish / host the web app** (same as today) so these routes exist:
+   - `/mobile-export-bridge`
+   - `/mobile-lyrics-sync-bridge`
+2. Set **`EXPO_PUBLIC_WEB_APP_URL`** to that origin in `mobile/.env`.
 
-- **Screens:** `mobile/screens/*` — ported from `src/pages/*`
-- **UI:** `mobile/components/ui/*` + campaign/social components (NativeWind)
-- **Data:** `mobile/services/*` shared logic with web (Supabase entities)
-- **API:** `mobile/api/db.ts` — same shape as web `base44Client`
+Manual fallbacks without the URL: type lyrics, import SRT, upload a finished MP4.
 
-## Video export on mobile
+## Optional (paid API, same as enabling extra OpenAI usage on web)
 
-The backend still stores **client-rendered** MP4 URLs. On mobile, **Export MP4**:
-
-1. Tries native Remotion (only in web builds).
-2. Automatically opens an in-app **WebView** to `{EXPO_PUBLIC_WEB_APP_URL}/mobile-export-bridge?projectId=…`, which runs the same `videoService.exportVideo` + Remotion path as the browser, then returns the public MP4 URL to the app.
-3. Or **Upload MP4** / use Create Campaign’s render step with the same bridge.
-
-Deploy **`transcribeLyrics`** Edge Function (requires `OPENAI_API_KEY` in Supabase secrets) for AI lyrics sync on device.
+- `EXPO_PUBLIC_LYRICS_SYNC=openai` + deploy `supabase/functions/transcribeLyrics` if you cannot host the web bridge but want server Whisper.
 
 ## Web → route map
 
@@ -59,4 +62,4 @@ Deploy **`transcribeLyrics`** Edge Function (requires `OPENAI_API_KEY` in Supaba
 | `/login` … `/reset-password` | `/login` … `/reset-password` |
 | Other app routes | Same paths under `/(main)/…` |
 
-Web app in repo root is unchanged; ship both clients against one Supabase project.
+Web + mobile share one Supabase project; the web bundle is the **free compute** layer for Remotion and Whisper on phones.

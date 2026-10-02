@@ -59,7 +59,7 @@ This repo syncs to Base44 through git, so publish from the dashboard rather than
 
 ## Mobile app (Expo)
 
-A React Native client lives in [`mobile/`](mobile/README.md) with the same Supabase backend. See [docs/MOBILE_MIGRATION.md](docs/MOBILE_MIGRATION.md) for setup, env vars, and feature parity notes.
+A React Native client lives in [`mobile/`](mobile/README.md) with the same Supabase backend. By default it reuses your **hosted web app** for free client-side Remotion export and Whisper lyrics sync (no extra API fees). See [docs/MOBILE_MIGRATION.md](docs/MOBILE_MIGRATION.md).
 
 ```bash
 cd mobile && cp env.example .env && npm start

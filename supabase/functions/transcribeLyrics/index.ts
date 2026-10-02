@@ -11,6 +11,7 @@ async function fetchAudio(url: string): Promise<{ bytes: ArrayBuffer; mime: stri
   return { bytes, mime, name };
 }
 
+/** Optional — mobile defaults to free web Whisper bridge. Only used when EXPO_PUBLIC_LYRICS_SYNC=openai. */
 async function handler(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);

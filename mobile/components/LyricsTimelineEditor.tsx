@@ -9,7 +9,12 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/lib/toast';
 import { buildLyricCues } from '@/lib/promoStyles';
 import { parseSRT } from '@/services/parseSrt';
-import { syncLyricsFromAudio } from '@/services/lyricsSync';
+import { LyricsSyncWebView } from '@/components/LyricsSyncWebView';
+import { hasFreeWebBridges, lyricsSyncUsesOpenAiApi } from '@/lib/webApp';
+import {
+  prepareAudioUrlForSync,
+  syncLyricsFromAudioViaOpenAi,
+} from '@/services/lyricsSync';
 
 type Cue = { text: string; start?: number; end?: number; timeSeconds?: number };
 
@@ -38,6 +43,8 @@ export default function LyricsTimelineEditor({
   const [localCues, setLocalCues] = useState<Cue[]>(() => buildLyricCues(lyrics, duration, cues));
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
+  const [syncWebVisible, setSyncWebVisible] = useState(false);
+  const [syncAudioUrl, setSyncAudioUrl] = useState('');
 
   useEffect(() => setDraftLyrics(lyrics || ''), [lyrics]);
   useEffect(() => setLocalCues(buildLyricCues(lyrics, duration, cues)), [lyrics, duration, cues]);
@@ -69,27 +76,54 @@ export default function LyricsTimelineEditor({
     emit(next);
   };
 
+  const applySyncedCues = (synced: Cue[]) => {
+    emit(synced, synced.map((c) => c.text).join('\n'));
+    setDraftLyrics(synced.map((c) => c.text).join('\n'));
+    onSynced?.(synced);
+    toast({ title: 'Lyrics synced' });
+  };
+
   const runSync = async () => {
     if (onRequireAuth && !onRequireAuth()) return;
     setSyncing(true);
     setSyncProgress(0);
+    let openedWebBridge = false;
     try {
-      const synced = await syncLyricsFromAudio({
+      const url = await prepareAudioUrlForSync({
         audioUrl,
-        durationSec: duration,
+        audioFile: undefined,
         onProgress: (p: { progress?: number }) => setSyncProgress(p.progress ?? 0),
       });
-      emit(synced as Cue[], synced.map((c: Cue) => c.text).join('\n'));
-      setDraftLyrics(synced.map((c: Cue) => c.text).join('\n'));
-      onSynced?.(synced as Cue[]);
-      toast({ title: 'Lyrics synced' });
+
+      if (hasFreeWebBridges() && !lyricsSyncUsesOpenAiApi()) {
+        setSyncAudioUrl(url);
+        setSyncWebVisible(true);
+        openedWebBridge = true;
+        return;
+      }
+
+      if (lyricsSyncUsesOpenAiApi()) {
+        const synced = (await syncLyricsFromAudioViaOpenAi({
+          audioUrl: url,
+          durationSec: duration,
+          onProgress: (p: { progress?: number }) => setSyncProgress(p.progress ?? 0),
+        })) as Cue[];
+        applySyncedCues(synced);
+        return;
+      }
+
+      toast({
+        title: 'Set up free sync',
+        description:
+          'Add EXPO_PUBLIC_WEB_APP_URL (your deployed web app) for the same free on-device Whisper as web, or import SRT / type lyrics manually.',
+      });
     } catch (e) {
       toast({
         title: 'Sync failed',
         description: e instanceof Error ? e.message : undefined,
       });
     } finally {
-      setSyncing(false);
+      if (!openedWebBridge) setSyncing(false);
     }
   };
 
@@ -143,6 +177,21 @@ export default function LyricsTimelineEditor({
           <Text className="text-xs text-muted-foreground">Progress {Math.round(syncProgress)}%</Text>
         </View>
       ) : null}
+
+      <LyricsSyncWebView
+        visible={syncWebVisible}
+        audioUrl={syncAudioUrl}
+        durationSec={duration}
+        onClose={() => {
+          setSyncWebVisible(false);
+          setSyncing(false);
+        }}
+        onProgress={(p) => setSyncProgress(p.progress ?? 0)}
+        onComplete={(cues) => {
+          applySyncedCues(cues);
+          setSyncing(false);
+        }}
+      />
 
       <ScrollView className="max-h-80 gap-3">
         {localCues.map((cue, index) => (
