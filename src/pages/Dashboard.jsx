@@ -65,9 +65,9 @@ export default function Dashboard() {
 
   const quickActions = [
     { label: "New Campaign", icon: Plus, to: "/create" },
-    { label: "Generate Content", icon: Sparkles, to: active ? `/campaigns/${active.id}?tab=content` : "/campaigns" },
+    { label: "Generate Content", icon: Sparkles, to: active ? `/campaigns/${active.id}/library` : "/campaigns" },
     { label: "View Analytics", icon: BarChart3, to: "/analytics" },
-    { label: "View Campaign Plan", icon: CalendarDays, to: active ? `/campaigns/${active.id}?tab=plan` : "/campaigns" },
+    { label: "View Campaign Plan", icon: CalendarDays, to: active ? `/campaigns/${active.id}/plan` : "/campaigns" },
   ];
 
   return (
@@ -94,7 +94,7 @@ export default function Dashboard() {
         <section>
           <SectionTitle>Active Campaign</SectionTitle>
           <button
-            onClick={() => navigate(`/campaigns/${active.id}`)}
+            onClick={() => navigate(`/campaigns/${active.id}/plan`)}
             className="group block w-full overflow-hidden rounded-3xl border border-border/60 card-gradient text-left transition hover:border-primary/40 animate-slide-up"
           >
             <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5">

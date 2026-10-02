@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import Logo from "./Logo";
+import AppNavMenu from "./navigation/AppNavMenu";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -51,6 +52,13 @@ export default function Layout() {
 
   const isActive = (to) => (to === "/" ? location.pathname === "/" : location.pathname.startsWith(to));
   const isStudio = location.pathname === "/studio" || /\/campaigns\/[^/]+\/video$/.test(location.pathname);
+  const isCampaignSection = /^\/campaigns\/[^/]+(\/(plan|library|content|videos|analytics|song))?$/.test(
+    location.pathname
+  );
+  const isSectionHub =
+    isCampaignSection ||
+    location.pathname.startsWith("/social") ||
+    location.pathname.startsWith("/settings");
 
   const handleLogout = () => {
     logout(false);
@@ -95,34 +103,42 @@ export default function Layout() {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/50 bg-background/90 px-3 backdrop-blur md:hidden">
-          <Logo size={26} />
-          <div className="flex items-center">
-            <Link
-              to="/settings"
-              className="grid h-11 w-11 place-items-center rounded-lg text-muted-foreground hover:text-foreground"
-              aria-label="Settings"
-            >
-              <Settings className="h-5 w-5" />
-            </Link>
-            {isAuthenticated ? (
-              <button
-                onClick={handleLogout}
-                className="grid h-11 w-11 place-items-center rounded-lg text-muted-foreground hover:text-foreground"
-                aria-label="Sign out"
-              >
-                <LogOut className="h-5 w-5" />
-              </button>
-            ) : (
-              <button
-                onClick={() => requireAuth()}
-                className="grid h-11 w-11 place-items-center rounded-lg text-primary hover:text-primary"
-                aria-label="Sign in"
-              >
-                <LogIn className="h-5 w-5" />
-              </button>
-            )}
-          </div>
+        <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border/50 bg-background/90 px-3 backdrop-blur md:hidden">
+          {isSectionHub ? (
+            <span className="min-w-0 truncate pl-1 text-sm font-600">
+              {isCampaignSection ? "Campaign" : location.pathname.startsWith("/social") ? "Social" : "Settings"}
+            </span>
+          ) : (
+            <Logo size={26} />
+          )}
+          <AppNavMenu
+            primary={NAV}
+            secondary={SECONDARY}
+            userLine={
+              isAuthenticated
+                ? user?.full_name || user?.email || "Signed in"
+                : "Guest preview — sign in to save"
+            }
+            footerActions={
+              isAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                >
+                  <LogOut className="h-4 w-4" /> Sign out
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => requireAuth()}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-sm font-600 text-primary hover:bg-primary/10"
+                >
+                  <LogIn className="h-4 w-4" /> Sign in
+                </button>
+              )
+            }
+          />
         </header>
 
         {!isAuthenticated && !isStudio ? (

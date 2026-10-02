@@ -315,7 +315,7 @@ export default function CreateCampaign() {
               ? "Campaign ready. Add media and render from the Videos tab."
               : undefined,
       });
-      navigate(`/campaigns/${campaign.id}`);
+      navigate(`/campaigns/${campaign.id}/plan`);
     } catch (e) {
       setGenerating(false);
       setStage("");

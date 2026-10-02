@@ -92,7 +92,7 @@ export default function ReleaseCalendar() {
 
   const openEntry = (entry) => {
     if (!entry?.campaign_id) return;
-    navigate(`/campaigns/${entry.campaign_id}?tab=plan`);
+    navigate(`/campaigns/${entry.campaign_id}/plan`);
   };
 
   const openContent = (entry) => {
@@ -176,7 +176,7 @@ export default function ReleaseCalendar() {
           title="No campaign days planned yet."
           description="Generate or open a campaign plan to add days — they will appear here automatically."
           action={
-            <Button onClick={() => navigate(`/campaigns/${campaigns[0].id}?tab=plan`)} className="rounded-full">
+            <Button onClick={() => navigate(`/campaigns/${campaigns[0].id}/plan`)} className="rounded-full">
               Open Campaign Plan
             </Button>
           }

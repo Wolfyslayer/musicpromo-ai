@@ -176,7 +176,7 @@ export default function ReleaseDetail() {
               return (
                 <button
                   key={s.id}
-                  onClick={() => related ? navigate(`/campaigns/${related.id}`) : navigate("/create")}
+                  onClick={() => related ? navigate(`/campaigns/${related.id}/plan`) : navigate("/create")}
                   className="flex w-full items-center gap-3 rounded-xl border border-border/50 bg-card/40 p-3 text-left transition hover:border-primary/40"
                 >
                   <ArtworkImage src={s.artwork_url} alt={s.title} className="h-12 w-12 shrink-0" rounded="rounded-lg" />

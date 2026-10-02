@@ -93,7 +93,7 @@ export default function CampaignDayContentCard({
             variant="outline"
             size="sm"
             className="rounded-full"
-            onClick={() => navigate(`/campaigns/${campaignId}?tab=plan`)}
+            onClick={() => navigate(`/campaigns/${campaignId}/plan`)}
           >
             Open Plan
           </Button>
