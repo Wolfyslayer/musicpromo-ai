@@ -40,7 +40,7 @@ export default function CampaignPresets({ activeDuration, onApply, allowedSecond
     : PRESETS;
   return (
     <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3">
-      <p className="text-[10px] font-700 uppercase tracking-[0.16em] text-primary">Campaign presets</p>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Campaign presets</p>
       <p className="mt-1 text-[11px] text-muted-foreground">
         AI Studio uses free Remotion polish — no cloud video API.
       </p>
@@ -56,7 +56,7 @@ export default function CampaignPresets({ activeDuration, onApply, allowedSecond
                 active ? "border-primary bg-primary/20" : "border-border/70 bg-background/60 hover:border-primary/40"
               }`}
             >
-              <span className="block text-sm font-700">{preset.label}</span>
+              <span className="block text-sm font-semibold">{preset.label}</span>
               <span className="block text-[11px] text-muted-foreground">
                 {preset.seconds}s · {preset.blurb}
               </span>

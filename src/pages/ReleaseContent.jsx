@@ -52,7 +52,7 @@ export default function ReleaseContent() {
         <ArrowLeft className="h-4 w-4" /> Back to Release
       </button>
 
-      <div className="overflow-hidden rounded-3xl border border-border/60 card-gradient">
+      <div className="overflow-hidden rounded-3xl border border-border/60 surface">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
           <ArtworkImage
             src={release.artwork_url}
@@ -67,7 +67,7 @@ export default function ReleaseContent() {
                 Release Content
               </span>
             </div>
-            <h1 className="mt-2 truncate font-heading text-2xl font-700">{release.title || "Untitled"}</h1>
+            <h1 className="mt-2 truncate font-heading text-2xl font-semibold">{release.title || "Untitled"}</h1>
             <p className="truncate text-sm text-muted-foreground">{artist?.name || "Unknown artist"}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button

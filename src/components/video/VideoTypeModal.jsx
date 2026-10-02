@@ -26,7 +26,7 @@ export default function VideoTypeModal({ open, onOpenChange, onConfirm }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <article className="flex flex-col rounded-2xl border border-border bg-card p-4">
             <Captions className="h-5 w-5 text-primary" />
-            <h3 className="mt-3 font-heading text-base font-700">Full Lyrics Video</h3>
+            <h3 className="mt-3 font-heading text-base font-semibold">Full Lyrics Video</h3>
             <p className="mt-1 flex-1 text-sm text-muted-foreground">
               Uses the whole track, opens the auto-sync timeline, and leaves the marketing intro off.
             </p>
@@ -36,7 +36,7 @@ export default function VideoTypeModal({ open, onOpenChange, onConfirm }) {
           </article>
           <article className="flex flex-col rounded-2xl border border-primary/40 bg-primary/10 p-4">
             <Clapperboard className="h-5 w-5 text-primary" />
-            <h3 className="mt-3 font-heading text-base font-700">Short Promo / Teaser Reel</h3>
+            <h3 className="mt-3 font-heading text-base font-semibold">Short Promo / Teaser Reel</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               A 15s or 30s cut with the audio trimmer, a 3-second intro hook, and an outro button.
             </p>

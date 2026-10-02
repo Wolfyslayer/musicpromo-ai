@@ -281,7 +281,7 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="grid h-11 w-11 place-items-center rounded-xl bg-muted/60">
-                  <span className="font-heading text-sm font-700">D{day.day_number}</span>
+                  <span className="font-heading text-sm font-semibold">D{day.day_number}</span>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{fmtDate(day.date)}</p>

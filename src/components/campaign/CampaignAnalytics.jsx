@@ -125,7 +125,7 @@ export default function CampaignAnalytics({ campaign, analytics, days, onRefresh
       )}
 
       {/* AI analysis */}
-      <div className="rounded-2xl border border-border/60 card-gradient p-5">
+      <div className="rounded-2xl border border-border/60 surface p-5">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-heading font-600">Analyze Campaign</h3>

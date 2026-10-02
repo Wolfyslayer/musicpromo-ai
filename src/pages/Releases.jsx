@@ -8,6 +8,7 @@ import { fmtDate } from "@/services/format";
 import EmptyState from "@/components/EmptyState";
 import ArtworkImage from "@/components/ArtworkImage";
 import StatusBadge from "@/components/StatusBadge";
+import PageHeader from "@/components/PageHeader";
 
 export default function Releases() {
   const navigate = useNavigate();
@@ -26,15 +27,16 @@ export default function Releases() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-700 tracking-tight">Releases</h1>
-          <p className="text-sm text-muted-foreground">Group songs and campaigns under a release.</p>
-        </div>
-        <Button onClick={() => navigate("/releases/new")} className="rounded-full">
-          <Plus className="mr-1.5 h-4 w-4" />New Release
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Catalog"
+        title="Releases"
+        description="Group songs and campaigns under a release."
+        actions={
+          <Button onClick={() => navigate("/releases/new")} className="rounded-full">
+            <Plus className="mr-1.5 h-4 w-4" /> New release
+          </Button>
+        }
+      />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -52,7 +54,7 @@ export default function Releases() {
                   navigate(`/releases/${r.id}`);
                 }
               }}
-              className="flex cursor-pointer gap-3 rounded-2xl border border-border/60 card-gradient p-3 text-left transition hover:border-primary/40 animate-slide-up"
+              className="list-row flex cursor-pointer gap-3 p-3 text-left animate-slide-up"
             >
               <ArtworkImage
                 src={r.artwork_url}

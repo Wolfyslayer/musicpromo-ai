@@ -273,4 +273,18 @@
   .pressable {
     @apply transition duration-200 ease-out active:scale-[0.98];
   }
+
+  .panel {
+    @apply rounded-2xl bg-card p-5 md:p-6;
+    box-shadow: var(--shadow-soft);
+    border: 1px solid hsl(var(--border) / 0.65);
+  }
+
+  .hero-card {
+    @apply surface overflow-hidden rounded-3xl;
+  }
+
+  .list-row {
+    @apply surface-interactive rounded-2xl;
+  }
 }

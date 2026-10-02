@@ -18,7 +18,7 @@ export default function VideoRenderProgress({
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
       <div>
-        <h3 className="font-heading text-lg font-700 tracking-tight">{title}</h3>
+        <h3 className="font-heading text-lg font-semibold tracking-tight">{title}</h3>
         <p className="mt-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
           {message}
         </p>

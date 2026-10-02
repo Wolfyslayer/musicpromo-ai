@@ -59,7 +59,7 @@ export default function SocialPlatformCard({
   };
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/50 p-4">
+    <div className="surface rounded-2xl p-4">
       <div className="flex items-start gap-3">
         {connected && profileImageUrl ? (
           <img

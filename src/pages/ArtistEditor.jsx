@@ -11,6 +11,8 @@ import { useToast } from "@/components/ui/use-toast";
 
 import { GENRES } from "@/services/constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import PageHeader from "@/components/PageHeader";
+import SurfacePanel from "@/components/SurfacePanel";
 
 const FIELDS = [
   { key: "website", label: "Website" },
@@ -77,9 +79,9 @@ export default function ArtistEditor() {
       <button onClick={() => navigate("/artists")} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Back to artists
       </button>
-      <h1 className="font-heading text-2xl font-700 tracking-tight">{isNew ? "New Artist" : "Edit Artist"}</h1>
+      <PageHeader title={isNew ? "New artist" : "Edit artist"} eyebrow="Roster" />
 
-      <div className="rounded-2xl border border-border/60 card-gradient p-5 space-y-5">
+      <SurfacePanel className="space-y-5">
         {/* Profile image */}
         <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => pickImage(e.target.files?.[0])} />
         <div className="flex items-center gap-4">
@@ -124,7 +126,7 @@ export default function ArtistEditor() {
           <Button variant="ghost" onClick={() => navigate("/artists")}>Cancel</Button>
           <Button onClick={save} disabled={busy} className="rounded-full">{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}{isNew ? "Create Artist" : "Save"}</Button>
         </div>
-      </div>
+      </SurfacePanel>
     </div>
   );
 }

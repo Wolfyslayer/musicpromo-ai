@@ -66,7 +66,7 @@ export default function ReleaseDetail() {
         <ArrowLeft className="h-4 w-4" /> Back to releases
       </button>
 
-      <div className="overflow-hidden rounded-3xl border border-border/60 card-gradient">
+      <div className="overflow-hidden rounded-3xl border border-border/60 surface">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
           <ArtworkImage
             src={release.artwork_url}
@@ -78,7 +78,7 @@ export default function ReleaseDetail() {
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={release.status || "draft"} />
             </div>
-            <h1 className="mt-2 truncate font-heading text-2xl font-700">{release.title || "Untitled"}</h1>
+            <h1 className="mt-2 truncate font-heading text-2xl font-semibold">{release.title || "Untitled"}</h1>
             <p className="truncate text-sm text-muted-foreground">
               {artist?.name || "Unknown artist"} · {fmtDate(release.release_date)}
             </p>
@@ -238,7 +238,7 @@ function Stat({ label, value, icon: Icon }) {
         <Icon className="h-4 w-4 text-primary" />
         <span className="text-xs uppercase tracking-wider">{label}</span>
       </div>
-      <p className="mt-2 font-heading text-2xl font-700">{value}</p>
+      <p className="mt-2 font-heading text-2xl font-semibold">{value}</p>
     </div>
   );
 }

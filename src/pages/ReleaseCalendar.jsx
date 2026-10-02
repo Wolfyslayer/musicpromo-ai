@@ -132,7 +132,7 @@ export default function ReleaseCalendar() {
         <ArrowLeft className="h-4 w-4" /> Back to Release
       </button>
 
-      <div className="overflow-hidden rounded-3xl border border-border/60 card-gradient">
+      <div className="overflow-hidden rounded-3xl border border-border/60 surface">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
           <ArtworkImage
             src={release.artwork_url}
@@ -147,7 +147,7 @@ export default function ReleaseCalendar() {
                 Campaign Calendar
               </span>
             </div>
-            <h1 className="mt-2 truncate font-heading text-2xl font-700">{release.title || "Untitled"}</h1>
+            <h1 className="mt-2 truncate font-heading text-2xl font-semibold">{release.title || "Untitled"}</h1>
             <p className="truncate text-sm text-muted-foreground">
               {artist?.name || "Unknown artist"}
               {release.release_date ? ` · Release ${fmtDate(release.release_date)}` : ""}
@@ -250,7 +250,7 @@ export default function ReleaseCalendar() {
                         {cell.date.getDate()}
                       </span>
                       {isReleaseDay && (
-                        <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[9px] font-700 uppercase tracking-wider text-accent">
+                        <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">
                           Release
                         </span>
                       )}
@@ -298,7 +298,7 @@ export default function ReleaseCalendar() {
             {releaseDate && parseDateOnly(releaseDate)?.getFullYear() === month.getFullYear()
               && parseDateOnly(releaseDate)?.getMonth() === month.getMonth() && (
               <div className="rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3">
-                <p className="text-[10px] font-700 uppercase tracking-wider text-accent">Release Day</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">Release Day</p>
                 <p className="mt-0.5 text-sm font-600">{fmtDate(releaseDate)}</p>
               </div>
             )}
@@ -313,7 +313,7 @@ export default function ReleaseCalendar() {
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <p className="text-sm font-600">{fmtDate(date)}</p>
                     {releaseDate === date && (
-                      <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-700 uppercase tracking-wider text-accent">
+                      <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
                         Release Day
                       </span>
                     )}

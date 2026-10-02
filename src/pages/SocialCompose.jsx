@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import StatusBadge from "@/components/StatusBadge";
 import ArtworkImage from "@/components/ArtworkImage";
+import PageHeader from "@/components/PageHeader";
 
 import { db } from "@/api/base44Client";
 import {
@@ -356,16 +357,11 @@ export default function SocialCompose() {
         <ArrowLeft className="h-4 w-4" /> Social Hub
       </button>
 
-      <div>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Instagram className="h-4 w-4 text-primary" />
-          <span className="text-xs font-600 uppercase tracking-wider">Instagram</span>
-        </div>
-        <h1 className="mt-1 font-heading text-2xl font-700 tracking-tight">Create Instagram Post</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Save drafts anytime. JPEG and Instagram publish rules apply only when you publish.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Instagram"
+        title="Create post"
+        description="Save drafts anytime. JPEG and Instagram publish rules apply only when you publish."
+      />
 
       {!instagram ? (
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm">

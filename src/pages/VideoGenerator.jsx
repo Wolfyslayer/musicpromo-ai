@@ -749,7 +749,7 @@ export default function VideoGenerator() {
       <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent md:col-start-2 md:row-start-1 md:border-l md:border-border/60 md:bg-card">
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-4 md:px-6">
         <div className="hidden pb-2 md:block">
-          <h1 className="font-heading text-xl font-700 tracking-tight">Video Studio</h1>
+          <h1 className="font-heading text-xl font-semibold tracking-tight">Video Studio</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Drag lyrics and the particle source on the frame. Presets, effects, and playback stay available before sign-in.
           </p>
