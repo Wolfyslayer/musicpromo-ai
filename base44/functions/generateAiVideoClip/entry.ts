@@ -8,15 +8,15 @@ import {
 
 async function handler(req: Request) {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return jsonWithCors(req, { error: "Unauthorized" }, 401);
-
     const body = await req.json().catch(() => ({}));
 
     if (body?.action === "status") {
       return jsonWithCors(req, aiVideoProviderStatus());
     }
+
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (!user) return jsonWithCors(req, { error: "Unauthorized" }, 401);
 
     const imageUrl = String(body?.imageUrl || body?.artworkUrl || "").trim();
     const prompt = String(body?.prompt || body?.videoConcept || "").trim();

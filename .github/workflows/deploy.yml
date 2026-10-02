@@ -110,6 +110,8 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          # Omit or set to "off" to hide pay-per-use cloud clip UI (default in app logic).
+          VITE_AI_VIDEO_PROVIDER: ${{ vars.VITE_AI_VIDEO_PROVIDER }}
         run: |
           if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
             echo "::error::Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY repository secrets."

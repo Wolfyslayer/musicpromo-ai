@@ -42,11 +42,14 @@ The old Stable Video Diffusion slug is often missing or renamed. Use a current W
 - `REPLICATE_VIDEO_MODEL` = **`wavespeedai/wan-2.1-i2v-480p`** (default in code)
 - Billed about **$0.09 per second** of output — a 5s clip ≈ **$0.45**, usually **more expensive than fal** for short promos.
 
-If both `FAL_KEY` and Replicate are set, **fal is preferred** unless `AI_VIDEO_PROVIDER=replicate`.
+Set `AI_VIDEO_PROVIDER=fal` or `replicate` explicitly (and the matching API key). Keys alone no longer enable cloud video.
 
 ### Disable paid video entirely
 
-Set `AI_VIDEO_PROVIDER=off` — the **pay-per-use cloud clip block is hidden** in the video editor (free AI studio / cinematic motion still works). Same when no `FAL_KEY` or Replicate token is configured.
+- **Supabase:** `AI_VIDEO_PROVIDER=off` (or unset) — cloud generation stays off even if `FAL_KEY` exists.
+- **GitHub Pages build:** leave `VITE_AI_VIDEO_PROVIDER` unset or set repository variable **`VITE_AI_VIDEO_PROVIDER=off`**. The editor **hides** the pay-per-use block unless you opt in at build time with `VITE_AI_VIDEO_PROVIDER=fal` or `replicate` **and** the status API returns `showPaidClipUi: true`.
+
+Free AI studio / cinematic motion in Remotion is unaffected.
 
 ## Editing cloud clips
 
