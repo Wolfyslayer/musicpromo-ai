@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="brand" x1="196" y1="164" x2="828" y2="860" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A164F7"/>
+      <stop offset="0.55" stop-color="#C45AD7"/>
+      <stop offset="1" stop-color="#F04CA9"/>
+    </linearGradient>
+    <radialGradient id="sheen" cx="400" cy="260" r="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="0.6" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="512" y1="132" x2="512" y2="892" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.04"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <filter id="lift" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#3A0F5C" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <!-- restrained brand glow -->
+  <circle cx="512" cy="524" r="372" fill="#A164F7" opacity="0.35" filter="url(#glow)"/>
+
+  <!-- emblem disc -->
+  <circle cx="512" cy="512" r="380" fill="url(#brand)"/>
+  <circle cx="512" cy="512" r="380" fill="url(#sheen)"/>
+  <circle cx="512" cy="512" r="377" fill="none" stroke="url(#rim)" stroke-width="6"/>
+
+  <!-- AI core flanked by waveform / signal bars -->
+  <g fill="#FFFFFF" filter="url(#lift)">
+    <path fill-rule="evenodd" d="M512 400a112 112 0 1 1 0 224a112 112 0 1 1 0-224zM512 450a62 62 0 1 0 0 124a62 62 0 1 0 0-124z"/>
+    <rect x="482" y="482" width="60" height="60" rx="12" transform="rotate(45 512 512)"/>
+    <rect x="664" y="372" width="56" height="280" rx="28"/>
+    <rect x="304" y="372" width="56" height="280" rx="28"/>
+    <rect x="760" y="437" width="56" height="150" rx="28"/>
+    <rect x="208" y="437" width="56" height="150" rx="28"/>
+  </g>
+</svg>
