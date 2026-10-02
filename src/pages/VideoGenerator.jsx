@@ -27,6 +27,7 @@ import { useWorkspaceRefresh } from "@/lib/AuthContext";
 import { useIsolatedPreviewAudio } from "@/hooks/useIsolatedPreviewAudio";
 import { loadAssetSession } from "@/services/assetAnalysis";
 import VideoTypeModal from "@/components/video/VideoTypeModal";
+import AiClipPanel from "@/components/video/AiClipPanel";
 import {
   VISUAL_STYLES,
   PROMO_FPS,
@@ -87,6 +88,9 @@ function styleFingerprint(p) {
     p.text,
     JSON.stringify(p.lyric_cues || []).slice(0, 400),
     (p.lyrics || "").slice(0, 200),
+    p.ai_clip_url || "",
+    p.compositing_mode || "",
+    p.ai_clip_opacity ?? "",
   ].join("|");
 }
 
@@ -140,7 +144,9 @@ export default function VideoGenerator() {
       try {
       const data = await loadCampaign(id);
       setSong(data.song);
-      const profile = data.song?.analysis?.assetProfile || loadAssetSession();
+      const songAnalysis =
+        data.song?.analysis && typeof data.song.analysis === "object" ? data.song.analysis : {};
+      const profile = songAnalysis.assetProfile || loadAssetSession();
       let savedType = "";
       let savedProject = null;
       let day = null;
@@ -149,6 +155,10 @@ export default function VideoGenerator() {
         savedType = normalizeVideoType(savedProject?.animation_settings?.videoType);
       } else if (dayId) {
         day = await selectCampaignDay(dayId);
+        if (day?.video_project_id && !projectId) {
+          savedProject = await selectVideoProject(day.video_project_id).catch(() => null);
+          savedType = normalizeVideoType(savedProject?.animation_settings?.videoType || savedProject?.video_type);
+        }
       }
       const videoType = savedType || requestedType || (projectId ? "promo" : "");
       if (!videoType) {
@@ -163,7 +173,7 @@ export default function VideoGenerator() {
         audioSeconds
       );
       let base = {
-        template: profile?.template || "LYRICS",
+        template: savedProject?.template || profile?.template || "LYRICS",
         title: data.song?.title || "",
         artist_name: data.artist?.name || "",
         text: videoType === "promo" ? (day?.hook || requestedText || profile?.hooks?.[0] || "") : "",
@@ -172,8 +182,12 @@ export default function VideoGenerator() {
         audio_url: data.song?.audio_url || "",
         audio_duration: audioSeconds,
         lyrics: data.song?.lyrics || "",
-        visual_style: normalizeVisualStyle(profile?.visualStyle || "pop"),
-        particle_effect: normalizeParticleEffect(profile?.particleEffect || "none"),
+        visual_style: normalizeVisualStyle(
+          savedProject?.visual_style || profile?.visualStyle || songAnalysis.recommendedVisualStyle || "pop"
+        ),
+        particle_effect: normalizeParticleEffect(
+          savedProject?.particle_effect || profile?.particleEffect || songAnalysis.recommendedParticleEffect || "none"
+        ),
         editor_look: normalizeEditorLook(null),
         lyric_cues: buildLyricCues(data.song?.lyrics || "", duration, []),
         duration,
@@ -864,6 +878,17 @@ export default function VideoGenerator() {
               ? "This demo track and cover are ready to preview. Sign in when you want to upload your own files."
               : "Replace the artwork or audio used in this preview."}
           </p>
+          {!project.is_demo_preview ? (
+            <AiClipPanel
+              project={project}
+              artworkFile={null}
+              requireAuth={requireAuth}
+              onPatch={(patch) => {
+                setProject((current) => ({ ...current, ...patch }));
+              }}
+              onStyleTouch={touchStyle}
+            />
+          ) : null}
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Artwork</Label>

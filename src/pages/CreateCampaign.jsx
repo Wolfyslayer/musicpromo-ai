@@ -19,8 +19,11 @@ import { todayISO, addDaysISO, fmtDate } from "@/services/format";
 import ArtworkUpload from "@/components/ArtworkUpload";
 import AudioUpload from "@/components/AudioUpload";
 import AssetAnalysisPanel from "@/components/video/AssetAnalysisPanel";
-import { analyzeCampaignAssets, hooksForVibe, saveAssetSession } from "@/services/assetAnalysis";
+import { analyzeCampaignAssets, hooksForVibe, resolvePromoStyleFromVisual, saveAssetSession } from "@/services/assetAnalysis";
 import VideoRenderProgress from "@/components/VideoRenderProgress";
+import PromoStylePicker from "@/components/video/PromoStylePicker";
+import { getPromoStylePreset, normalizePromoStyleChoice, suggestPromoStyleFromProfile } from "@/services/promoStylePresets";
+import { linkDraftProjectsToCampaignDays, renderPromoForProject } from "@/services/campaignVideoBridge";
 import { useAuth } from "@/lib/AuthContext";
 
 const STEPS = [
@@ -49,6 +52,9 @@ export default function CreateCampaign() {
       audioUri: "", audioSignedUrl: "", audioDuration: null, audioName: "", audioFile: null,
       lyrics: "", goals: [], durationDays: s.defaultDuration, startDate: todayISO(),
       assetProfile: null,
+      promoStylePreset: "viral-pop",
+      promoStyleManuallySet: false,
+      renderFirstThreeDays: false,
     };
   });
   const [analyzingAssets, setAnalyzingAssets] = useState(false);
@@ -86,13 +92,31 @@ export default function CreateCampaign() {
     };
   }, [form.artworkFile, form.artworkUrl, form.audioFile, form.audioSignedUrl, form.title, energyChoice]);
 
+  useEffect(() => {
+    if (form.promoStyleManuallySet || !form.assetProfile?.promoStylePreset) return;
+    setForm((current) => ({
+      ...current,
+      promoStylePreset: current.assetProfile.promoStylePreset,
+    }));
+  }, [form.assetProfile, form.promoStyleManuallySet]);
+
   const chooseEnergy = (energy) => {
     setEnergyChoice(energy);
     setForm((current) => {
       if (!current.assetProfile) return current;
+      const { promoStylePreset, promoStyleReason } = resolvePromoStyleFromVisual(
+        {
+          theme: current.assetProfile.theme,
+          label: current.assetProfile.label,
+          promoStylePreset: current.assetProfile.promoStylePreset,
+        },
+        energy
+      );
       const profile = {
         ...current.assetProfile,
         energy,
+        promoStylePreset,
+        promoStyleReason,
         hooks: hooksForVibe({ energy, title: current.title }),
         keywords: [
           current.assetProfile.theme,
@@ -102,7 +126,11 @@ export default function CreateCampaign() {
         ].filter(Boolean),
       };
       saveAssetSession(profile);
-      return { ...current, assetProfile: profile };
+      return {
+        ...current,
+        assetProfile: profile,
+        ...(!current.promoStyleManuallySet ? { promoStylePreset } : {}),
+      };
     });
   };
 
@@ -182,8 +210,14 @@ export default function CreateCampaign() {
       await db.entities.Song.update(song.id, { analysis });
 
       setStage("Generating campaign with AI…");
+      const promoStyle = normalizePromoStyleChoice(form.promoStylePreset);
       const result = await aiService.generateCampaign({
-        song: songForAI, analysis, goals: form.goals, durationDays: form.durationDays, startDate: form.startDate,
+        song: songForAI,
+        analysis,
+        goals: form.goals,
+        durationDays: form.durationDays,
+        startDate: form.startDate,
+        promoStyle,
       });
 
       setStage("Building day-by-day schedule…");
@@ -203,105 +237,68 @@ export default function CreateCampaign() {
         caption: d.caption, hashtags: d.hashtags, cta: d.cta, posting_time: d.postingTime, status: "planned",
         user_id: user?.id || "",
       }));
-      if (days.length) await db.entities.CampaignDay.bulkCreate(days);
+      let dayProjects = [];
+      if (days.length) {
+        const createdDays = await db.entities.CampaignDay.bulkCreate(days);
+        const me = user || (await db.auth.me().catch(() => null));
+        const ownerId = me?.id || "";
+        setStage("Creating video drafts for each plan day…");
+        dayProjects = await linkDraftProjectsToCampaignDays(db, createdDays, result.days || [], {
+          campaignId: campaign.id,
+          songId: song.id,
+          song: { ...song, analysis },
+          artistName: artist.name || form.newArtistName || "",
+          userId: ownerId,
+          styleDefaults: promoStyle,
+          lyrics: form.lyrics,
+        });
+      }
 
       let renderedVideoUrl = "";
-      if (form.artworkUrl && (form.audioFile || form.audioSignedUrl || form.audioUri)) {
-        setStage("Rendering promo video on your device…");
-        setRenderProgress({ progress: 0, message: "Starting…" });
+      const canRender = form.artworkUrl && (form.audioFile || form.audioSignedUrl || form.audioUri);
+      const renderCount = form.renderFirstThreeDays
+        ? Math.min(3, dayProjects.length)
+        : Math.min(1, dayProjects.length);
+
+      if (canRender && renderCount > 0) {
         try {
-          const firstDay = (result.days || [])[0] || {};
-          const duration = Math.min(15, Math.max(8, Number(form.audioDuration) || 12));
-          const { resolvePlayableAudioUrl } = await import("@/services/videoService");
-          let playableAudio = form.audioSignedUrl || "";
-          if (!playableAudio) {
-            playableAudio = await resolvePlayableAudioUrl(form.audioUri);
-          }
-          if (!playableAudio && form.audioFile) {
-            const uploadedAudio = await db.integrations.Core.UploadPublicFile({
-              file: form.audioFile,
+          for (let i = 0; i < renderCount; i++) {
+            const { project, aiDay } = dayProjects[i];
+            const dayLabel = aiDay?.dayNumber || i + 1;
+            setStage(`Rendering Day ${dayLabel} promo on your device…`);
+            setRenderProgress({ progress: 0, message: `Day ${dayLabel} — starting…` });
+            const updated = await renderPromoForProject({
+              db,
+              project,
+              songTitle: form.title.trim(),
+              artistName: artist.name || form.newArtistName || "",
+              artworkUrl: form.artworkUrl,
+              artworkFile: form.artworkFile,
+              audioUri: form.audioUri,
+              audioSignedUrl: form.audioSignedUrl,
+              audioFile: form.audioFile,
+              audioDuration: form.audioDuration,
+              lyrics: form.lyrics,
+              linkCampaignId: i === 0 ? campaign.id : "",
+              triggerCampaignAutoVideo: i === 0 ? triggerCampaignAutoVideo : null,
+              onProgress: (info) => {
+                const slice = renderCount > 1 ? (i / renderCount) + info.progress / 100 / renderCount : info.progress / 100;
+                setRenderProgress({
+                  progress: Math.round(slice * 100),
+                  message: info.message || `Day ${dayLabel}…`,
+                });
+                setStage(info.message || `Rendering Day ${dayLabel}…`);
+              },
             });
-            playableAudio = uploadedAudio?.file_url || uploadedAudio?.url || "";
+            if (i === 0) renderedVideoUrl = updated.url || updated.render_output_url || "";
           }
-          if (!playableAudio) {
-            throw new Error("Could not resolve a playable audio URL for rendering.");
-          }
-          if (!form.artworkUrl) {
-            throw new Error("Artwork URL is required for Remotion render.");
-          }
-
-          const { buildLyricCues } = await import("@/remotion/styles");
-          const lyricCues = buildLyricCues(form.lyrics || "", duration, []);
-          const { renderPromoRemotion } = await import("@/remotion/renderPromoRemotion");
-          const rendered = await renderPromoRemotion({
-            artworkUrl: form.artworkUrl,
-            artworkFile: form.artworkFile,
-            audioUrl: playableAudio,
-            audioFile: form.audioFile,
-            duration,
-            title: form.title.trim(),
-            artistName: artist.name || form.newArtistName || "",
-            text: firstDay.hook || form.assetProfile?.hooks?.[0] || firstDay.caption || form.description || "",
-            lyrics: form.lyrics || "",
-            visualStyle: "pop",
-            lyricCues,
-            onProgress: (info) => {
-              setRenderProgress({
-                progress: info.progress,
-                message: info.message,
-              });
-              setStage(info.message || "Rendering promo video…");
-            },
-          });
-
-          setStage("Uploading promo video…");
-          setRenderProgress({ progress: 96, message: "Uploading MP4…" });
-          const uploaded = await db.integrations.Core.UploadPublicFile({ file: rendered.file });
-          renderedVideoUrl = uploaded?.file_url || uploaded?.url || "";
-          if (!renderedVideoUrl) {
-            throw new Error("Upload succeeded but no public video URL was returned.");
-          }
-
-          setStage("Saving video project…");
-          const me = user || (await db.auth.me().catch(() => null));
-          const ownerId = me?.id || "";
-          await db.entities.VideoProject.create({
-            campaign_id: campaign.id,
-            song_id: song.id,
-            template: "LYRICS",
-            title: form.title.trim(),
-            artist_name: artist.name || form.newArtistName || "",
-            text: firstDay.hook || firstDay.caption || "",
-            artwork_url: form.artworkUrl,
-            audio_url: form.audioUri,
-            lyrics: String(form.lyrics || "").slice(0, 2000),
-            visual_style: "pop",
-            particle_effect: "none",
-            lyric_cues: lyricCues,
-            duration: rendered.duration,
-            aspect_ratio: "9:16",
-            resolution: `${rendered.width}x${rendered.height}`,
-            output_format: "mp4",
-            rendering_status: "complete",
-            render_output_url: renderedVideoUrl,
-            status: "ready",
-            is_demo: false,
-            user_id: ownerId,
-          });
-
-          setStage("Linking video to campaign…");
-          setRenderProgress({ progress: 99, message: "Linking to campaign…" });
-          await triggerCampaignAutoVideo({
-            campaignId: campaign.id,
-            videoUrl: renderedVideoUrl,
-          });
           setRenderProgress({ progress: 100, message: "Done" });
         } catch (err) {
           console.warn("[CreateCampaign] Remotion video render", err?.message || err);
           toast({
             variant: "destructive",
             title: "Video render skipped",
-            description: err?.message || "Campaign was created, but the promo video could not be rendered on this device.",
+            description: err?.message || "Campaign was created with video drafts; open the Videos tab to render later.",
           });
         }
       }
@@ -309,10 +306,14 @@ export default function CreateCampaign() {
       toast({
         title: "Campaign generated!",
         description: renderedVideoUrl
-          ? "Promo video rendered on your device and uploaded."
-          : form.artworkUrl && form.audioUri
-            ? "Campaign ready. You can re-render the promo video later."
-            : undefined,
+          ? renderCount > 1
+            ? `Rendered ${renderCount} plan videos on your device. Other days have drafts in Videos.`
+            : "Day 1 promo rendered. Other plan days have video drafts ready to export."
+          : dayProjects.length
+            ? "Campaign plan ready — open Videos to render each day's promo."
+            : form.artworkUrl && form.audioUri
+              ? "Campaign ready. Add media and render from the Videos tab."
+              : undefined,
       });
       navigate(`/campaigns/${campaign.id}`);
     } catch (e) {
@@ -368,7 +369,15 @@ export default function CreateCampaign() {
             {step === 1 && <StepArtwork form={form} setForm={setForm} analyzingAssets={analyzingAssets} onEnergy={chooseEnergy} />}
             {step === 2 && <StepAudio form={form} setForm={setForm} analyzingAssets={analyzingAssets} onEnergy={chooseEnergy} />}
             {step === 3 && <StepLyrics form={form} set={set} />}
-            {step === 4 && <StepGoals form={form} set={set} toggleGoal={toggleGoal} />}
+            {step === 4 && (
+              <StepGoals
+                form={form}
+                set={set}
+                toggleGoal={toggleGoal}
+                setForm={setForm}
+                styleSuggestion={suggestPromoStyleFromProfile(form.assetProfile)}
+              />
+            )}
             {step === 5 && <StepSummary form={form} artists={artists} releases={releases} />}
 
             <div className="mt-6 flex items-center justify-between">
@@ -514,9 +523,35 @@ function StepLyrics({ form, set }) {
   );
 }
 
-function StepGoals({ form, set, toggleGoal }) {
+function StepGoals({ form, set, toggleGoal, setForm, styleSuggestion }) {
   return (
     <div className="space-y-5">
+      <div>
+        <Label className="text-xs font-500 text-muted-foreground">Promo video style</Label>
+        {styleSuggestion?.reason ? (
+          <p className="mt-1 text-xs text-primary/90">{styleSuggestion.reason}</p>
+        ) : null}
+        <PromoStylePicker
+          className="mt-2"
+          value={form.promoStylePreset}
+          suggestedId={styleSuggestion?.presetId}
+          onChange={(id) => setForm((f) => ({ ...f, promoStylePreset: id, promoStyleManuallySet: true }))}
+        />
+        <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-border/60 bg-muted/20 p-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={form.renderFirstThreeDays}
+            onChange={(e) => set("renderFirstThreeDays", e.target.checked)}
+          />
+          <span>
+            <span className="font-500 text-foreground">Render first 3 plan videos now</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              Slower on low-end devices. Every day still gets a draft you can edit later.
+            </span>
+          </span>
+        </label>
+      </div>
       <div>
         <Label className="text-xs font-500 text-muted-foreground">Campaign Goals (select one or more)</Label>
         <p className="mb-3 text-xs text-muted-foreground/70">Goals guide the strategy. They are not guarantees of results.</p>
@@ -554,8 +589,10 @@ function StepSummary({ form, artists, releases }) {
     ["Lyrics", form.lyrics ? `${form.lyrics.split("\n").length} lines` : "Skipped"],
     ["Visual read", form.assetProfile?.label || "Waiting for artwork and audio"],
     ["Energy", form.assetProfile ? (form.assetProfile.energy === "fast" ? "Fast / Aggressive" : "Slow / Acoustic") : "—"],
+    ["Promo style", getPromoStylePreset(form.promoStylePreset).label],
     ["Goals", form.goals.length ? form.goals.join(", ") : "None selected"],
     ["Duration", `${form.durationDays} days`],
+    ["Auto-render", form.renderFirstThreeDays ? "First 3 days" : "Day 1 only"],
     ["Start", fmtDate(form.startDate)],
   ];
   return (
@@ -597,7 +634,9 @@ function GeneratingScreen({ stage, renderProgress }) {
       <p className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" /> {stage || "Working…"}
       </p>
-      <p className="mt-4 max-w-xs text-xs text-muted-foreground/70">This usually takes 10–30 seconds. The AI analyzes your song and builds a day-by-day plan.</p>
+      <p className="mt-4 max-w-sm text-xs text-muted-foreground/70">
+        AI builds your day-by-day plan and video drafts. The first promo encodes on this device — keep the tab open while rendering.
+      </p>
     </div>
   );
 }

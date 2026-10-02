@@ -137,6 +137,9 @@ export const videoService = {
         audioStartTimeOffset: project?.audioStartTimeOffset || 0,
         videoType,
         outroCta: project?.outro_cta || project?.animation_settings?.outroCta || "",
+        aiClipUrl: project?.ai_clip_url || "",
+        compositingMode: project?.compositing_mode || "artwork",
+        aiClipOpacity: project?.ai_clip_opacity ?? 1,
         onProgress,
       });
 

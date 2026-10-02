@@ -51,7 +51,8 @@ export function classifyArtworkColor({ r, g, b }) {
       label: "Dark / Minimal",
       template: "MINIMAL",
       visualStyle: "rock",
-      particleEffect: "smoke",
+      particleEffect: "grain",
+      promoStylePreset: "rock-raw",
       palette,
     };
   }
@@ -62,6 +63,18 @@ export function classifyArtworkColor({ r, g, b }) {
       template: "MINIMAL",
       visualStyle: "pop",
       particleEffect: "none",
+      promoStylePreset: "minimal-release",
+      palette,
+    };
+  }
+  if (h >= 180 && h <= 280 && s > 0.35) {
+    return {
+      theme: "neon",
+      label: "Neon / Cool",
+      template: "WAVEFORM",
+      visualStyle: "electronic",
+      particleEffect: "neon",
+      promoStylePreset: "club-electronic",
       palette,
     };
   }
@@ -71,7 +84,19 @@ export function classifyArtworkColor({ r, g, b }) {
       label: "Vibrant",
       template: "HOOK",
       visualStyle: "pop",
-      particleEffect: "sparks",
+      particleEffect: "rings",
+      promoStylePreset: "viral-pop",
+      palette,
+    };
+  }
+  if (s < 0.35 && l > 0.35 && l < 0.65) {
+    return {
+      theme: "moody",
+      label: "Moody",
+      template: "CINEMATIC",
+      visualStyle: "rnb",
+      particleEffect: "stardust",
+      promoStylePreset: "rnb-mood",
       palette,
     };
   }
@@ -79,8 +104,9 @@ export function classifyArtworkColor({ r, g, b }) {
     theme: "moody",
     label: "Moody",
     template: "CINEMATIC",
-    visualStyle: "hiphop",
-    particleEffect: "stardust",
+    visualStyle: "cinematic",
+    particleEffect: "leaks",
+    promoStylePreset: "cinematic-film",
     palette,
   };
 }
@@ -185,6 +211,29 @@ export async function analyzeAudioEnergy(source) {
   }
 }
 
+export function resolvePromoStyleFromVisual(visual, chosenEnergy) {
+  let promoStylePreset = visual?.promoStylePreset || "viral-pop";
+  let promoStyleReason = "Based on your cover colors.";
+  if (visual?.promoStylePreset && chosenEnergy === "fast") {
+    if (visual.theme === "vibrant" || visual.theme === "neon") {
+      promoStylePreset = visual.theme === "neon" ? "club-electronic" : "hiphop-street";
+      promoStyleReason = "High-energy track + bold cover → punchy hip-hop / club look.";
+    } else if (visual.theme === "dark") {
+      promoStylePreset = "rock-raw";
+      promoStyleReason = "Dark artwork + aggressive energy → raw rock style.";
+    }
+  } else if (visual?.promoStylePreset && chosenEnergy === "slow") {
+    if (visual.theme === "minimalist") {
+      promoStylePreset = "minimal-release";
+      promoStyleReason = "Light, minimal cover + softer energy → clean release frame.";
+    } else if (visual.theme === "moody" || visual.theme === "dark") {
+      promoStylePreset = visual.theme === "dark" ? "cinematic-film" : "rnb-mood";
+      promoStyleReason = "Moody palette + slower energy → cinematic / R&B motion.";
+    }
+  }
+  return { promoStylePreset, promoStyleReason };
+}
+
 export async function analyzeCampaignAssets({ artwork, audio, title, energy }) {
   const [visual, sound] = await Promise.all([
     analyzeArtworkSource(artwork),
@@ -198,12 +247,16 @@ export async function analyzeCampaignAssets({ artwork, audio, title, energy }) {
     visual?.label,
     visual?.palette,
   ].filter(Boolean);
+  const { promoStylePreset, promoStyleReason } = resolvePromoStyleFromVisual(visual, chosen);
+
   return {
     theme: visual?.theme || "moody",
     label: visual?.label || "Moody",
     template: visual?.template || "CINEMATIC",
     visualStyle: visual?.visualStyle || "pop",
     particleEffect: visual?.particleEffect || "none",
+    promoStylePreset,
+    promoStyleReason,
     palette: visual?.palette || "#1c1828",
     energy: chosen,
     detectedEnergy: sound?.energy || chosen,

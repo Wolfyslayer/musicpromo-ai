@@ -28,7 +28,7 @@ export async function waitForPromoFonts() {
 }
 
 export function fontForStyle(visualStyle) {
-  if (visualStyle === "hiphop") return FONT_HIPHOP;
+  if (visualStyle === "hiphop" || visualStyle === "electronic") return FONT_HIPHOP;
   if (visualStyle === "rock") return FONT_ROCK;
   return FONT_POP;
 }

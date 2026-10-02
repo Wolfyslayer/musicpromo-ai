@@ -1,5 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { energyLabel } from "@/services/assetAnalysis";
+import { getPromoStylePreset } from "@/services/promoStylePresets";
 
 export default function AssetAnalysisPanel({ profile, analyzing, onEnergy }) {
   return (
@@ -42,7 +43,14 @@ export default function AssetAnalysisPanel({ profile, analyzing, onEnergy }) {
               <span className="h-8 w-8 rounded-lg border border-border" style={{ background: profile.palette }} />
               <div>
                 <p className="text-sm font-600">{profile.label}</p>
-                <p className="text-xs text-muted-foreground">{profile.template} · {profile.particleEffect === "smoke" ? "fog" : profile.particleEffect}</p>
+                <p className="text-xs text-muted-foreground">
+                  {profile.template} · {profile.particleEffect === "smoke" ? "fog" : profile.particleEffect}
+                </p>
+                {profile.promoStylePreset ? (
+                  <p className="text-[11px] text-primary/90">
+                    Suggested promo: {getPromoStylePreset(profile.promoStylePreset).label}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>

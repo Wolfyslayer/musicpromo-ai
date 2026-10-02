@@ -59,7 +59,9 @@ Return JSON with these fields:
 - contentOpportunities: array of at least 8 objects, each { type, title, description } where type is one of: "emotional_hook", "lyric_hook", "storytelling", "question", "controversial_lyric", "cinematic_concept", "behind_the_song", "release_announcement" (or another descriptive type). Each must be specific to THIS song.
 - hookSections: array of 2-4 likely strong hook moments (lyric lines or sections) if lyrics are available; otherwise general suggestions
 - recommendedPlatforms: array of platforms from this set only: TikTok, Instagram Reels, YouTube Shorts, Facebook, Spotify, X
-- recommendedFormats: array of 3-6 content formats (e.g. "Lyric video", "Cinematic teaser", "Behind-the-scenes")`;
+- recommendedFormats: array of 3-6 content formats (e.g. "Lyric video", "Cinematic teaser", "Behind-the-scenes")
+- recommendedVisualStyle: one of pop, hiphop, rock, electronic, rnb, cinematic — best default Remotion typography/motion for this song
+- recommendedParticleEffect: one of none, stardust, smoke, sparks, leaks, vhs, neon, vinyl, rings, shake, prism, fluid, grain — best overlay for short promo clips`;
 
   const schema = {
     type: "object",
@@ -90,6 +92,8 @@ Return JSON with these fields:
       hookSections: { type: "array", items: { type: "string" } },
       recommendedPlatforms: { type: "array", items: { type: "string" } },
       recommendedFormats: { type: "array", items: { type: "string" } },
+      recommendedVisualStyle: { type: "string" },
+      recommendedParticleEffect: { type: "string" },
     },
     required: ["genre", "mood", "themes", "contentOpportunities", "recommendedPlatforms"],
   };
@@ -343,10 +347,17 @@ Return JSON: { startTime, endTime, reason, suggestedContentType, isEstimated: tr
 // 8. CAMPAIGN GENERATOR
 // ---------------------------------------------------------------------------
 export function buildGenerateCampaignPrompt(input) {
-  const { song, analysis, goals, durationDays, startDate } = input;
+  const { song, analysis, goals, durationDays, startDate, promoStyle } = input;
   const platforms = (analysis?.recommendedPlatforms && analysis.recommendedPlatforms.length)
     ? analysis.recommendedPlatforms
     : ["TikTok", "Instagram Reels", "YouTube Shorts"];
+  const styleHint = promoStyle
+    ? `CREATOR'S PROMO LOOK (use as the default visual language; vary per day where the platform benefits)
+- Preset: ${promoStyle.presetId || "custom"}
+- visualStyle: ${promoStyle.visualStyle || "pop"} (pop | hiphop | rock | electronic | rnb | cinematic)
+- particleEffect: ${promoStyle.particleEffect || "none"} (none | stardust | smoke | sparks | leaks | vhs | neon | vinyl | rings | shake | prism | fluid | grain)
+- preferred template family: ${promoStyle.defaultTemplate || "HOOK"}`
+    : `Use analysis.recommendedVisualStyle and recommendedParticleEffect when present; otherwise infer from genre/mood.`;
 
   const prompt = `You are an expert social-media music marketing strategist. Design a ${durationDays}-day promotional campaign for a song.
 
@@ -361,20 +372,26 @@ ${(goals && goals.length ? goals : ["Promote a new release"]).join(", ")}
 CAMPAIGN START DATE
 ${startDate || "today"}
 
+${styleHint}
+
 ${GUARDRAILS}
 
 - Produce exactly ${durationDays} daily entries. Day numbers run from 1 to ${durationDays}. Day 1 is the campaign start date (${startDate || "today"}); compute each subsequent date by adding one day.
 - Spread content across these platforms only: ${platforms.join(", ")}. Vary the platform and content type across days.
 - Make every hook, caption, hashtag set and CTA specific to THIS song and analysis — not generic templates.
+- Hooks must work as on-screen promo text (under 12 words, no hashtags).
+- videoConcept: one vivid sentence describing camera/motion for a 9:16 Remotion promo (artwork zoom, lyric beat, etc.) — no stock-footage assumptions.
 - Hashtags: 5-10 per day, relevant to the artist, genre, song theme and platform. Avoid spam hashtags.
-- videoTemplate: recommend one of HOOK, LYRICS, CINEMATIC, WAVEFORM, RELEASE, MINIMAL per day.
+- videoTemplate: one of HOOK, LYRICS, CINEMATIC, WAVEFORM, RELEASE, MINIMAL per day — match the day's content goal.
+- visualStyle & particleEffect: Remotion render settings per day (see allowed values above). Usually stay close to the creator look; shift for platform (e.g. faster hooks on TikTok).
+- promoDurationSec: 15 or 30 — short-form length for that day's video.
 - postingTime: a local time string like "18:30".
 
 Return JSON with:
 - campaignName: a short evocative campaign name
 - summary: 2-3 sentence strategy summary (cautious, no guarantees)
 - days: array of ${durationDays} objects, each with fields:
-  dayNumber (number), date (YYYY-MM-DD), platform (string), contentType (string), objective (string), videoConcept (string), hook (string), caption (string), hashtags (string, space-separated), cta (string), videoTemplate (string), postingTime (string)`;
+  dayNumber (number), date (YYYY-MM-DD), platform (string), contentType (string), objective (string), videoConcept (string), hook (string), caption (string), hashtags (string, space-separated), cta (string), videoTemplate (string), visualStyle (string), particleEffect (string), promoDurationSec (number), postingTime (string)`;
 
   const schema = {
     type: "object",
@@ -397,9 +414,12 @@ Return JSON with:
             hashtags: { type: "string" },
             cta: { type: "string" },
             videoTemplate: { type: "string" },
+            visualStyle: { type: "string" },
+            particleEffect: { type: "string" },
+            promoDurationSec: { type: "number" },
             postingTime: { type: "string" },
           },
-          required: ["dayNumber", "platform", "contentType", "caption", "hashtags", "cta"],
+          required: ["dayNumber", "platform", "contentType", "caption", "hashtags", "cta", "hook", "videoConcept", "videoTemplate"],
         },
       },
     },

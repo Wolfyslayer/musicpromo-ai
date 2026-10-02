@@ -6,6 +6,8 @@ import {
   PROMO_HEIGHT,
   PROMO_WIDTH,
   buildLyricCues,
+  normalizeAiClipOpacity,
+  normalizeCompositingMode,
   normalizeEditorLook,
   normalizeParticleEffect,
   normalizeVideoType,
@@ -54,6 +56,9 @@ export default function RemotionPlayerPreview({
       lyricCues: Array.isArray(project?.windowLyricCues)
         ? project.windowLyricCues
         : buildLyricCues(project?.lyrics, durationSec, project?.lyric_cues),
+      aiClipUrl: project?.ai_clip_preview_url || project?.ai_clip_url || "",
+      compositingMode: normalizeCompositingMode(project?.compositing_mode),
+      aiClipOpacity: normalizeAiClipOpacity(project?.ai_clip_opacity),
     }),
     [
       project?.artwork_url,
@@ -73,6 +78,10 @@ export default function RemotionPlayerPreview({
       project?.windowLyricCues,
       project?.lyrics,
       project?.lyric_cues,
+      project?.ai_clip_preview_url,
+      project?.ai_clip_url,
+      project?.compositing_mode,
+      project?.ai_clip_opacity,
       durationSec,
     ]
   );

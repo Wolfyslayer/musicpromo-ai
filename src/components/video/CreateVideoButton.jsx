@@ -6,6 +6,7 @@ import VideoTypeModal from "@/components/video/VideoTypeModal";
 export default function CreateVideoButton({
   campaignId,
   dayId,
+  projectId,
   query,
   children,
   variant = "outline",
@@ -21,6 +22,7 @@ export default function CreateVideoButton({
       if (value != null && value !== "") params.set(key, String(value));
     });
     if (dayId) params.set("day", dayId);
+    if (projectId) params.set("project", projectId);
     params.set("videoType", videoType);
     if (videoType === "promo") params.set("seconds", String(seconds || 15));
     navigate(`/campaigns/${campaignId}/video?${params.toString()}`);

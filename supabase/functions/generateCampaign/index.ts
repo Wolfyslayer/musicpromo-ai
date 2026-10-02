@@ -23,6 +23,7 @@ async function handler(req: Request) {
       goals: body.goals,
       durationDays,
       startDate: body.startDate,
+      promoStyle: body.promoStyle,
     });
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt,
