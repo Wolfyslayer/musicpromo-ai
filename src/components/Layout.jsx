@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import Logo from "./Logo";
 import AppNavMenu from "./navigation/AppNavMenu";
+import FirstLoginTutorial from "@/components/onboarding/FirstLoginTutorial";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -145,6 +146,7 @@ export default function Layout() {
           )}
         </main>
       </div>
+      <FirstLoginTutorial />
     </div>
   );
 }
