@@ -158,6 +158,20 @@ export function SettingsPreferencesPage() {
 
   return (
     <div className="space-y-4">
+      <Card title="Setup tour">
+        <p className="text-sm text-muted-foreground">
+          Replay the first-login walkthrough for connecting social accounts and creating your first campaign.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          className="mt-2 rounded-full"
+          onClick={() => window.dispatchEvent(new CustomEvent("musicpromo:show-onboarding-tutorial"))}
+        >
+          Show setup tour
+        </Button>
+      </Card>
+
       <Card title="Appearance">
         <p className="text-sm font-600">Matches your device</p>
         <p className="text-xs text-muted-foreground">
