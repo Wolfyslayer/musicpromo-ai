@@ -55,10 +55,22 @@ supabase secrets set OPENAI_API_KEY=sk-... --project-ref YOUR_REF
 # Social connect (required for Instagram / TikTok / YouTube — not stored in GitHub)
 supabase secrets set PUBLIC_APP_URL=https://musicpromoai.site --project-ref YOUR_REF
 supabase secrets set SOCIAL_TOKEN_ENCRYPTION_KEY="$(openssl rand -base64 32)" --project-ref YOUR_REF
-# Platform OAuth (same values you used on Base44, if migrating):
-# META_CLIENT_ID, META_CLIENT_SECRET, TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET,
-# GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET (YouTube channel client), GOOGLE_LOGIN_CLIENT_SECRET (login)
+# Platform OAuth — set every secret you use (Supabase does not inherit Base44 secrets):
+supabase secrets set META_CLIENT_ID=... --project-ref YOUR_REF          # Instagram Login app
+supabase secrets set META_CLIENT_SECRET=... --project-ref YOUR_REF
+supabase secrets set FACEBOOK_CLIENT_ID=... --project-ref YOUR_REF      # Separate Meta app for Facebook Pages
+supabase secrets set FACEBOOK_CLIENT_SECRET=... --project-ref YOUR_REF
+supabase secrets set TIKTOK_CLIENT_KEY=... --project-ref YOUR_REF
+supabase secrets set TIKTOK_CLIENT_SECRET=... --project-ref YOUR_REF
+supabase secrets set X_CLIENT_ID=... --project-ref YOUR_REF             # X developer portal (OAuth 2.0)
+supabase secrets set X_CLIENT_SECRET=... --project-ref YOUR_REF
+# YouTube + Google login (often same Web client):
+# GOOGLE_CLIENT_ID via VITE_GOOGLE_CLIENT_ID in GitHub Actions; GOOGLE_LOGIN_CLIENT_SECRET in Supabase
 ```
+
+Register OAuth redirect `https://YOUR_REF.supabase.co/functions/v1/meta-oauth-callback` in Meta (Instagram + Facebook apps), TikTok, Google (YouTube), and X.
+
+After adding secrets, redeploy Edge Functions (`connectSocialProvider`, `socialConnectionStatus`, `meta-oauth-callback`) via the GitHub deploy workflow or `supabase functions deploy`.
 
 Values from **Base44 secrets do not copy automatically** to Supabase. After setting secrets, redeploy is optional (secrets apply to already-deployed functions).
 
