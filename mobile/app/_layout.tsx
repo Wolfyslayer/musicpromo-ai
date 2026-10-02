@@ -1,6 +1,7 @@
 import "react-native-gesture-handler";
 import { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, useColorScheme, View } from "react-native";
+import { colorScheme } from "nativewind";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
@@ -19,10 +20,15 @@ export default function RootLayout() {
     Inter_600SemiBold,
     SpaceGrotesk_700Bold,
   });
+  const systemScheme = useColorScheme();
 
   useEffect(() => {
     WebBrowser.maybeCompleteAuthSession();
   }, []);
+
+  useEffect(() => {
+    colorScheme.set(systemScheme === "dark" ? "dark" : "light");
+  }, [systemScheme]);
 
   if (!fontsLoaded) {
     return (

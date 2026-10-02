@@ -14,14 +14,12 @@
   --color-destructive: #dc3b3b;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: #0c0b10;
-    --color-foreground: #fafafa;
-    --color-card: #16141c;
-    --color-muted: #221f29;
-    --color-muted-foreground: #a1a1aa;
-    --color-border: #2c2833;
-    --color-destructive: #ef4444;
-  }
+.dark {
+  --color-background: #0c0b10;
+  --color-foreground: #fafafa;
+  --color-card: #16141c;
+  --color-muted: #221f29;
+  --color-muted-foreground: #a1a1aa;
+  --color-border: #2c2833;
+  --color-destructive: #ef4444;
 }
