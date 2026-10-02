@@ -11,10 +11,12 @@ Use the **same OAuth client** as YouTube/social (or create a **Web application**
 - `https://musicpromoai.site`
 - `http://localhost:5173` (local dev)
 
-**Authorized redirect URIs** (add both; keep existing YouTube callback if you use it)
+**Authorized redirect URIs** (add all that apply)
 
-- `https://musicpromoai.site/auth/google/callback`
+- `https://musicpromoai.site/auth/google/callback` (sign-in)
+- `https://musicpromoai.site/auth/youtube/callback` (Connect YouTube — shows **musicpromoai.site** on Google’s account screen)
 - `http://localhost:5173/auth/google/callback`
+- `http://localhost:5173/auth/youtube/callback`
 
 Do **not** remove `https://<project-ref>.supabase.co/auth/v1/callback` unless you fully stop using Supabase-hosted Google OAuth elsewhere.
 
@@ -70,7 +72,7 @@ VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 | --- | --- |
 | **Edge Function returned a non-2xx** | Open the error text after the fix deploy — usually Google token exchange. See rows below. |
 | **The OAuth client was not found** | `GOOGLE_CLIENT_SECRET` must belong to the **same** Web client as **`VITE_GOOGLE_CLIENT_ID`**. If YouTube uses another OAuth client, set `GOOGLE_LOGIN_CLIENT_SECRET` for login. |
-| **YouTube Connect: invalid_client** | Same Web client as login: app sends `VITE_GOOGLE_CLIENT_ID`; Supabase needs `GOOGLE_CLIENT_SECRET` (or `GOOGLE_LOGIN_CLIENT_SECRET`). In Google Cloud, add redirect URI `https://<project-ref>.supabase.co/functions/v1/youtube-oauth-callback`. Remove wrong `GOOGLE_CLIENT_ID` secret if it was an old/typo value. |
+| **YouTube Connect: invalid_client** | Same Web client as login: app sends `VITE_GOOGLE_CLIENT_ID`; Supabase needs `GOOGLE_CLIENT_SECRET` (or `GOOGLE_LOGIN_CLIENT_SECRET`). In Google Cloud, add redirect URI `https://musicpromoai.site/auth/youtube/callback` (shows your domain on the Google account picker). Legacy direct callback `https://<project-ref>.supabase.co/functions/v1/youtube-oauth-callback` is optional. |
 | **Client ID mismatch** (old deploys) | Redeploy `googleAuthExchange`; app client ID is used for exchange — only the **secret** must match in Supabase. |
 | `redirect_uri_mismatch` | Redirect URI in Google must **exactly** match `https://musicpromoai.site/auth/google/callback` |
 | `Sign in with Google is not enabled` | Enable Google provider in Supabase with matching Client ID |

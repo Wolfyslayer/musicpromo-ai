@@ -33,20 +33,23 @@ import Settings from '@/pages/Settings';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfService from '@/pages/TermsOfService';
 import GoogleAuthCallback from '@/pages/GoogleAuthCallback';
+import YouTubeAuthCallback from '@/pages/YouTubeAuthCallback';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
   const { pathname } = useLocation();
   const isPublicLegal = pathname === "/privacy" || pathname === "/terms";
   const isGoogleCallback = pathname === "/auth/google/callback";
+  const isYouTubeCallback = pathname === "/auth/youtube/callback";
 
   // Legal URLs must render without waiting on auth (TikTok / Google / Meta review crawlers).
-  if (isPublicLegal || isGoogleCallback) {
+  if (isPublicLegal || isGoogleCallback || isYouTubeCallback) {
     return (
       <Routes>
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
+        <Route path="/auth/youtube/callback" element={<YouTubeAuthCallback />} />
       </Routes>
     );
   }

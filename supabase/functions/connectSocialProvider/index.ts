@@ -15,6 +15,7 @@ import {
 import {
   buildYouTubeAuthorizeUrl,
   readGoogleClientIdFromInvokeBody,
+  youTubeAppRedirectUri,
   YOUTUBE_CONNECT_SCOPES,
   YOUTUBE_OAUTH_REDIRECT_URI,
 } from "../_shared/youtubeOAuth.ts";
@@ -183,11 +184,14 @@ async function handler (req: Request): Promise<Response> {
       );
     }
 
+    const publicAppBase = publicAppUrl.replace(/\/$/, "");
     const youtubeClientId =
       provider === "youtube"
         ? readGoogleClientIdFromInvokeBody(body) ||
           secretValue("GOOGLE_CLIENT_ID", "YOUTUBE_CLIENT_ID")
         : "";
+    const youtubeRedirectUri =
+      provider === "youtube" ? youTubeAppRedirectUri(publicAppBase) : "";
 
     const state = generateOAuthState();
     const expiresAt = new Date(Date.now() + STATE_TTL_MS).toISOString();
@@ -198,6 +202,7 @@ async function handler (req: Request): Promise<Response> {
       expires_at: expiresAt,
       used: false,
       ...(youtubeClientId ? { oauth_client_id: youtubeClientId } : {}),
+      ...(youtubeRedirectUri ? { oauth_redirect_uri: youtubeRedirectUri } : {}),
     });
 
     let authorizationUrl = "";
@@ -283,7 +288,7 @@ async function handler (req: Request): Promise<Response> {
         clientId,
         state,
         scopes,
-        redirectUri: YOUTUBE_OAUTH_REDIRECT_URI,
+        redirectUri: youtubeRedirectUri,
         forceConsent: forceReauth,
       });
     }
@@ -305,7 +310,7 @@ async function handler (req: Request): Promise<Response> {
           ? META_OAUTH_REDIRECT_URI
           : provider === "tiktok"
             ? TIKTOK_OAUTH_REDIRECT_URI
-            : YOUTUBE_OAUTH_REDIRECT_URI,
+            : youtubeRedirectUri || YOUTUBE_OAUTH_REDIRECT_URI,
       forceReauth,
       engine: "connectSocialProvider",
     });

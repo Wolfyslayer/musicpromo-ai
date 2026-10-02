@@ -9,7 +9,7 @@ import {
   TIKTOK_OAUTH_REDIRECT_URI,
   fetchTikTokProfile,
 } from "../_shared/tiktokOAuth.ts";
-import { YOUTUBE_OAUTH_REDIRECT_URI } from "../_shared/youtubeOAuth.ts";
+import { youTubeAppRedirectUri, YOUTUBE_OAUTH_REDIRECT_URI } from "../_shared/youtubeOAuth.ts";
 import { decryptCredential } from "../_shared/socialCrypto.ts";
 
 /** True when a Base44 secret exists and is non-empty after trim. */
@@ -152,14 +152,21 @@ async function handler (req: Request): Promise<Response> {
         ),
         youtube: Boolean(
           sharedReady &&
-            hasSecret("GOOGLE_CLIENT_ID", "YOUTUBE_CLIENT_ID") &&
-            hasSecret("GOOGLE_CLIENT_SECRET", "YOUTUBE_CLIENT_SECRET")
+            hasSecret(
+              "GOOGLE_LOGIN_CLIENT_SECRET",
+              "GOOGLE_CLIENT_SECRET",
+              "YOUTUBE_CLIENT_SECRET"
+            )
         ),
         facebook: false,
       },
       metaOAuthRedirectUri: META_OAUTH_REDIRECT_URI,
       tiktokOAuthRedirectUri: TIKTOK_OAUTH_REDIRECT_URI,
-      youtubeOAuthRedirectUri: YOUTUBE_OAUTH_REDIRECT_URI,
+      youtubeOAuthRedirectUri: sharedReady
+        ? youTubeAppRedirectUri(
+            String(secrets.get("PUBLIC_APP_URL") || secrets.get("APP_PUBLIC_URL") || "")
+          )
+        : YOUTUBE_OAUTH_REDIRECT_URI,
     });
   } catch (error) {
     console.error("[socialConnectionStatus]", error?.message || "status failed");
