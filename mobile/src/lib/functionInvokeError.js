@@ -14,7 +14,7 @@ export async function messageFromFunctionInvokeError(err) {
   if (/failed to send a request to the edge function/i.test(message)) {
     message =
       "Could not reach the Edge Function (often a CORS or deploy issue). Redeploy social functions " +
-      "(connectSocialProvider, socialConnectionStatus) and confirm VITE_SUPABASE_URL matches your project.";
+      "(connectSocialProvider, socialConnectionStatus) and confirm EXPO_PUBLIC_SUPABASE_URL matches your project.";
   } else if (/non-2xx/i.test(message) && !context) {
     message =
       "Edge Function failed. Deploy the function and check Supabase function logs.";

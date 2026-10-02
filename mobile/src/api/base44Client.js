@@ -44,7 +44,7 @@ export const db = {
   functions: {
     invoke: async (name, payload) => {
       if (!supabase) {
-        throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before calling a function.");
+        throw new Error("Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY before calling a function.");
       }
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
@@ -60,7 +60,7 @@ export const db = {
         if (/failed to send a request to the edge function/i.test(message)) {
           const hint =
             "Redeploy Edge Functions (especially connectSocialProvider for Instagram/TikTok/YouTube connect) " +
-            "and confirm VITE_SUPABASE_URL matches your Supabase project.";
+            "and confirm EXPO_PUBLIC_SUPABASE_URL matches your Supabase project.";
           message = `${message} ${hint}`;
         }
         try {

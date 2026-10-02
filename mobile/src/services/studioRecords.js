@@ -1,3 +1,4 @@
+import { randomUUID } from "expo-crypto";
 import { supabase } from "@/lib/supabaseClient";
 
 function unpack(row) {
@@ -32,7 +33,7 @@ async function currentUserId() {
 }
 
 export async function selectVideoProject(id) {
-  if (!supabase) throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to open saved videos.");
+  if (!supabase) throw new Error("Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to open saved videos.");
   const { data, error } = await supabase
     .from("prepared_media")
     .select("*")
@@ -45,7 +46,7 @@ export async function selectVideoProject(id) {
 }
 
 export async function selectCampaignDay(id) {
-  if (!supabase) throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to open this campaign day.");
+  if (!supabase) throw new Error("Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to open this campaign day.");
   const { data, error } = await supabase
     .from("campaign_days")
     .select("*")
@@ -59,10 +60,10 @@ export async function selectCampaignDay(id) {
 
 /** Insert or update a video project. Whisper lyric cues stay inside the JSONB `data` column. */
 export async function saveVideoProject(payload = {}) {
-  if (!supabase) throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to save.");
+  if (!supabase) throw new Error("Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to save.");
   const userId = await currentUserId();
   if (!userId) throw new Error("Sign in to save.");
-  const id = payload.id || crypto.randomUUID();
+  const id = payload.id || randomUUID();
   const lyricCues = Array.isArray(payload.lyric_cues) ? payload.lyric_cues : [];
   const body = toJson({ ...payload, id, lyric_cues: lyricCues, lyrics: payload.lyrics || "" });
   const row = {
@@ -151,7 +152,7 @@ export async function selectSocialWorkspace() {
 
 /** Store browser-generated Whisper cues on the campaign day row. */
 export async function saveCampaignLyrics({ campaignId, dayId, lyricCues, lyrics }) {
-  if (!supabase) throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to save lyrics.");
+  if (!supabase) throw new Error("Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to save lyrics.");
   const userId = await currentUserId();
   if (!userId) throw new Error("Sign in to save lyrics.");
   const targetId = dayId || campaignId;
@@ -195,7 +196,7 @@ export async function saveCampaignLyrics({ campaignId, dayId, lyricCues, lyrics 
 }
 
 export async function deleteSocialAccount(id) {
-  if (!supabase) throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to disconnect.");
+  if (!supabase) throw new Error("Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to disconnect.");
   const { error } = await supabase.from("social_accounts").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }

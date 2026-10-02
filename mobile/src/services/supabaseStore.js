@@ -1,3 +1,4 @@
+import { randomUUID } from "expo-crypto";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export const PROMO_BUCKET = "music-promo-assets";
@@ -21,7 +22,7 @@ const SPECS = {
 
 function requireClient() {
   if (!supabase || !isSupabaseConfigured) {
-    throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to use the database.");
+    throw new Error("Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to use the database.");
   }
   return supabase;
 }
@@ -132,7 +133,7 @@ function entity(name) {
 
     async create(payload = {}) {
       const userId = await requireUserId();
-      const id = payload.id || crypto.randomUUID();
+      const id = payload.id || randomUUID();
       const data = toJson({ ...payload, id });
       const row = {
         id,
@@ -169,7 +170,7 @@ function entity(name) {
     async bulkCreate(records = []) {
       const userId = await requireUserId();
       const rows = records.map((payload) => {
-        const id = payload.id || crypto.randomUUID();
+        const id = payload.id || randomUUID();
         const data = toJson({ ...payload, id });
         return {
           id,
@@ -228,14 +229,20 @@ export function createEntityApi() {
   };
 }
 
-/** Upload a WAV/MP3 or JPEG into the public music-promo-assets bucket. */
+/**
+ * Upload a picked file into the public music-promo-assets bucket.
+ * `file` is a React Native asset: `{ uri, name?, type? }` (image/document picker result).
+ */
 export async function uploadPromoAsset(file, folder = "assets") {
   const client = requireClient();
   const userId = await requireUserId();
-  const safeName = String(file?.name || "file").replace(/[^\w.\-]+/g, "_");
+  const safeName = String(file?.name || file?.fileName || "file").replace(/[^\w.\-]+/g, "_");
   const path = `${userId}/${folder}/${Date.now()}-${safeName}`;
-  const { error } = await client.storage.from(PROMO_BUCKET).upload(path, file, {
-    contentType: file?.type || undefined,
+  const contentType = file?.type || file?.mimeType || undefined;
+  if (!file?.uri) throw new Error("No file selected.");
+  const bytes = await (await fetch(file.uri)).arrayBuffer();
+  const { error } = await client.storage.from(PROMO_BUCKET).upload(path, bytes, {
+    contentType,
     upsert: false,
   });
   if (error) throw new Error(error.message);

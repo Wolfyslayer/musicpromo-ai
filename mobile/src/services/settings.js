@@ -1,7 +1,8 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 /**
- * User preferences store. Uses localStorage so it is fully portable off
- * Base44 (no platform-specific dependency). Defaults are sensible for an
- * independent artist promoting on short-form video.
+ * User preferences, persisted in AsyncStorage. Unlike the web version this is async.
+ * Appearance follows the device, so there is no theme override.
  */
 const KEY = "musicpromo_settings";
 
@@ -16,21 +17,15 @@ export const DEFAULT_SETTINGS = {
   aiProvider: "Base44 InvokeLLM (default)",
 };
 
-export function getSettings() {
+export async function getSettings() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = await AsyncStorage.getItem(KEY);
     return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
 }
 
-export function saveSettings(s) {
-  localStorage.setItem(KEY, JSON.stringify({ ...s, theme: "system" }));
-  applyTheme("system");
-}
-
-/** Appearance follows the device. Class overrides are cleared so `prefers-color-scheme` wins. */
-export function applyTheme() {
-  document.documentElement.classList.remove("light", "dark");
+export async function saveSettings(s) {
+  await AsyncStorage.setItem(KEY, JSON.stringify({ ...s, theme: "system" }));
 }
