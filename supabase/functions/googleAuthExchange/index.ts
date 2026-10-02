@@ -27,18 +27,33 @@ async function handler(req: Request): Promise<Response> {
     const code = body?.code ? String(body.code) : "";
     const codeVerifier = body?.codeVerifier ? String(body.codeVerifier) : "";
     const redirectUri = body?.redirectUri ? String(body.redirectUri) : "";
+    const clientIdFromApp = body?.clientId ? String(body.clientId).trim() : "";
 
     if (!code || !codeVerifier || !redirectUri) {
       return jsonWithCors(req, { error: "code, codeVerifier, and redirectUri are required." }, 400);
     }
 
-    const id = clientId();
+    const idFromEnv = clientId();
+    const id = clientIdFromApp || idFromEnv;
     const secret = clientSecret();
     if (!id || !secret) {
       return jsonWithCors(
         req,
-        { error: "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET on the Supabase project." },
+        {
+          error:
+            "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Supabase Edge secrets, and VITE_GOOGLE_CLIENT_ID in the app build (same Web client ID).",
+        },
         500
+      );
+    }
+    if (clientIdFromApp && idFromEnv && clientIdFromApp !== idFromEnv) {
+      return jsonWithCors(
+        req,
+        {
+          error:
+            "Google Client ID mismatch: VITE_GOOGLE_CLIENT_ID in the app must match GOOGLE_CLIENT_ID in Supabase secrets.",
+        },
+        400
       );
     }
 
@@ -60,7 +75,15 @@ async function handler(req: Request): Promise<Response> {
       const msg =
         (tokens && (tokens.error_description || tokens.error)) ||
         `Google token exchange failed (${tokenRes.status})`;
-      return jsonWithCors(req, { error: String(msg) }, 400);
+      let hint = String(msg);
+      if (/client was not found|invalid_client/i.test(hint)) {
+        hint +=
+          " Check GOOGLE_CLIENT_SECRET is the secret for the same Web client as VITE_GOOGLE_CLIENT_ID / GOOGLE_CLIENT_ID.";
+      }
+      if (/redirect_uri_mismatch/i.test(hint)) {
+        hint += " Register exactly: " + redirectUri + " in Google Cloud redirect URIs.";
+      }
+      return jsonWithCors(req, { error: hint }, 400);
     }
 
     const idToken = tokens.id_token ? String(tokens.id_token) : "";

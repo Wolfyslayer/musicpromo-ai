@@ -4,10 +4,12 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import {
   clearGoogleSignInSession,
+  getGoogleClientId,
   getGoogleSignInRedirectUri,
   GOOGLE_AUTH_STORAGE,
   readGoogleSignInReturnTo,
 } from "@/lib/googleAuth";
+import { messageFromFunctionInvokeError } from "@/lib/functionInvokeError";
 import { upsertUserProfile, mapUser } from "@/lib/supabaseAuth";
 function safeStoredPath(path) {
   if (!path || !path.startsWith("/") || path.startsWith("//") || path.includes("\\")) return "/";
@@ -42,10 +44,11 @@ export default function GoogleAuthCallback() {
         if (!verifier) throw new Error("Missing PKCE verifier. Try again.");
 
         const redirectUri = getGoogleSignInRedirectUri();
+        const clientId = getGoogleClientId();
         const { data: fnData, error: fnError } = await supabase.functions.invoke("googleAuthExchange", {
-          body: { code, codeVerifier: verifier, redirectUri },
+          body: { code, codeVerifier: verifier, redirectUri, clientId },
         });
-        if (fnError) throw fnError;
+        if (fnError) throw new Error(await messageFromFunctionInvokeError(fnError));
         const idToken = fnData?.id_token;
         if (!idToken) throw new Error(fnData?.error || "Could not exchange Google sign-in code.");
 

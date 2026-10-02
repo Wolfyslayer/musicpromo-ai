@@ -66,7 +66,9 @@ VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 
 | Issue | Fix |
 | --- | --- |
-| `redirect_uri_mismatch` | Redirect URI in Google must **exactly** match `getGoogleSignInRedirectUri()` (scheme, host, path) |
+| **Edge Function returned a non-2xx** | Open the error text after the fix deploy — usually Google token exchange. See rows below. |
+| **The OAuth client was not found** | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in Supabase secrets must be the **Web application** client that matches **`VITE_GOOGLE_CLIENT_ID`** (not an old or Android client ID). |
+| `redirect_uri_mismatch` | Redirect URI in Google must **exactly** match `https://musicpromoai.site/auth/google/callback` |
 | `Sign in with Google is not enabled` | Enable Google provider in Supabase with matching Client ID |
 | Edge function 401 | Deploy `googleAuthExchange`; `verify_jwt = false` in `supabase/config.toml` |
 | Still shows supabase.co | Old flow: clear cache; ensure code uses `startGoogleSignIn`, not `signInWithOAuth` |
