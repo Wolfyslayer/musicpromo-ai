@@ -14,6 +14,7 @@ import { assignLegacySocialToArtistIfNeeded } from "@/services/artistSocial";
 import { loadArtists } from "@/services/data";
 import { OAUTH_REDIRECTS } from "@/lib/oauthRedirects";
 import { useAuth, useWorkspaceRefresh } from "@/lib/AuthContext";
+import { SOCIAL_PROVIDERS } from "@/services/social/providers";
 
 const ERROR_MESSAGES = {
   cancelled: "Authorization was cancelled.",
