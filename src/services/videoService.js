@@ -122,7 +122,9 @@ export const videoService = {
       const { renderPromoRemotion } = await import("@/remotion/renderPromoRemotion");
       const rendered = await renderPromoRemotion({
         artworkUrl,
+        artworkFile,
         audioUrl,
+        audioFile,
         duration,
         look: editorLook,
         title: project?.title || "",

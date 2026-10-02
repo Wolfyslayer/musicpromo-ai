@@ -12,6 +12,7 @@ import {
   resolveStudioDuration,
 } from "./styles";
 import { waitForPromoFonts } from "./fonts";
+import { asBlobUrlForWebCodecs } from "./resolveRenderBlobUrls";
 
 /**
  * Render a 9:16 promo MP4 entirely in the browser via WebCodecs.
@@ -30,10 +31,28 @@ export async function renderPromoRemotion(params = {}) {
     params.lyricCues || params.lyric_cues
   );
 
-  const artworkUrl = params.artworkUrl || "";
-  const audioUrl = params.audioUrl || "";
-  if (!artworkUrl) throw new Error("Artwork URL is required for Remotion render.");
-  if (!audioUrl) throw new Error("Audio URL is required for Remotion render.");
+  const revokers = [];
+  let artworkUrl = "";
+  let audioUrl = "";
+  try {
+    const artwork = await asBlobUrlForWebCodecs({
+      url: params.artworkUrl,
+      file: params.artworkFile,
+      label: "Artwork",
+    });
+    const audio = await asBlobUrlForWebCodecs({
+      url: params.audioUrl,
+      file: params.audioFile,
+      label: "Audio",
+    });
+    artworkUrl = artwork.url;
+    audioUrl = audio.url;
+    if (artwork.revoke) revokers.push(artwork.revoke);
+    if (audio.revoke) revokers.push(audio.revoke);
+  } catch (err) {
+    revokers.forEach((r) => r());
+    throw err;
+  }
 
   onProgress?.({ phase: "check", progress: 2, message: "Checking browser encode support…" });
 
@@ -73,7 +92,9 @@ export async function renderPromoRemotion(params = {}) {
     outroCta: params.outroCta || params.outro_cta || "",
   };
 
-  const result = await renderMediaOnWeb({
+  let result;
+  try {
+    result = await renderMediaOnWeb({
     composition: {
       component: PromoComposition,
       id: "musicpromo-9x16",
@@ -98,7 +119,10 @@ export async function renderPromoRemotion(params = {}) {
         message: `Encoding frame ${info.encodedFrames || 0}… ${mapped}%`,
       });
     },
-  });
+    });
+  } finally {
+    revokers.forEach((r) => r());
+  }
 
   onProgress?.({ phase: "blob", progress: 94, message: "Packaging MP4…" });
   const blob = await result.getBlob();

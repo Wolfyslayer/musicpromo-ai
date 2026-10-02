@@ -235,7 +235,9 @@ export default function CreateCampaign() {
           const { renderPromoRemotion } = await import("@/remotion/renderPromoRemotion");
           const rendered = await renderPromoRemotion({
             artworkUrl: form.artworkUrl,
+            artworkFile: form.artworkFile,
             audioUrl: playableAudio,
+            audioFile: form.audioFile,
             duration,
             title: form.title.trim(),
             artistName: artist.name || form.newArtistName || "",
