@@ -1,19 +1,20 @@
 import { createClientFromRequest } from "../_shared/runtime.ts";
 import { buildGenerateCampaignPrompt } from "../_shared/aiPrompts.ts";
+import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
 
-async function handler(req) {
+async function handler(req: Request) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) return jsonWithCors(req, { error: "Unauthorized" }, 401);
 
     const body = await req.json();
     if (!body || !body.song || !body.song.title) {
-      return Response.json({ error: 'Song is required' }, { status: 400 });
+      return jsonWithCors(req, { error: "Song is required" }, 400);
     }
     const durationDays = Number(body.durationDays) || 7;
     if (![7, 14, 30].includes(durationDays)) {
-      return Response.json({ error: 'durationDays must be 7, 14 or 30' }, { status: 400 });
+      return jsonWithCors(req, { error: "durationDays must be 7, 14 or 30" }, 400);
     }
 
     const { prompt, schema } = buildGenerateCampaignPrompt({
@@ -27,11 +28,10 @@ async function handler(req) {
       prompt,
       response_json_schema: schema,
     });
-    return Response.json(result);
+    return jsonWithCors(req, result);
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    return jsonWithCors(req, { error: (error as Error).message }, 500);
   }
 }
 
-
-Deno.serve(handler);
+servePostApi(handler);

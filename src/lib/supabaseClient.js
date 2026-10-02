@@ -18,7 +18,7 @@ export const supabase = isSupabaseConfigured
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        flowType: "implicit",
+        flowType: "pkce",
       },
     })
   : null;

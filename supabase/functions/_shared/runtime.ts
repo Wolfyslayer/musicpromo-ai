@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { invokeLlm } from "./invokeLlm.ts";
 
 /**
  * Drop-in stand-in for the Base44 request client and secrets runtime.
@@ -134,10 +135,6 @@ function entityApi(supabase: SupabaseClient, name: string) {
       if (error) throw new Error(error.message);
     },
   };
-}
-
-async function invokeLlm(_args: { prompt?: string; response_json_schema?: unknown }) {
-  throw new Error("Lyrics sync runs in the browser. This action does not use a paid API.");
 }
 
 async function uploadPublicFile(file: File) {
