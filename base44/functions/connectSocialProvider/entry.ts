@@ -1,6 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.52";
 import { secrets } from "base44:runtime";
-import { generateOAuthState } from "../../shared/socialCrypto.ts";
+import { generateOAuthState, generatePkcePair } from "../../shared/socialCrypto.ts";
 import {
   buildInstagramAuthorizeUrl,
   INSTAGRAM_CONNECT_SCOPES,
@@ -16,8 +16,18 @@ import {
   YOUTUBE_CONNECT_SCOPES,
   YOUTUBE_OAUTH_REDIRECT_URI,
 } from "../../shared/youtubeOAuth.ts";
+import {
+  buildFacebookAuthorizeUrl,
+  FACEBOOK_CONNECT_SCOPES,
+  FACEBOOK_OAUTH_REDIRECT_URI,
+} from "../../shared/facebookOAuth.ts";
+import {
+  buildXAuthorizeUrl,
+  X_CONNECT_SCOPES,
+  X_OAUTH_REDIRECT_URI,
+} from "../../shared/xOAuth.ts";
 
-const SUPPORTED = new Set(["instagram", "tiktok", "youtube"]);
+const SUPPORTED = new Set(["instagram", "tiktok", "youtube", "facebook", "x"]);
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 const PROVIDER_ALIASES: Record<string, string> = {
@@ -29,6 +39,10 @@ const PROVIDER_ALIASES: Record<string, string> = {
   youtube: "youtube",
   yt: "youtube",
   google: "youtube",
+  facebook: "facebook",
+  fb: "facebook",
+  x: "x",
+  twitter: "x",
 };
 
 function hasSecret(...names: string[]): boolean {
@@ -155,7 +169,7 @@ export default async function (req: Request): Promise<Response> {
     if (!provider) {
       return Response.json(
         {
-          error: "provider is required (instagram, tiktok, or youtube).",
+          error: "provider is required (instagram, tiktok, youtube, facebook, or x).",
           code: "VALIDATION",
           supported: [...SUPPORTED],
           bodyKeys: Object.keys(body || {}),
@@ -194,12 +208,22 @@ export default async function (req: Request): Promise<Response> {
 
     const state = generateOAuthState();
     const expiresAt = new Date(Date.now() + STATE_TTL_MS).toISOString();
+    const artistId = body?.artistId ? String(body.artistId).trim() : "";
+    let oauthCodeVerifier = "";
+    let oauthCodeChallenge = "";
+    if (provider === "x") {
+      const pkce = await generatePkcePair();
+      oauthCodeVerifier = pkce.verifier;
+      oauthCodeChallenge = pkce.challenge;
+    }
     await base44.asServiceRole.entities.SocialOAuthState.create({
       state,
       user_id: user.id,
+      artist_id: artistId,
       provider,
       expires_at: expiresAt,
       used: false,
+      ...(oauthCodeVerifier ? { oauth_code_verifier: oauthCodeVerifier } : {}),
     });
 
     let authorizationUrl = "";
@@ -280,6 +304,49 @@ export default async function (req: Request): Promise<Response> {
         redirectUri: YOUTUBE_OAUTH_REDIRECT_URI,
         forceConsent: forceReauth,
       });
+    } else if (provider === "facebook") {
+      const clientId = secretValue("META_CLIENT_ID", "FACEBOOK_CLIENT_ID");
+      const clientSecret = secretValue("META_CLIENT_SECRET", "FACEBOOK_CLIENT_SECRET");
+      if (!clientId || !clientSecret) {
+        return Response.json(
+          {
+            error: "Facebook Pages are not configured (META_CLIENT_ID / META_CLIENT_SECRET).",
+            code: "not_configured",
+          },
+          { status: 503 }
+        );
+      }
+      scopes = [...FACEBOOK_CONNECT_SCOPES];
+      authorizationUrl = buildFacebookAuthorizeUrl({
+        clientId,
+        redirectUri: FACEBOOK_OAUTH_REDIRECT_URI,
+        state,
+        scopes,
+        forceReauth,
+      });
+    } else if (provider === "x") {
+      const clientId = secretValue("X_CLIENT_ID", "TWITTER_CLIENT_ID", "X_API_KEY");
+      const clientSecret = secretValue("X_CLIENT_SECRET", "TWITTER_CLIENT_SECRET", "X_API_SECRET");
+      if (!clientId || !clientSecret) {
+        return Response.json(
+          { error: "X is not configured (X_CLIENT_ID / X_CLIENT_SECRET).", code: "not_configured" },
+          { status: 503 }
+        );
+      }
+      if (!oauthCodeVerifier || !oauthCodeChallenge) {
+        return Response.json(
+          { error: "Could not start X OAuth (PKCE).", code: "OAUTH_START_FAILED" },
+          { status: 500 }
+        );
+      }
+      scopes = [...X_CONNECT_SCOPES];
+      authorizationUrl = buildXAuthorizeUrl({
+        clientId,
+        redirectUri: X_OAUTH_REDIRECT_URI,
+        state,
+        scopes,
+        codeChallenge: oauthCodeChallenge,
+      });
     }
 
     if (!authorizationUrl) {
@@ -299,7 +366,11 @@ export default async function (req: Request): Promise<Response> {
           ? META_OAUTH_REDIRECT_URI
           : provider === "tiktok"
             ? TIKTOK_OAUTH_REDIRECT_URI
-            : YOUTUBE_OAUTH_REDIRECT_URI,
+            : provider === "facebook"
+              ? FACEBOOK_OAUTH_REDIRECT_URI
+              : provider === "x"
+                ? X_OAUTH_REDIRECT_URI
+                : YOUTUBE_OAUTH_REDIRECT_URI,
       forceReauth,
       engine: "connectSocialProvider",
     });

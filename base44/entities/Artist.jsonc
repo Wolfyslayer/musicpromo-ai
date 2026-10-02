@@ -13,7 +13,7 @@
     "profile_image_from_provider": {
       "type": "string",
       "title": "Profile image source",
-      "description": "upload, instagram, tiktok, or youtube — which connected account supplies the roster photo."
+      "description": "upload, instagram, tiktok, youtube, facebook, or x — which connected account supplies the roster photo."
     },
     "biography": {
       "type": "string",
@@ -50,6 +50,10 @@
     "facebook_url": {
       "type": "string",
       "title": "Facebook URL"
+    },
+    "twitter_url": {
+      "type": "string",
+      "title": "X (Twitter) URL"
     },
     "is_demo": {
       "type": "boolean",

@@ -25,6 +25,23 @@ import {
 import { SOCIAL_OAUTH_REDIRECT_URI as YT_REDIRECT } from "./youtubeOAuth.ts";
 import { completeYouTubeConnect } from "./youtubeConnectCore.ts";
 import { findOAuthState } from "./socialOAuthState.ts";
+import {
+  exchangeFacebookCode,
+  exchangeFacebookLongLived,
+  FACEBOOK_CONNECT_SCOPES,
+  FACEBOOK_OAUTH_REDIRECT_URI,
+  facebookPagePublicUrl,
+  fetchFacebookPages,
+  hasFacebookPublishScope,
+} from "./facebookOAuth.ts";
+import {
+  exchangeXCode,
+  fetchXProfile,
+  hasXPublishScope,
+  X_CONNECT_SCOPES,
+  X_OAUTH_REDIRECT_URI,
+  xPublicProfileUrl,
+} from "./xOAuth.ts";
 
 function requirePublicAppUrl(): string | null {
   const configured = secrets.get("PUBLIC_APP_URL") || secrets.get("APP_PUBLIC_URL");
@@ -424,6 +441,237 @@ async function handleYouTubeConnect(params: {
   return redirectToSocial(params.home, { social_connected: "youtube" });
 }
 
+async function handleFacebookConnect(params: {
+  base44: ReturnType<typeof createClientFromRequest>;
+  code: string;
+  boundUserId: string;
+  boundArtistId?: string;
+  home: string | null;
+  encryptionKey: string;
+}): Promise<Response> {
+  const clientId = secrets.get("META_CLIENT_ID") || secrets.get("FACEBOOK_CLIENT_ID");
+  const clientSecret = secrets.get("META_CLIENT_SECRET") || secrets.get("FACEBOOK_CLIENT_SECRET");
+  if (!clientId || !clientSecret) {
+    return debugFailureResponse({
+      home: params.home,
+      step: "config",
+      errorType: "NOT_CONFIGURED",
+      socialErrorCode: "not_configured",
+      provider: "facebook",
+      err: new Error("Missing META_CLIENT_ID / META_CLIENT_SECRET for Facebook Pages"),
+    });
+  }
+
+  let shortLived;
+  try {
+    shortLived = await exchangeFacebookCode({
+      clientId,
+      clientSecret,
+      redirectUri: FACEBOOK_OAUTH_REDIRECT_URI,
+      code: params.code,
+    });
+  } catch (err) {
+    return debugFailureResponse({
+      home: params.home,
+      step: "token_exchange",
+      errorType: "TOKEN_EXCHANGE_FAILED",
+      socialErrorCode: "token_exchange_failed",
+      provider: "facebook",
+      err,
+    });
+  }
+
+  let userToken = shortLived.access_token;
+  let expiresIn = shortLived.expires_in || 3600;
+  try {
+    const long = await exchangeFacebookLongLived({
+      clientId,
+      clientSecret,
+      shortLivedToken: userToken,
+    });
+    userToken = long.access_token;
+    expiresIn = long.expires_in || expiresIn;
+  } catch (err) {
+    console.warn("[socialOAuthCallback] fb long_lived warning", (err as Error)?.message || err);
+  }
+
+  let pages;
+  try {
+    pages = await fetchFacebookPages(userToken);
+  } catch (err) {
+    return debugFailureResponse({
+      home: params.home,
+      step: "profile",
+      errorType: "PROFILE_FAILED",
+      socialErrorCode: "profile_failed",
+      provider: "facebook",
+      err,
+    });
+  }
+
+  if (!pages.length) {
+    return debugFailureResponse({
+      home: params.home,
+      step: "facebook_pages",
+      errorType: "NO_PAGES",
+      socialErrorCode: "no_facebook_pages",
+      provider: "facebook",
+      err: new Error("No Facebook Pages found. Create or admin a Page, then connect again."),
+    });
+  }
+
+  const page = pages[0];
+  const scopes = FACEBOOK_CONNECT_SCOPES.join(",");
+  const encrypted = await encryptPayload(
+    JSON.stringify({
+      page_access_token: page.access_token,
+      page_id: page.id,
+      user_access_token: userToken,
+      auth_type: "facebook_page",
+      obtained_at: new Date().toISOString(),
+      expires_in: expiresIn,
+      page_url: facebookPagePublicUrl(page),
+    }),
+    params.encryptionKey
+  );
+
+  await upsertSocialAccount(params.base44, {
+    user_id: params.boundUserId,
+    artist_id: params.boundArtistId || "",
+    provider: "facebook",
+    provider_account_id: page.id,
+    account_name: page.name,
+    username: page.username || page.id,
+    profile_image_url: page.picture_url || "",
+    status: "connected",
+    scopes,
+    encrypted_credentials: encrypted,
+    expires_at: new Date(Date.now() + Number(expiresIn) * 1000).toISOString(),
+    connected_at: new Date().toISOString(),
+  });
+
+  if (!params.home) return configurationErrorResponse();
+  if (!hasFacebookPublishScope(scopes)) {
+    return redirectToSocial(params.home, {
+      social_connected: "facebook",
+      social_warning: "missing_publish_scope",
+    });
+  }
+  return redirectToSocial(params.home, { social_connected: "facebook" });
+}
+
+async function handleXConnect(params: {
+  base44: ReturnType<typeof createClientFromRequest>;
+  code: string;
+  boundUserId: string;
+  boundArtistId?: string;
+  home: string | null;
+  encryptionKey: string;
+  codeVerifier: string;
+}): Promise<Response> {
+  const clientId =
+    secrets.get("X_CLIENT_ID") ||
+    secrets.get("TWITTER_CLIENT_ID") ||
+    secrets.get("X_API_KEY");
+  const clientSecret =
+    secrets.get("X_CLIENT_SECRET") ||
+    secrets.get("TWITTER_CLIENT_SECRET") ||
+    secrets.get("X_API_SECRET");
+  if (!clientId || !clientSecret) {
+    return debugFailureResponse({
+      home: params.home,
+      step: "config",
+      errorType: "NOT_CONFIGURED",
+      socialErrorCode: "not_configured",
+      provider: "x",
+      err: new Error("Missing X_CLIENT_ID / X_CLIENT_SECRET"),
+    });
+  }
+  if (!params.codeVerifier) {
+    return debugFailureResponse({
+      home: params.home,
+      step: "pkce",
+      errorType: "INVALID_STATE",
+      socialErrorCode: "invalid_state",
+      provider: "x",
+      err: new Error("Missing PKCE code verifier for X OAuth"),
+    });
+  }
+
+  let token;
+  try {
+    token = await exchangeXCode({
+      clientId,
+      clientSecret,
+      redirectUri: X_OAUTH_REDIRECT_URI,
+      code: params.code,
+      codeVerifier: params.codeVerifier,
+    });
+  } catch (err) {
+    return debugFailureResponse({
+      home: params.home,
+      step: "token_exchange",
+      errorType: "TOKEN_EXCHANGE_FAILED",
+      socialErrorCode: "token_exchange_failed",
+      provider: "x",
+      err,
+    });
+  }
+
+  let profile;
+  try {
+    profile = await fetchXProfile(token.access_token);
+  } catch (err) {
+    return debugFailureResponse({
+      home: params.home,
+      step: "profile",
+      errorType: "PROFILE_FAILED",
+      socialErrorCode: "profile_failed",
+      provider: "x",
+      err,
+    });
+  }
+
+  const expiresIn = token.expires_in || 7200;
+  const encrypted = await encryptPayload(
+    JSON.stringify({
+      access_token: token.access_token,
+      refresh_token: token.refresh_token || null,
+      user_id: profile.id,
+      token_type: token.token_type || "bearer",
+      auth_type: "x_oauth2",
+      obtained_at: new Date().toISOString(),
+      expires_in: expiresIn,
+      profile_url: xPublicProfileUrl(profile.username),
+    }),
+    params.encryptionKey
+  );
+
+  await upsertSocialAccount(params.base44, {
+    user_id: params.boundUserId,
+    artist_id: params.boundArtistId || "",
+    provider: "x",
+    provider_account_id: profile.id,
+    account_name: profile.name,
+    username: profile.username,
+    profile_image_url: profile.profile_image_url,
+    status: "connected",
+    scopes: token.scope || X_CONNECT_SCOPES.join(" "),
+    encrypted_credentials: encrypted,
+    expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    connected_at: new Date().toISOString(),
+  });
+
+  if (!params.home) return configurationErrorResponse();
+  if (!hasXPublishScope(token.scope)) {
+    return redirectToSocial(params.home, {
+      social_connected: "x",
+      social_warning: "missing_publish_scope",
+    });
+  }
+  return redirectToSocial(params.home, { social_connected: "x" });
+}
+
 /**
  * OAuth callback HTTP handler (GET). Provider is taken from SocialOAuthState.
  * POST is not used for OAuth — publishing stays in socialPublish.
@@ -491,6 +739,8 @@ export default async function (req: Request): Promise<Response> {
       record?.oauth_client_id != null ? String(record.oauth_client_id).trim() : "";
     const oauthRedirectUri =
       record?.oauth_redirect_uri != null ? String(record.oauth_redirect_uri).trim() : "";
+    const oauthCodeVerifier =
+      record?.oauth_code_verifier != null ? String(record.oauth_code_verifier).trim() : "";
     let boundUserId: string | null = record?.user_id != null ? String(record.user_id) : null;
     const boundArtistId =
       record?.artist_id != null ? String(record.artist_id).trim() : "";
@@ -539,6 +789,10 @@ export default async function (req: Request): Promise<Response> {
         oauthClientId: oauthClientId || null,
         oauthRedirectUri: oauthRedirectUri || null,
       });
+    }
+    if (provider === "facebook") return await handleFacebookConnect(ctx);
+    if (provider === "x" || provider === "twitter") {
+      return await handleXConnect({ ...ctx, codeVerifier: oauthCodeVerifier });
     }
     return await handleInstagramConnect(ctx);
   } catch (err) {

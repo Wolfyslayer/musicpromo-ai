@@ -10,7 +10,7 @@ import { SOCIAL_PROVIDERS, getSocialProviderConfig } from "@/services/social/pro
 import { CONNECTION_STATUS, CONNECTION_STATUS_META } from "@/services/social/provider";
 import { connectionForProvider } from "@/services/socialArtistScope";
 
-const OAUTH_PROVIDERS = new Set(["instagram", "tiktok", "youtube"]);
+const OAUTH_PROVIDERS = new Set(["instagram", "tiktok", "youtube", "facebook", "x"]);
 
 /**
  * Invoke a Base44 backend function with the active user session.
@@ -115,7 +115,7 @@ export async function startOAuth(provider, { forceReauth = false, artistId = "" 
   if (!OAUTH_PROVIDERS.has(id)) {
     return {
       ok: false,
-      error: `Invalid provider "${id || "(empty)"}". Use instagram, tiktok, or youtube.`,
+      error: `Invalid provider "${id || "(empty)"}". Use instagram, tiktok, youtube, facebook, or x.`,
       code: "VALIDATION",
       provider: id,
       supported: [...OAUTH_PROVIDERS],
@@ -219,6 +219,10 @@ export function normalizeSocialConnection(raw) {
       canPublish = /video\.publish|video\.upload/.test(scopes);
     } else if (provider === "youtube") {
       canPublish = /youtube\.upload|youtube\b/.test(scopes);
+    } else if (provider === "facebook") {
+      canPublish = /pages_manage_posts/.test(scopes);
+    } else if (provider === "x") {
+      canPublish = /tweet\.write/.test(scopes);
     }
   }
   const needsPublishReauth =

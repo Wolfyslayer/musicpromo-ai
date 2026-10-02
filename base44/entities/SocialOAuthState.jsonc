@@ -19,7 +19,7 @@
     "provider": {
       "type": "string",
       "title": "Provider",
-      "enum": ["instagram", "tiktok", "youtube", "facebook"]
+      "enum": ["instagram", "tiktok", "youtube", "facebook", "x"]
     },
     "expires_at": {
       "type": "string",

@@ -1,4 +1,12 @@
 import { Facebook, Globe, Instagram, Music2, Youtube } from "lucide-react";
+
+function XIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
 import { cn } from "@/lib/utils";
 
 const LINK_DEFS = [
@@ -7,6 +15,7 @@ const LINK_DEFS = [
   { key: "youtube_url", label: "YouTube", Icon: Youtube, accent: "hover:text-[#ff0000]" },
   { key: "spotify_url", label: "Spotify", Icon: Music2, accent: "hover:text-[#1db954]" },
   { key: "facebook_url", label: "Facebook", Icon: Facebook, accent: "hover:text-[#1877f2]" },
+  { key: "twitter_url", label: "X", Icon: XIcon, accent: "hover:text-foreground" },
   { key: "website", label: "Website", Icon: Globe, accent: "hover:text-primary" },
 ];
 

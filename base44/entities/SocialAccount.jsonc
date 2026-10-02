@@ -16,7 +16,7 @@
     "provider": {
       "type": "string",
       "title": "Provider",
-      "enum": ["instagram", "tiktok", "youtube", "facebook"]
+      "enum": ["instagram", "tiktok", "youtube", "facebook", "x"]
     },
     "provider_account_id": {
       "type": "string",

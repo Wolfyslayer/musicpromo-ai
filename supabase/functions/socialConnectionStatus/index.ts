@@ -10,6 +10,8 @@ import {
   fetchTikTokProfile,
 } from "../_shared/tiktokOAuth.ts";
 import { youTubeAppRedirectUri, YOUTUBE_OAUTH_REDIRECT_URI } from "../_shared/youtubeOAuth.ts";
+import { hasFacebookPublishScope } from "../_shared/facebookOAuth.ts";
+import { hasXPublishScope } from "../_shared/xOAuth.ts";
 import { decryptCredential } from "../_shared/socialCrypto.ts";
 
 /** True when a Base44 secret exists and is non-empty after trim. */
@@ -117,6 +119,10 @@ async function handler (req: Request): Promise<Response> {
       } else if (r.provider === "youtube") {
         const scopes = String(r.scopes || "");
         canPublish = /youtube\.upload|youtube\b/.test(scopes);
+      } else if (r.provider === "facebook") {
+        canPublish = hasFacebookPublishScope(r.scopes);
+      } else if (r.provider === "x") {
+        canPublish = hasXPublishScope(r.scopes);
       }
       return {
         id: r.id,
@@ -131,7 +137,11 @@ async function handler (req: Request): Promise<Response> {
         expiresAt: r.expires_at || null,
         canPublish,
         needsPublishReauth:
-          (r.provider === "instagram" || r.provider === "tiktok" || r.provider === "youtube") &&
+          (r.provider === "instagram" ||
+            r.provider === "tiktok" ||
+            r.provider === "youtube" ||
+            r.provider === "facebook" ||
+            r.provider === "x") &&
           !canPublish,
       };
     });
@@ -159,7 +169,14 @@ async function handler (req: Request): Promise<Response> {
               "YOUTUBE_CLIENT_SECRET"
             )
         ),
-        facebook: false,
+        facebook: Boolean(
+          sharedReady && hasSecret("META_CLIENT_ID", "FACEBOOK_CLIENT_ID") && hasSecret("META_CLIENT_SECRET", "FACEBOOK_CLIENT_SECRET")
+        ),
+        x: Boolean(
+          sharedReady &&
+            hasSecret("X_CLIENT_ID", "TWITTER_CLIENT_ID", "X_API_KEY") &&
+            hasSecret("X_CLIENT_SECRET", "TWITTER_CLIENT_SECRET", "X_API_SECRET")
+        ),
       },
       metaOAuthRedirectUri: META_OAUTH_REDIRECT_URI,
       tiktokOAuthRedirectUri: TIKTOK_OAUTH_REDIRECT_URI,
