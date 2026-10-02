@@ -10,9 +10,16 @@ export const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 export const YT_API = "https://www.googleapis.com/youtube/v3";
 export const YT_UPLOAD = "https://www.googleapis.com/upload/youtube/v3/videos";
 
-/** Register this exact URI on the Google Cloud OAuth client. */
+/** Register this exact URI on the Google Cloud OAuth client (legacy direct Edge callback). */
 export { YOUTUBE_OAUTH_REDIRECT_URI };
 export const SOCIAL_OAUTH_REDIRECT_URI = YOUTUBE_OAUTH_REDIRECT_URI;
+
+/** OAuth redirect on your app domain so Google shows musicpromoai.site (not *.supabase.co). */
+export function youTubeAppRedirectUri(publicAppUrl: string): string {
+  const base = String(publicAppUrl || "").trim().replace(/\/$/, "");
+  if (!base) return YOUTUBE_OAUTH_REDIRECT_URI;
+  return `${base}/auth/youtube/callback`;
+}
 
 /** Client ID from the SPA (`VITE_GOOGLE_CLIENT_ID`) on connectSocialProvider invoke. */
 export function readGoogleClientIdFromInvokeBody(

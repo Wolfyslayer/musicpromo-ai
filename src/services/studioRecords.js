@@ -143,6 +143,8 @@ export async function selectSocialWorkspace() {
       id: row.id,
       provider: row.platform || payload.provider,
       status: payload.status || "connected",
+      account_name: payload.account_name ?? payload.accountName,
+      profile_image_url: payload.profile_image_url ?? payload.profileImageUrl,
     };
   });
   const posts = (content.data || []).map(unpack).filter((row) => row.status);

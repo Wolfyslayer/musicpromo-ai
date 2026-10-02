@@ -22,21 +22,9 @@ import {
   exchangeTikTokCode,
   fetchTikTokProfile,
 } from "./tiktokOAuth.ts";
-import {
-  YOUTUBE_CONNECT_SCOPES,
-  SOCIAL_OAUTH_REDIRECT_URI as YT_REDIRECT,
-  exchangeYouTubeCode,
-  fetchYouTubeChannel,
-} from "./youtubeOAuth.ts";
-
-function youtubeClientSecret(): string {
-  return (
-    secrets.get("GOOGLE_LOGIN_CLIENT_SECRET") ||
-    secrets.get("GOOGLE_CLIENT_SECRET") ||
-    secrets.get("YOUTUBE_CLIENT_SECRET") ||
-    ""
-  ).trim();
-}
+import { SOCIAL_OAUTH_REDIRECT_URI as YT_REDIRECT } from "./youtubeOAuth.ts";
+import { completeYouTubeConnect } from "./youtubeConnectCore.ts";
+import { findOAuthState } from "./socialOAuthState.ts";
 
 function requirePublicAppUrl(): string | null {
   const configured = secrets.get("PUBLIC_APP_URL") || secrets.get("APP_PUBLIC_URL");
@@ -119,26 +107,6 @@ function resolveEncryptionKey(): string | null {
     /* ignore */
   }
   return String(fromSecret || fromEnv || "").trim() || null;
-}
-
-async function findOAuthState(
-  base44: ReturnType<typeof createClientFromRequest>,
-  state: string
-): Promise<Record<string, unknown> | null> {
-  for (let i = 0; i < 5; i++) {
-    try {
-      const states = await base44.asServiceRole.entities.SocialOAuthState.filter(
-        { state },
-        "-created_date",
-        5
-      );
-      if ((states || [])[0]) return states[0] as Record<string, unknown>;
-    } catch (err) {
-      console.warn("[socialOAuthCallback] state_lookup", i, (err as Error)?.message || err);
-    }
-    await sleep(200 * (i + 1));
-  }
-  return null;
 }
 
 async function encryptPayload(plaintext: string, encryptionKey: string): Promise<string> {
@@ -415,86 +383,30 @@ async function handleYouTubeConnect(params: {
   home: string | null;
   encryptionKey: string;
   oauthClientId?: string | null;
+  oauthRedirectUri?: string | null;
 }): Promise<Response> {
-  const clientId = (
-    String(params.oauthClientId || "").trim() ||
-    secrets.get("GOOGLE_CLIENT_ID") ||
-    secrets.get("YOUTUBE_CLIENT_ID") ||
-    ""
-  ).trim();
-  const clientSecret = youtubeClientSecret();
-  if (!clientId || !clientSecret) {
-    return debugFailureResponse({
-      home: params.home,
-      step: "config",
-      errorType: "NOT_CONFIGURED",
-      socialErrorCode: "not_configured",
-      provider: "youtube",
-      err: new Error("Missing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET"),
-    });
-  }
-
-  let token;
+  const redirectUri = String(params.oauthRedirectUri || "").trim() || YT_REDIRECT;
   try {
-    token = await exchangeYouTubeCode({
-      clientId,
-      clientSecret,
+    await completeYouTubeConnect({
+      base44: params.base44,
       code: params.code,
-      redirectUri: YT_REDIRECT,
+      boundUserId: params.boundUserId,
+      encryptionKey: params.encryptionKey,
+      redirectUri,
+      oauthClientId: params.oauthClientId,
     });
   } catch (err) {
+    const message = (err as Error)?.message || String(err);
+    const step = /not configured/i.test(message) ? "config" : "token_exchange";
     return debugFailureResponse({
       home: params.home,
-      step: "token_exchange",
-      errorType: "TOKEN_EXCHANGE_FAILED",
-      socialErrorCode: "token_exchange_failed",
+      step,
+      errorType: step === "config" ? "NOT_CONFIGURED" : "TOKEN_EXCHANGE_FAILED",
+      socialErrorCode: step === "config" ? "not_configured" : "token_exchange_failed",
       provider: "youtube",
       err,
     });
   }
-
-  let channel;
-  try {
-    channel = await fetchYouTubeChannel(token.access_token);
-  } catch (err) {
-    return debugFailureResponse({
-      home: params.home,
-      step: "profile",
-      errorType: "PROFILE_FAILED",
-      socialErrorCode: "profile_failed",
-      provider: "youtube",
-      err,
-    });
-  }
-
-  const expiresIn = token.expires_in || 3600;
-  const encrypted = await encryptPayload(
-    JSON.stringify({
-      access_token: token.access_token,
-      refresh_token: token.refresh_token || null,
-      channel_id: channel.channel_id,
-      token_type: "bearer",
-      auth_type: "google_youtube",
-      obtained_at: new Date().toISOString(),
-      expires_in: expiresIn,
-      scope: token.scope || YOUTUBE_CONNECT_SCOPES.join(" "),
-    }),
-    params.encryptionKey
-  );
-
-  await upsertSocialAccount(params.base44, {
-    user_id: params.boundUserId,
-    provider: "youtube",
-    provider_account_id: channel.channel_id,
-    account_name: channel.title || "YouTube",
-    username: channel.custom_url || "",
-    profile_image_url: channel.thumbnail_url || "",
-    status: "connected",
-    scopes: token.scope || YOUTUBE_CONNECT_SCOPES.join(" "),
-    encrypted_credentials: encrypted,
-    expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
-    connected_at: new Date().toISOString(),
-  });
 
   if (!params.home) return configurationErrorResponse();
   return redirectToSocial(params.home, { social_connected: "youtube" });
@@ -565,6 +477,8 @@ export default async function (req: Request): Promise<Response> {
     const record = await findOAuthState(base44, state);
     const oauthClientId =
       record?.oauth_client_id != null ? String(record.oauth_client_id).trim() : "";
+    const oauthRedirectUri =
+      record?.oauth_redirect_uri != null ? String(record.oauth_redirect_uri).trim() : "";
     let boundUserId: string | null = record?.user_id != null ? String(record.user_id) : null;
     let provider = record?.provider != null ? String(record.provider) : "instagram";
 
@@ -605,7 +519,11 @@ export default async function (req: Request): Promise<Response> {
 
     if (provider === "tiktok") return await handleTikTokConnect(ctx);
     if (provider === "youtube") {
-      return await handleYouTubeConnect({ ...ctx, oauthClientId: oauthClientId || null });
+      return await handleYouTubeConnect({
+        ...ctx,
+        oauthClientId: oauthClientId || null,
+        oauthRedirectUri: oauthRedirectUri || null,
+      });
     }
     return await handleInstagramConnect(ctx);
   } catch (err) {

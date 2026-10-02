@@ -31,6 +31,11 @@ export default function SocialPlatformCard({
   const { toast } = useToast();
   const Icon = ICONS[provider.icon] || Music2;
   const connected = provider.status === CONNECTION_STATUS.CONNECTED && provider.connection;
+  const profileImageUrl =
+    provider.connection?.profileImageUrl || provider.connection?.profile_image_url || "";
+  const username = provider.connection?.username || "";
+  const accountName =
+    provider.connection?.accountName || provider.connection?.account_name || "";
   const oauthReady = provider.oauthImplemented === true;
   // Only Facebook (oauth not implemented) is truly unavailable for Connect.
   const unavailable = !connected && !oauthReady;
@@ -56,9 +61,9 @@ export default function SocialPlatformCard({
   return (
     <div className="rounded-2xl border border-border/60 bg-card/50 p-4">
       <div className="flex items-start gap-3">
-        {connected && provider.connection?.profileImageUrl ? (
+        {connected && profileImageUrl ? (
           <img
-            src={provider.connection.profileImageUrl}
+            src={profileImageUrl}
             alt=""
             referrerPolicy="no-referrer"
             className="h-11 w-11 shrink-0 rounded-xl object-cover"
@@ -79,11 +84,16 @@ export default function SocialPlatformCard({
           </div>
           {connected ? (
             <div className="mt-1 space-y-0.5">
-              {provider.connection.username && (
-                <p className="truncate text-sm font-600">@{provider.connection.username}</p>
+              {username && (
+                <p className="truncate text-sm font-600">
+                  {username.startsWith("@") ? username : `@${username}`}
+                </p>
               )}
-              {provider.connection.accountName && (
-                <p className="truncate text-sm text-muted-foreground">{provider.connection.accountName}</p>
+              {accountName && (
+                <p className="truncate text-sm text-muted-foreground">{accountName}</p>
+              )}
+              {connected && !profileImageUrl && !username && !accountName && (
+                <p className="text-sm text-muted-foreground">Connected</p>
               )}
               {provider.needsPublishReauth && (
                 <p className="text-xs text-amber-600">Reconnect to enable publishing permissions.</p>
