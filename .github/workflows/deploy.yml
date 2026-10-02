@@ -1,4 +1,5 @@
-# Deploy Supabase Edge Functions + Vite frontend on every push to main.
+# Deploy Supabase Edge Functions + Vite frontend on push to main.
+# Edge Functions deploy only when supabase/functions (or config.toml) change.
 # Setup: docs/GITHUB_DEPLOY.md
 
 name: Deploy
@@ -13,8 +14,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.filter.outputs.functions }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            functions:
+              - 'supabase/functions/**'
+              - 'supabase/config.toml'
+            frontend:
+              - 'src/**'
+              - 'public/**'
+              - 'index.html'
+              - 'vite.config.js'
+              - 'tailwind.config.js'
+              - 'postcss.config.js'
+              - 'jsconfig.json'
+              - 'components.json'
+              - 'package.json'
+              - 'package-lock.json'
+
   deploy-supabase:
     name: Supabase (Edge Functions)
+    needs: changes
+    if: needs.changes.outputs.functions == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -37,6 +67,8 @@ jobs:
 
   deploy-frontend:
     name: Frontend (GitHub Pages)
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -78,6 +110,9 @@ jobs:
         run: |
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
+          if [ -n "${{ vars.CUSTOM_DOMAIN }}" ]; then
+            echo "${{ vars.CUSTOM_DOMAIN }}" > dist/CNAME
+          fi
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -2,10 +2,12 @@
 
 Pushes to **`main`** run [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml):
 
-1. **Backend** — deploy every function under `supabase/functions/` to your Supabase project.
-2. **Frontend** — `npm run build` and publish `dist/` to **GitHub Pages**.
+1. **Backend** — deploy Edge Functions **only if** `supabase/functions/**` or `supabase/config.toml` changed on that push.
+2. **Frontend** — build and publish **only if** app source or frontend deps changed (`src/`, `public/`, `package.json`, etc.).
 
-Manual run: **Actions → Deploy → Run workflow**.
+**Manual run:** **Actions → Deploy → Run workflow** deploys **both** jobs (even when nothing changed in those paths).
+
+To change which paths trigger a job, edit the `filters` block in the workflow’s **Detect changes** job.
 
 ## One-time GitHub setup
 
