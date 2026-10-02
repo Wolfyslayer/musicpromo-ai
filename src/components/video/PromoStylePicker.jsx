@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 import { PROMO_STYLE_PRESETS } from "@/services/promoStylePresets";
 
-export default function PromoStylePicker({ value, onChange, className = "" }) {
-  const active = value || PROMO_STYLE_PRESETS[0].id;
+export default function PromoStylePicker({ value, onChange, suggestedId, className = "" }) {
+  const active = value || suggestedId || PROMO_STYLE_PRESETS[0].id;
   return (
     <div className={cn("space-y-2", className)}>
       <p className="text-xs text-muted-foreground">
@@ -23,7 +23,15 @@ export default function PromoStylePicker({ value, onChange, className = "" }) {
                   : "border-border/70 bg-card/40 hover:border-primary/30"
               )}
             >
-              <p className="text-sm font-600">{preset.label}</p>
+              <p className="text-sm font-600">
+                {preset.label}
+                {suggestedId === preset.id && !selected ? (
+                  <span className="ml-1.5 text-[10px] font-700 uppercase text-primary">Suggested</span>
+                ) : null}
+                {selected && suggestedId === preset.id ? (
+                  <span className="ml-1.5 text-[10px] font-700 uppercase text-primary">Suggested</span>
+                ) : null}
+              </p>
               <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{preset.tagline}</p>
             </button>
           );

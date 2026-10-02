@@ -145,6 +145,29 @@
           "timeSeconds": { "type": "number" }
         }
       }
+    },
+    "compositing_mode": {
+      "type": "string",
+      "enum": ["artwork", "ai_blend", "ai_background"],
+      "default": "artwork",
+      "title": "How AI clips combine with artwork"
+    },
+    "ai_clip_url": {
+      "type": "string",
+      "title": "AI-generated motion clip (public MP4)"
+    },
+    "ai_clip_status": {
+      "type": "string",
+      "enum": ["none", "generating", "ready", "failed"],
+      "title": "AI clip generation status"
+    },
+    "ai_clip_prompt": {
+      "type": "string",
+      "title": "Notes / concept for AI motion"
+    },
+    "ai_clip_opacity": {
+      "type": "number",
+      "title": "AI layer opacity (0.15–1)"
     }
   },
   "required": [

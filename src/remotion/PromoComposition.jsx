@@ -1,8 +1,16 @@
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { Audio } from "@remotion/media";
+import { Audio, Video } from "@remotion/media";
 import { PromoAudioMotion } from "./audioReactive";
 import ParticleOverlay from "./ParticleOverlay";
-import { activeLyricCueIndex, cuesInAudioWindow, normalizeEditorLook, normalizeParticleEffect, normalizeVisualStyle } from "./styles";
+import {
+  activeLyricCueIndex,
+  cuesInAudioWindow,
+  normalizeAiClipOpacity,
+  normalizeCompositingMode,
+  normalizeEditorLook,
+  normalizeParticleEffect,
+  normalizeVisualStyle,
+} from "./styles";
 import { fontForChoice, fontForStyle } from "./fonts";
 
 function LyricLine({
@@ -79,6 +87,9 @@ function PromoCompositionBody({
   suspendEffects = false,
   videoType = "",
   outroCta = "",
+  aiClipUrl = "",
+  compositingMode: compositingProp = "artwork",
+  aiClipOpacity: aiOpacityProp = 1,
   motion,
 }) {
   const frame = useCurrentFrame();
@@ -86,6 +97,10 @@ function PromoCompositionBody({
   const visualStyle = normalizeVisualStyle(styleProp);
   const particleEffect = normalizeParticleEffect(particleProp);
   const look = normalizeEditorLook(lookProp);
+  const compositingMode = normalizeCompositingMode(compositingProp);
+  const aiClipOpacity = normalizeAiClipOpacity(aiOpacityProp);
+  const useAiClip = Boolean(aiClipUrl) && compositingMode !== "artwork";
+  const showArtwork = !useAiClip || compositingMode === "ai_blend";
   const lyricFont = fontForChoice(look.fontId);
   const { bassScale, transientScale, bass, mid, high, energy, transient } = motion;
   const timeSec = frame / fps;
@@ -144,30 +159,46 @@ function PromoCompositionBody({
       {audioUrl ? <Audio src={audioUrl} trimBefore={Math.round(audioOffset * fps)} /> : null}
       <AbsoluteFill style={shakeTransform ? { transform: shakeTransform } : undefined}>
 
-      {/* Blurred reactive background */}
-      <AbsoluteFill
-        style={{
-          justifyContent: "center",
-          alignItems: "center",
-          transform: `scale(${bassScale * 1.12})`,
-        }}
-      >
-        {artworkUrl ? (
-          <img
-            src={artworkUrl}
-            alt=""
-            crossOrigin="anonymous"
-            style={{
-              width: "140%",
-              height: "140%",
-              objectFit: "cover",
-              filter: "blur(36px) brightness(0.45) saturate(1.15)",
-            }}
+      {useAiClip ? (
+        <AbsoluteFill style={{ opacity: aiClipOpacity }}>
+          <Video
+            src={aiClipUrl}
+            muted
+            loop
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
-        ) : (
-          <div style={{ width: "100%", height: "100%", background: "#1a1028" }} />
-        )}
-      </AbsoluteFill>
+        </AbsoluteFill>
+      ) : null}
+
+      {/* Blurred reactive background */}
+      {showArtwork ? (
+        <AbsoluteFill
+          style={{
+            justifyContent: "center",
+            alignItems: "center",
+            transform: `scale(${bassScale * 1.12})`,
+            opacity: useAiClip ? 0.35 : 1,
+          }}
+        >
+          {artworkUrl ? (
+            <img
+              src={artworkUrl}
+              alt=""
+              crossOrigin="anonymous"
+              style={{
+                width: "140%",
+                height: "140%",
+                objectFit: "cover",
+                filter: "blur(36px) brightness(0.45) saturate(1.15)",
+              }}
+            />
+          ) : (
+            <div style={{ width: "100%", height: "100%", background: "#1a1028" }} />
+          )}
+        </AbsoluteFill>
+      ) : (
+        <AbsoluteFill style={{ background: "#0a0810" }} />
+      )}
 
       {/* Soft vignette via stacked gradients (no backdrop-filter) */}
       <AbsoluteFill
@@ -178,29 +209,31 @@ function PromoCompositionBody({
       />
 
       {/* Centered cover — transient peaks */}
-      <AbsoluteFill
-        style={{
-          justifyContent: "center",
-          alignItems: "center",
-          paddingBottom: 280,
-        }}
-      >
-        {artworkUrl ? (
-          <img
-            src={artworkUrl}
-            alt=""
-            crossOrigin="anonymous"
-            style={{
-              width: 720,
-              height: 720,
-              objectFit: "cover",
-              borderRadius: 28,
-              transform: `scale(${transientScale})`,
-              boxShadow: "0 30px 80px rgba(0,0,0,0.55)",
-            }}
-          />
-        ) : null}
-      </AbsoluteFill>
+      {showArtwork ? (
+        <AbsoluteFill
+          style={{
+            justifyContent: "center",
+            alignItems: "center",
+            paddingBottom: 280,
+          }}
+        >
+          {artworkUrl ? (
+            <img
+              src={artworkUrl}
+              alt=""
+              crossOrigin="anonymous"
+              style={{
+                width: 720,
+                height: 720,
+                objectFit: "cover",
+                borderRadius: 28,
+                transform: `scale(${transientScale})`,
+                boxShadow: "0 30px 80px rgba(0,0,0,0.55)",
+              }}
+            />
+          ) : null}
+        </AbsoluteFill>
+      ) : null}
 
       <ParticleOverlay
         effect={particleEffect}

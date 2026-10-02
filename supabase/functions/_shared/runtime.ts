@@ -28,7 +28,7 @@ const SPECS: Record<string, { table: string; kind: string | null; touchUpdated: 
   AnalyticsEntry: { table: "analytics_entries", kind: null, touchUpdated: false },
 };
 
-function serviceClient(): SupabaseClient {
+export function serviceClient(): SupabaseClient {
   const url = Deno.env.get("SUPABASE_URL") || "";
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) throw new Error("Supabase service credentials are missing in the function environment.");

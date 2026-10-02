@@ -34,6 +34,7 @@ export async function renderPromoRemotion(params = {}) {
   const revokers = [];
   let artworkUrl = "";
   let audioUrl = "";
+  let aiClipUrl = "";
   try {
     const artwork = await asBlobUrlForWebCodecs({
       url: params.artworkUrl,
@@ -49,6 +50,12 @@ export async function renderPromoRemotion(params = {}) {
     audioUrl = audio.url;
     if (artwork.revoke) revokers.push(artwork.revoke);
     if (audio.revoke) revokers.push(audio.revoke);
+    const rawAi = params.aiClipUrl || params.ai_clip_url;
+    if (rawAi) {
+      const ai = await asBlobUrlForWebCodecs({ url: rawAi, label: "AI clip" });
+      aiClipUrl = ai.url;
+      if (ai.revoke) revokers.push(ai.revoke);
+    }
   } catch (err) {
     revokers.forEach((r) => r());
     throw err;
@@ -90,6 +97,9 @@ export async function renderPromoRemotion(params = {}) {
     audioStartTimeOffset: Math.max(0, Number(params.audioStartTimeOffset) || 0),
     videoType,
     outroCta: params.outroCta || params.outro_cta || "",
+    aiClipUrl,
+    compositingMode: params.compositingMode || params.compositing_mode || "artwork",
+    aiClipOpacity: params.aiClipOpacity ?? params.ai_clip_opacity ?? 1,
   };
 
   let result;

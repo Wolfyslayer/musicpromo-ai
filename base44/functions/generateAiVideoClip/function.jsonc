@@ -1,0 +1,10 @@
+{
+  "name": "generateAiVideoClip",
+  "entry": "entry.ts",
+  "authRequired": true,
+  "access": "public",
+  "permission": "user",
+  "permissions": {
+    "invoke": "public"
+  }
+}

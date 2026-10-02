@@ -27,6 +27,7 @@ import { useWorkspaceRefresh } from "@/lib/AuthContext";
 import { useIsolatedPreviewAudio } from "@/hooks/useIsolatedPreviewAudio";
 import { loadAssetSession } from "@/services/assetAnalysis";
 import VideoTypeModal from "@/components/video/VideoTypeModal";
+import AiClipPanel from "@/components/video/AiClipPanel";
 import {
   VISUAL_STYLES,
   PROMO_FPS,
@@ -87,6 +88,9 @@ function styleFingerprint(p) {
     p.text,
     JSON.stringify(p.lyric_cues || []).slice(0, 400),
     (p.lyrics || "").slice(0, 200),
+    p.ai_clip_url || "",
+    p.compositing_mode || "",
+    p.ai_clip_opacity ?? "",
   ].join("|");
 }
 
@@ -874,6 +878,17 @@ export default function VideoGenerator() {
               ? "This demo track and cover are ready to preview. Sign in when you want to upload your own files."
               : "Replace the artwork or audio used in this preview."}
           </p>
+          {!project.is_demo_preview ? (
+            <AiClipPanel
+              project={project}
+              artworkFile={null}
+              requireAuth={requireAuth}
+              onPatch={(patch) => {
+                setProject((current) => ({ ...current, ...patch }));
+              }}
+              onStyleTouch={touchStyle}
+            />
+          ) : null}
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Artwork</Label>

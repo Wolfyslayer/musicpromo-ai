@@ -19,10 +19,10 @@ import { todayISO, addDaysISO, fmtDate } from "@/services/format";
 import ArtworkUpload from "@/components/ArtworkUpload";
 import AudioUpload from "@/components/AudioUpload";
 import AssetAnalysisPanel from "@/components/video/AssetAnalysisPanel";
-import { analyzeCampaignAssets, hooksForVibe, saveAssetSession } from "@/services/assetAnalysis";
+import { analyzeCampaignAssets, hooksForVibe, resolvePromoStyleFromVisual, saveAssetSession } from "@/services/assetAnalysis";
 import VideoRenderProgress from "@/components/VideoRenderProgress";
 import PromoStylePicker from "@/components/video/PromoStylePicker";
-import { getPromoStylePreset, normalizePromoStyleChoice } from "@/services/promoStylePresets";
+import { getPromoStylePreset, normalizePromoStyleChoice, suggestPromoStyleFromProfile } from "@/services/promoStylePresets";
 import { linkDraftProjectsToCampaignDays, renderPromoForProject } from "@/services/campaignVideoBridge";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -53,6 +53,7 @@ export default function CreateCampaign() {
       lyrics: "", goals: [], durationDays: s.defaultDuration, startDate: todayISO(),
       assetProfile: null,
       promoStylePreset: "viral-pop",
+      promoStyleManuallySet: false,
       renderFirstThreeDays: false,
     };
   });
@@ -91,13 +92,31 @@ export default function CreateCampaign() {
     };
   }, [form.artworkFile, form.artworkUrl, form.audioFile, form.audioSignedUrl, form.title, energyChoice]);
 
+  useEffect(() => {
+    if (form.promoStyleManuallySet || !form.assetProfile?.promoStylePreset) return;
+    setForm((current) => ({
+      ...current,
+      promoStylePreset: current.assetProfile.promoStylePreset,
+    }));
+  }, [form.assetProfile, form.promoStyleManuallySet]);
+
   const chooseEnergy = (energy) => {
     setEnergyChoice(energy);
     setForm((current) => {
       if (!current.assetProfile) return current;
+      const { promoStylePreset, promoStyleReason } = resolvePromoStyleFromVisual(
+        {
+          theme: current.assetProfile.theme,
+          label: current.assetProfile.label,
+          promoStylePreset: current.assetProfile.promoStylePreset,
+        },
+        energy
+      );
       const profile = {
         ...current.assetProfile,
         energy,
+        promoStylePreset,
+        promoStyleReason,
         hooks: hooksForVibe({ energy, title: current.title }),
         keywords: [
           current.assetProfile.theme,
@@ -107,7 +126,11 @@ export default function CreateCampaign() {
         ].filter(Boolean),
       };
       saveAssetSession(profile);
-      return { ...current, assetProfile: profile };
+      return {
+        ...current,
+        assetProfile: profile,
+        ...(!current.promoStyleManuallySet ? { promoStylePreset } : {}),
+      };
     });
   };
 
@@ -352,6 +375,7 @@ export default function CreateCampaign() {
                 set={set}
                 toggleGoal={toggleGoal}
                 setForm={setForm}
+                styleSuggestion={suggestPromoStyleFromProfile(form.assetProfile)}
               />
             )}
             {step === 5 && <StepSummary form={form} artists={artists} releases={releases} />}
@@ -499,15 +523,19 @@ function StepLyrics({ form, set }) {
   );
 }
 
-function StepGoals({ form, set, toggleGoal, setForm }) {
+function StepGoals({ form, set, toggleGoal, setForm, styleSuggestion }) {
   return (
     <div className="space-y-5">
       <div>
         <Label className="text-xs font-500 text-muted-foreground">Promo video style</Label>
+        {styleSuggestion?.reason ? (
+          <p className="mt-1 text-xs text-primary/90">{styleSuggestion.reason}</p>
+        ) : null}
         <PromoStylePicker
           className="mt-2"
           value={form.promoStylePreset}
-          onChange={(id) => setForm((f) => ({ ...f, promoStylePreset: id }))}
+          suggestedId={styleSuggestion?.presetId}
+          onChange={(id) => setForm((f) => ({ ...f, promoStylePreset: id, promoStyleManuallySet: true }))}
         />
         <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-border/60 bg-muted/20 p-3 text-sm">
           <input

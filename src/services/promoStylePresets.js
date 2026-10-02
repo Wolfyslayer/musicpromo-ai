@@ -72,6 +72,19 @@ export function getPromoStylePreset(id) {
   return PROMO_STYLE_PRESETS.find((p) => p.id === id) || PROMO_STYLE_PRESETS[0];
 }
 
+/** Map cover/audio asset profile to a preset id + human reason (client-side, no LLM). */
+export function suggestPromoStyleFromProfile(profile) {
+  if (!profile) {
+    return { presetId: "viral-pop", reason: "Upload cover art to auto-pick a promo style." };
+  }
+  const presetId = profile.promoStylePreset || "viral-pop";
+  const preset = getPromoStylePreset(presetId);
+  return {
+    presetId: preset.id,
+    reason: profile.promoStyleReason || `Cover read as ${profile.label || "custom"} — ${preset.tagline}.`,
+  };
+}
+
 export function normalizePromoStyleChoice(presetId, overrides = {}) {
   const preset = getPromoStylePreset(presetId);
   return {

@@ -45,6 +45,25 @@ export const VISUAL_STYLES = [
   },
 ];
 
+export const COMPOSITING_MODES = [
+  { id: "artwork", label: "Artwork reactive", description: "Default — cover art + audio-reactive motion." },
+  { id: "ai_blend", label: "AI motion + cover", description: "Short AI clip loops behind your artwork and text." },
+  { id: "ai_background", label: "AI motion full frame", description: "AI clip fills the frame; typography and particles on top." },
+];
+
+export function normalizeCompositingMode(value) {
+  const id = String(value || "artwork").toLowerCase();
+  if (id === "ai_background" || id === "ai_full") return "ai_background";
+  if (id === "ai_blend" || id === "ai" || id === "blend") return "ai_blend";
+  return "artwork";
+}
+
+export function normalizeAiClipOpacity(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 1;
+  return Math.round(Math.min(1, Math.max(0.15, n)) * 100) / 100;
+}
+
 export function normalizeVisualStyle(value) {
   const id = String(value || "pop").toLowerCase();
   if (id === "hiphop" || id === "urban") return "hiphop";
