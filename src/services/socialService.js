@@ -191,10 +191,51 @@ export async function getPostStatus(postId) {
 /**
  * Merge static provider config with live connection status (safe metadata only).
  */
+/** API + DB rows may use snake_case; cards expect camelCase. */
+export function normalizeSocialConnection(raw) {
+  const c = raw && typeof raw === "object" ? raw : {};
+  const provider = String(c.provider || c.platform || "")
+    .trim()
+    .toLowerCase();
+  const scopes = c.scopes != null ? String(c.scopes) : "";
+  let canPublish = c.canPublish === true;
+  if (c.canPublish == null && scopes) {
+    if (provider === "instagram") {
+      canPublish = /instagram_business_content_publish|business_content_publish|instagram_content_publish/.test(
+        scopes
+      );
+    } else if (provider === "tiktok") {
+      canPublish = /video\.publish|video\.upload/.test(scopes);
+    } else if (provider === "youtube") {
+      canPublish = /youtube\.upload|youtube\b/.test(scopes);
+    }
+  }
+  const needsPublishReauth =
+    c.needsPublishReauth === true ||
+    (c.needsPublishReauth == null &&
+      (provider === "instagram" || provider === "tiktok" || provider === "youtube") &&
+      !canPublish);
+
+  return {
+    id: c.id,
+    provider,
+    status: c.status || "connected",
+    accountName: c.accountName ?? c.account_name ?? null,
+    username: c.username ?? null,
+    profileImageUrl: c.profileImageUrl ?? c.profile_image_url ?? null,
+    connectedAt: c.connectedAt ?? c.connected_at ?? null,
+    scopes: c.scopes ?? null,
+    canPublish,
+    needsPublishReauth,
+  };
+}
+
 export function mergeProvidersWithConnections(connections = [], providersConfigured = {}) {
   const byProvider = {};
   for (const c of connections) {
-    if (!byProvider[c.provider]) byProvider[c.provider] = c;
+    const normalized = normalizeSocialConnection(c);
+    if (!normalized.provider) continue;
+    if (!byProvider[normalized.provider]) byProvider[normalized.provider] = normalized;
   }
 
   return SOCIAL_PROVIDERS.map((cfg) => {

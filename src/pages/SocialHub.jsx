@@ -6,7 +6,9 @@ import { useToast } from "@/components/ui/use-toast";
 
 import {
   startOAuth,
+  getConnectionStatus,
   mergeProvidersWithConnections,
+  normalizeSocialConnection,
   buildComposePath,
   POST_STATUS,
 } from "@/services/socialService";
@@ -61,8 +63,19 @@ export default function SocialHub() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const { connections, posts: savedPosts } = await selectSocialWorkspace();
-      setProviders(mergeProvidersWithConnections(connections, {}));
+      const { connections: dbConnections, posts: savedPosts } = await selectSocialWorkspace();
+      let connections = (dbConnections || []).map(normalizeSocialConnection);
+      let providersConfigured = {};
+      try {
+        const status = await getConnectionStatus();
+        if (Array.isArray(status?.connections) && status.connections.length) {
+          connections = status.connections.map(normalizeSocialConnection);
+        }
+        if (status?.providersConfigured) providersConfigured = status.providersConfigured;
+      } catch {
+        /* fall back to client-side social_accounts rows */
+      }
+      setProviders(mergeProvidersWithConnections(connections, providersConfigured));
       setPosts(savedPosts);
     } catch (e) {
       // Keep oauth platforms connectable even when status request throws.
