@@ -1,9 +1,11 @@
+import { useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTrigger,
@@ -12,6 +14,12 @@ import Logo from "@/components/Logo";
 
 export default function AppNavMenu({ primary, secondary, userLine, footerActions }) {
   const location = useLocation();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname, location.search]);
+
   const isActive = (to) =>
     to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
 
@@ -24,7 +32,7 @@ export default function AppNavMenu({ primary, secondary, userLine, footerActions
     );
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button
           type="button"
@@ -36,7 +44,10 @@ export default function AppNavMenu({ primary, secondary, userLine, footerActions
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="flex w-[min(100%,20rem)] flex-col p-0">
+      <SheetContent
+        side="left"
+        className="flex w-[min(100%,20rem)] flex-col border-border/60 p-0 shadow-[var(--shadow-elevated)]"
+      >
         <SheetHeader className="border-b border-border/60 px-5 py-4 text-left">
           <Logo size={28} />
           {userLine ? <p className="pt-2 text-xs text-muted-foreground">{userLine}</p> : null}
@@ -45,20 +56,24 @@ export default function AppNavMenu({ primary, secondary, userLine, footerActions
           {primary.map((item) => {
             const Icon = item.icon;
             return (
-              <Link key={item.to} to={item.to} className={linkClass(isActive(item.to))}>
-                <Icon className="h-4.5 w-4.5 shrink-0" />
-                {item.label}
-              </Link>
+              <SheetClose asChild key={item.to}>
+                <Link to={item.to} className={linkClass(isActive(item.to))}>
+                  <Icon className="h-4.5 w-4.5 shrink-0" />
+                  {item.label}
+                </Link>
+              </SheetClose>
             );
           })}
           <div className="my-2 h-px bg-border/50" />
           {secondary.map((item) => {
             const Icon = item.icon;
             return (
-              <Link key={item.to} to={item.to} className={linkClass(isActive(item.to))}>
-                <Icon className="h-4.5 w-4.5 shrink-0" />
-                {item.label}
-              </Link>
+              <SheetClose asChild key={item.to}>
+                <Link to={item.to} className={linkClass(isActive(item.to))}>
+                  <Icon className="h-4.5 w-4.5 shrink-0" />
+                  {item.label}
+                </Link>
+              </SheetClose>
             );
           })}
         </nav>
