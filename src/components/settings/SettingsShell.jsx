@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { getSettings, saveSettings, applyTheme, DEFAULT_SETTINGS } from "@/services/settings";
 import { PLATFORMS } from "@/services/constants";
 import { Button } from "@/components/ui/button";
+import PageHeader from "@/components/PageHeader";
 
 export function useSettingsOutlet() {
   return useOutletContext();
@@ -44,11 +45,9 @@ function SettingsShellInner() {
 
   return (
     <div className="space-y-4 pb-24 md:pb-8">
-      <div className="sticky top-0 z-20 -mx-4 border-b border-border/50 bg-background/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0">
-        <h1 className="font-heading text-xl font-700 tracking-tight md:text-2xl">Settings</h1>
-        <div className="mt-3 border-t border-border/40 pt-3">
-          <SectionNavMenu basePath="/settings" sections={SETTINGS_SECTIONS} title="Settings" />
-        </div>
+      <div className="glass-bar sticky top-0 z-20 -mx-4 space-y-3 border-b border-border/40 px-4 py-3 md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0">
+        <PageHeader title="Settings" description="Account, defaults, and notifications." className="!animate-none" />
+        <SectionNavMenu basePath="/settings" sections={SETTINGS_SECTIONS} />
       </div>
 
       <Outlet context={outletContext} />

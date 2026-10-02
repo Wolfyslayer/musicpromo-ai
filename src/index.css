@@ -4,82 +4,85 @@
 
 @layer base {
   :root {
-    /* Light: crisp neutrals. Brand purple and pink stay on buttons and highlights. */
     color-scheme: light;
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    --background: 220 20% 97%;
+    --foreground: 224 28% 8%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 224 28% 8%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 265 90% 68%;
+    --popover-foreground: 224 28% 8%;
+    --primary: 265 88% 62%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 326 85% 62%;
+    --secondary: 220 16% 94%;
+    --secondary-foreground: 224 28% 8%;
+    --muted: 220 16% 94%;
+    --muted-foreground: 220 9% 42%;
+    --accent: 326 82% 58%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 265 90% 68%;
-    --chart-1: 265 90% 68%;
-    --chart-2: 326 85% 62%;
+    --border: 220 14% 88%;
+    --input: 220 14% 88%;
+    --ring: 265 88% 62%;
+    --chart-1: 265 88% 62%;
+    --chart-2: 326 82% 58%;
     --chart-3: 190 90% 55%;
     --chart-4: 43 90% 60%;
     --chart-5: 0 80% 62%;
-    --radius: 0.9rem;
-    --font-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-    --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
-    --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    --sidebar-background: 210 40% 98%;
-    --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 265 90% 68%;
+    --radius: 1rem;
+    --font-heading: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --sidebar-background: 220 20% 97%;
+    --sidebar-foreground: 224 28% 8%;
+    --sidebar-primary: 265 88% 62%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 40% 96%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 214 32% 91%;
-    --sidebar-ring: 265 90% 68%;
+    --sidebar-accent: 220 16% 94%;
+    --sidebar-accent-foreground: 224 28% 8%;
+    --sidebar-border: 220 14% 90%;
+    --sidebar-ring: 265 88% 62%;
+    --shadow-soft: 0 1px 2px hsl(224 28% 8% / 0.04), 0 8px 24px -6px hsl(224 28% 8% / 0.08);
+    --shadow-elevated: 0 2px 4px hsl(224 28% 8% / 0.04), 0 16px 40px -12px hsl(224 28% 8% / 0.12);
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
       color-scheme: dark;
-      --background: 250 16% 5%;
+      --background: 240 8% 4%;
       --foreground: 0 0% 98%;
-      --card: 250 12% 8%;
+      --card: 240 6% 8%;
       --card-foreground: 0 0% 98%;
-      --popover: 250 14% 9%;
+      --popover: 240 6% 9%;
       --popover-foreground: 0 0% 98%;
       --primary: 265 90% 68%;
       --primary-foreground: 0 0% 100%;
-      --secondary: 250 10% 13%;
+      --secondary: 240 5% 12%;
       --secondary-foreground: 0 0% 98%;
-      --muted: 250 8% 13%;
-      --muted-foreground: 240 6% 62%;
+      --muted: 240 4% 12%;
+      --muted-foreground: 240 5% 58%;
       --accent: 326 85% 62%;
       --accent-foreground: 0 0% 100%;
       --destructive: 0 72% 56%;
       --destructive-foreground: 0 0% 98%;
-      --border: 250 10% 16%;
-      --input: 250 10% 16%;
+      --border: 240 4% 16%;
+      --input: 240 4% 16%;
       --ring: 265 90% 68%;
       --chart-1: 265 90% 68%;
       --chart-2: 326 85% 62%;
       --chart-3: 190 90% 55%;
       --chart-4: 43 90% 60%;
       --chart-5: 0 80% 62%;
-      --sidebar-background: 250 14% 7%;
-      --sidebar-foreground: 0 0% 90%;
+      --sidebar-background: 240 8% 5%;
+      --sidebar-foreground: 0 0% 92%;
       --sidebar-primary: 265 90% 68%;
       --sidebar-primary-foreground: 0 0% 100%;
-      --sidebar-accent: 250 10% 13%;
+      --sidebar-accent: 240 5% 12%;
       --sidebar-accent-foreground: 0 0% 98%;
-      --sidebar-border: 250 10% 16%;
+      --sidebar-border: 240 4% 14%;
       --sidebar-ring: 265 90% 68%;
+      --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.2), 0 8px 24px -6px hsl(0 0% 0% / 0.45);
+      --shadow-elevated: 0 2px 4px hsl(0 0% 0% / 0.25), 0 20px 48px -12px hsl(0 0% 0% / 0.55);
     }
   }
 }
@@ -91,30 +94,83 @@
 
   html {
     -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 
   body {
     @apply bg-background text-foreground font-body antialiased;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
-    background: hsl(var(--primary) / 0.35);
+    background: hsl(var(--primary) / 0.28);
     color: hsl(var(--foreground));
   }
 }
 
 @layer components {
   .app-gradient {
-    background-image:
-      radial-gradient(120% 80% at 50% -10%, hsl(var(--primary) / 0.18), transparent 60%),
-      radial-gradient(80% 60% at 100% 0%, hsl(var(--accent) / 0.12), transparent 55%);
+    background-color: hsl(var(--background));
+    background-image: radial-gradient(120% 70% at 50% -20%, hsl(var(--primary) / 0.07), transparent 55%);
   }
 
-  .card-gradient {
-    background-image: linear-gradient(160deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%);
+  .card-gradient,
+  .surface {
+    @apply bg-card;
+    box-shadow: var(--shadow-soft);
+    border: 1px solid hsl(var(--border) / 0.65);
   }
 
-  /* Phone tables become stacked cards. data-label supplies the field name. */
+  .surface-elevated {
+    @apply bg-card;
+    box-shadow: var(--shadow-elevated);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+
+  .surface-interactive {
+    @apply bg-card transition duration-200 ease-out;
+    box-shadow: var(--shadow-soft);
+    border: 1px solid hsl(var(--border) / 0.65);
+  }
+
+  .surface-interactive:hover {
+    border-color: hsl(var(--primary) / 0.25);
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .glass-bar {
+    background: hsl(var(--background) / 0.72);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  .segmented {
+    @apply grid gap-0.5 rounded-[0.85rem] bg-muted/80 p-1;
+  }
+
+  .segmented-item {
+    @apply inline-flex min-h-10 items-center justify-center gap-1 rounded-[0.65rem] px-2 text-xs font-semibold transition duration-200 ease-out;
+  }
+
+  .segmented-item[data-active="true"],
+  .segmented-item.active {
+    @apply bg-background text-foreground;
+    box-shadow: 0 1px 3px hsl(var(--foreground) / 0.08);
+  }
+
+  .segmented-item:not(.active):not([data-active="true"]) {
+    @apply text-muted-foreground;
+  }
+
   @media (max-width: 767px) {
     .responsive-cards table,
     .responsive-cards thead,
@@ -134,9 +190,10 @@
     .responsive-cards tr {
       margin-bottom: 0.75rem;
       overflow: hidden;
-      border: 1px solid hsl(var(--border));
-      border-radius: 0.9rem;
+      border: 1px solid hsl(var(--border) / 0.65);
+      border-radius: var(--radius);
       background: hsl(var(--card));
+      box-shadow: var(--shadow-soft);
     }
     .responsive-cards td {
       display: flex;
@@ -164,9 +221,9 @@
   }
 
   .glass {
-    background: hsl(var(--card) / 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: hsl(var(--card) / 0.75);
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
   }
 
   .no-scrollbar::-webkit-scrollbar {
@@ -180,13 +237,13 @@
 
 @layer utilities {
   .animate-fade-in {
-    animation: fadeIn 0.5s ease both;
+    animation: fadeIn 0.45s cubic-bezier(0.25, 0.1, 0.25, 1) both;
   }
   .animate-slide-up {
-    animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: slideUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .animate-scale-in {
-    animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: scaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .animate-float {
     animation: float 6s ease-in-out infinite;
@@ -196,14 +253,24 @@
   }
 
   @keyframes authPulse {
-    0% { box-shadow: inset 0 0 0 0 hsl(var(--primary) / 0); }
-    40% { box-shadow: inset 0 0 0 12px hsl(var(--primary) / 0.38); }
-    100% { box-shadow: inset 0 0 0 20px hsl(var(--primary) / 0); }
+    0% {
+      box-shadow: inset 0 0 0 0 hsl(var(--primary) / 0);
+    }
+    40% {
+      box-shadow: inset 0 0 0 12px hsl(var(--primary) / 0.38);
+    }
+    100% {
+      box-shadow: inset 0 0 0 20px hsl(var(--primary) / 0);
+    }
   }
 
   .animate-shimmer {
-    background: linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(var(--muted) / 0.4) 50%, hsl(var(--muted)) 100%);
+    background: linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(var(--muted) / 0.35) 50%, hsl(var(--muted)) 100%);
     background-size: 200% 100%;
     animation: shimmer 1.6s infinite linear;
+  }
+
+  .pressable {
+    @apply transition duration-200 ease-out active:scale-[0.98];
   }
 }

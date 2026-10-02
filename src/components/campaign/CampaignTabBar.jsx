@@ -17,10 +17,8 @@ import { CAMPAIGN_EXTRA_SECTIONS, CAMPAIGN_PRIMARY_TABS } from "@/lib/campaignNa
 export default function CampaignTabBar({ basePath }) {
   const tabClass = (isActive) =>
     cn(
-      "inline-flex min-h-10 w-full items-center justify-center gap-1 rounded-xl px-1 text-xs font-600 transition sm:text-sm",
-      isActive
-        ? "bg-background text-foreground shadow-sm"
-        : "text-muted-foreground hover:text-foreground"
+      "w-full px-1 sm:text-sm",
+      isActive ? "bg-background text-foreground shadow-[0_1px_3px_hsl(var(--foreground)/0.08)]" : ""
     );
 
   const extraLinkClass = (isActive) =>
@@ -31,12 +29,12 @@ export default function CampaignTabBar({ basePath }) {
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-4 gap-1 rounded-xl bg-muted/50 p-1">
+      <div className="segmented grid grid-cols-4">
         {CAMPAIGN_PRIMARY_TABS.map((item) => {
           const Icon = item.icon;
           const to = `${basePath}/${item.segment}`;
           return (
-            <NavLink key={item.segment} to={to} className={({ isActive }) => tabClass(isActive)} end>
+            <NavLink key={item.segment} to={to} className={({ isActive }) => cn("segmented-item", tabClass(isActive))} end>
               <Icon className="h-4 w-4 shrink-0" />
               <span>{item.shortLabel}</span>
             </NavLink>

@@ -27,8 +27,10 @@ function SideLink({ item, active }) {
     <Link
       to={item.to}
       className={cn(
-        "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-500 transition",
-        active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+        "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition duration-200",
+        active
+          ? "bg-primary/12 font-semibold text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.12)]"
+          : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
       )}
     >
       <Icon className="h-4.5 w-4.5" />
@@ -53,7 +55,7 @@ export default function Layout() {
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground md:flex-row">
-      <aside className="hidden h-full w-60 shrink-0 flex-col border-r border-border/50 bg-sidebar/40 p-4 md:flex">
+      <aside className="hidden h-full w-[15.5rem] shrink-0 flex-col border-r border-border/40 bg-sidebar/80 p-4 md:flex">
         <div className="px-2 py-2">
           <Logo />
         </div>
@@ -66,7 +68,7 @@ export default function Layout() {
             <SideLink key={item.to} item={item} active={isActive(item.to)} />
           ))}
         </nav>
-        <div className="mt-auto rounded-xl border border-border/50 bg-muted/30 p-3">
+        <div className="surface mt-auto rounded-2xl p-3.5">
           <p className="truncate text-sm font-600">{isAuthenticated ? user?.full_name || user?.email || "Artist" : "Guest preview"}</p>
           <p className="truncate text-xs text-muted-foreground">{isAuthenticated ? user?.email : "Sign in to save your work"}</p>
           {isAuthenticated ? (
@@ -88,7 +90,7 @@ export default function Layout() {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border/50 bg-background/90 px-3 backdrop-blur md:hidden">
+        <header className="glass-bar flex h-[3.25rem] shrink-0 items-center justify-between gap-2 border-b border-border/40 px-4 md:hidden">
           <Logo size={32} linkToHome />
           <AppNavMenu
             primary={NAV}
@@ -137,7 +139,7 @@ export default function Layout() {
           {isStudio ? (
             <Outlet />
           ) : (
-            <div className="mx-auto w-full max-w-5xl px-4 py-4 md:px-8 md:py-8">
+            <div className="mx-auto w-full max-w-5xl px-4 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:px-8 md:py-10">
               <Outlet />
             </div>
           )}

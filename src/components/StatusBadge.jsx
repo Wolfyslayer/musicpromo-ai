@@ -2,11 +2,11 @@ import { cn } from "@/lib/utils";
 import { statusMeta } from "@/services/constants";
 
 const COLOR_MAP = {
-  muted: "bg-muted/40 text-muted-foreground border-border",
-  primary: "bg-primary/15 text-primary border-primary/30",
-  "chart-1": "bg-chart-1/15 text-chart-1 border-chart-1/30",
-  "chart-2": "bg-chart-2/15 text-chart-2 border-chart-2/30",
-  "chart-3": "bg-chart-3/15 text-chart-3 border-chart-3/30",
+  muted: "bg-muted/60 text-muted-foreground",
+  primary: "bg-primary/14 text-primary",
+  "chart-1": "bg-chart-1/14 text-chart-1",
+  "chart-2": "bg-chart-2/14 text-chart-2",
+  "chart-3": "bg-chart-3/14 text-chart-3",
 };
 
 export default function StatusBadge({ status, className }) {
@@ -14,7 +14,7 @@ export default function StatusBadge({ status, className }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-500 capitalize",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize tracking-wide",
         COLOR_MAP[meta.color] || COLOR_MAP.muted,
         className
       )}

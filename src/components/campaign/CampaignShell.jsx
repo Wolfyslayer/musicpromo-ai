@@ -36,7 +36,7 @@ function CampaignShellInner() {
 
   return (
     <div className="space-y-4 pb-2 md:space-y-5">
-      <div className="sticky top-0 z-20 -mx-4 border-b border-border/50 bg-background/95 px-4 py-2 backdrop-blur md:static md:mx-0 md:space-y-4 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+      <div className="glass-bar sticky top-0 z-20 -mx-4 border-b border-border/40 px-4 py-2 md:static md:mx-0 md:space-y-4 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
         <div className="flex items-center gap-2 md:hidden">
           <button
             type="button"
