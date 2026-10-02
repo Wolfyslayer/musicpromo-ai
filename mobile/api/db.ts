@@ -17,7 +17,10 @@ export const db = {
     me: () => getCurrentUser(),
     loginViaEmailPassword: (email: string, password: string) => signInWithPassword(email, password),
     register: (payload: { email?: string; password?: string }) =>
-      signUpWithPassword(payload?.email ?? '', payload?.password ?? ''),
+      signUpWithPassword(payload?.email ?? '', payload?.password ?? '') as Promise<{
+        user: unknown;
+        session: { access_token?: string } | null;
+      }>,
     verifyOtp: ({ email, otpCode }: { email: string; otpCode: string }) => verifyEmailOtp(email, otpCode),
     resendOtp: (email: string) => resendSignupOtp(email),
     loginWithProvider: async (provider: string, returnTo?: string) => {

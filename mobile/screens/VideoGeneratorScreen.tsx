@@ -9,8 +9,9 @@ import {
 } from 'react-native';
 import { ResizeMode, Video } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
-import { WebView } from 'react-native-webview';
 import { ArrowLeft } from 'lucide-react-native';
+import LyricsTimelineEditor from '@/components/LyricsTimelineEditor';
+import { RemotionExportWebView } from '@/components/RemotionExportWebView';
 import ArtworkUpload from '@/components/ArtworkUpload';
 import AudioUpload from '@/components/AudioUpload';
 import { ArtworkImage } from '@/components/ArtworkImage';
@@ -101,6 +102,7 @@ export default function VideoGeneratorScreen() {
   const [renderProgress, setRenderProgress] = useState<{ progress: number; message: string } | null>(
     null,
   );
+  const [webExportOpen, setWebExportOpen] = useState(false);
   const [chooseType, setChooseType] = useState(false);
   const [videoTypeChoice, setVideoTypeChoice] = useState<'promo' | 'lyrics'>('promo');
   const [promoSeconds, setPromoSeconds] = useState(15);
@@ -313,10 +315,15 @@ export default function VideoGeneratorScreen() {
       });
 
       if (res?.status === 'needs_web_render') {
-        toast({
-          title: 'Web render required',
-          description: res.message || 'Upload an MP4 or open web Studio.',
-        });
+        const pid = String(working.id || projectId || '');
+        if (pid && process.env.EXPO_PUBLIC_WEB_APP_URL) {
+          setWebExportOpen(true);
+        } else {
+          toast({
+            title: 'Web render required',
+            description: res.message || 'Set EXPO_PUBLIC_WEB_APP_URL or upload an MP4.',
+          });
+        }
       } else if (res?.status === 'ready' && res.downloadUrl) {
         setProject((p) =>
           p
@@ -546,11 +553,15 @@ export default function VideoGeneratorScreen() {
       )}
 
       {editorTab === 'lyrics' && (
-        <Textarea
-          label="Lyrics"
-          value={String(project.lyrics || '')}
-          onChangeText={(v) => set('lyrics', v)}
-          numberOfLines={12}
+        <LyricsTimelineEditor
+          lyrics={String(project.lyrics || '')}
+          cues={(project.lyric_cues as never[]) || []}
+          duration={Number(project.duration) || 15}
+          audioUrl={previewAudioUrl}
+          onRequireAuth={() => requireAuth()}
+          onChange={({ lyric_cues, lyrics }) => {
+            setProject((p) => (p ? { ...p, lyric_cues, lyrics } : p));
+          }}
         />
       )}
 
@@ -571,12 +582,35 @@ export default function VideoGeneratorScreen() {
         </View>
       )}
 
-      {webStudioUrl ? (
-        <View className="mt-4 h-96 overflow-hidden rounded-2xl border border-border">
-          <Text className="bg-muted px-3 py-2 text-xs text-muted-foreground">Full web studio</Text>
-          <WebView source={{ uri: webStudioUrl }} className="flex-1" />
-        </View>
-      ) : null}
+      <RemotionExportWebView
+        visible={webExportOpen}
+        projectId={String(project.id || projectId || '')}
+        onClose={() => setWebExportOpen(false)}
+        onProgress={(info) =>
+          setRenderProgress({
+            progress: info.progress ?? 0,
+            message: info.message || 'Rendering…',
+          })
+        }
+        onComplete={(res) => {
+          if (res.status === 'ready' && res.downloadUrl) {
+            setProject((p) =>
+              p
+                ? {
+                    ...p,
+                    ...(res.project || {}),
+                    render_output_url: res.downloadUrl,
+                    rendering_status: 'complete',
+                  }
+                : p,
+            );
+            toast({ title: 'Video exported', description: 'Remotion render complete.' });
+          } else {
+            toast({ title: 'Export failed', description: res.message });
+          }
+          setRenderProgress(null);
+        }}
+      />
     </ScrollView>
   );
 }

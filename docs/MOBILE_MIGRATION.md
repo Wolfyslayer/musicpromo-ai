@@ -16,9 +16,9 @@ The web app lives in `src/` (Vite + React Router + Tailwind + shadcn/Radix). The
 | Settings (AsyncStorage prefs) | Done |
 | Video Studio (native editor + `expo-av` preview + MP4 upload / optional WebView) | Done |
 | Privacy & Terms | Done |
-| Client Remotion encode (WebCodecs) | **Web only** — mobile uploads MP4 or uses `EXPO_PUBLIC_WEB_APP_URL` studio |
-| On-device lyrics Whisper sync | **Web only** — manual lyrics on mobile |
-| `@xenova/transformers` | **Not on mobile** — AI stays on Edge Functions |
+| Client Remotion encode (WebCodecs) | **WebView bridge** to `/mobile-export-bridge` on `EXPO_PUBLIC_WEB_APP_URL` (same Remotion pipeline as web), or MP4 upload |
+| AI lyrics sync | **Edge Function `transcribeLyrics`** (OpenAI Whisper) — same grouped cues as web |
+| `@xenova/transformers` | Replaced by server Whisper on mobile (no on-device model) |
 
 ## Run
 
@@ -42,10 +42,13 @@ Register OAuth redirect URIs for the native app scheme `musicpromo://` (and Expo
 
 ## Video export on mobile
 
-The Supabase backend stores **client-rendered** MP4 URLs only. On mobile:
+The backend still stores **client-rendered** MP4 URLs. On mobile, **Export MP4**:
 
-1. Edit project in **Studio** tab and save metadata.
-2. **Export** tries Remotion (succeeds on web export builds only); otherwise upload an MP4 or open **Web Studio** when `EXPO_PUBLIC_WEB_APP_URL` is set.
+1. Tries native Remotion (only in web builds).
+2. Automatically opens an in-app **WebView** to `{EXPO_PUBLIC_WEB_APP_URL}/mobile-export-bridge?projectId=…`, which runs the same `videoService.exportVideo` + Remotion path as the browser, then returns the public MP4 URL to the app.
+3. Or **Upload MP4** / use Create Campaign’s render step with the same bridge.
+
+Deploy **`transcribeLyrics`** Edge Function (requires `OPENAI_API_KEY` in Supabase secrets) for AI lyrics sync on device.
 
 ## Web → route map
 

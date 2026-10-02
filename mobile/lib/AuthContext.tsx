@@ -174,13 +174,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [isAuthenticated],
   );
 
-  /** Call after `requireAuth` returned false to open login (e.g. `router.push('/login')`). */
-  const flushPendingAuthAction = useCallback(() => {
-    const fn = pendingActionRef.current;
-    pendingActionRef.current = null;
-    fn?.();
-  }, []);
-
   const value = useMemo(
     () => ({
       user,
