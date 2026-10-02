@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Linking from "expo-linking";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { db } from "@/lib/db";
 import { errorMessage } from "@/lib/format";
@@ -16,13 +17,25 @@ export default function YouTubeCallback() {
     error?: string | string[];
     error_description?: string | string[];
   }>();
+  const linkedUrl = Linking.useURL();
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const oauthError = first(params.error_description) || first(params.error);
-    const code = first(params.code);
-    const state = first(params.state);
-    if (!oauthError && !code && !state) return;
+    const fromLink = linkedUrl ? Linking.parse(linkedUrl) : null;
+    const query = fromLink?.queryParams || {};
+    let searchCode = "";
+    let searchState = "";
+    let searchError = "";
+    if (typeof window !== "undefined" && window.location?.href) {
+      const current = new URL(window.location.href);
+      searchCode = current.searchParams.get("code") || "";
+      searchState = current.searchParams.get("state") || "";
+      searchError = current.searchParams.get("error_description") || current.searchParams.get("error") || "";
+    }
+    const oauthError = first(params.error_description) || first(params.error) || searchError || String(query.error_description || query.error || "");
+    const code = first(params.code) || searchCode || String(query.code || "");
+    const state = first(params.state) || searchState || String(query.state || "");
+    if (!oauthError && !code && !state && !linkedUrl && typeof window === "undefined") return;
     let active = true;
     (async () => {
       try {
@@ -38,7 +51,7 @@ export default function YouTubeCallback() {
     return () => {
       active = false;
     };
-  }, [params.code, params.error, params.error_description, params.state, router]);
+  }, [linkedUrl, params.code, params.error, params.error_description, params.state, router]);
 
   return (
     <View className="flex-1 items-center justify-center gap-3 bg-background px-6">

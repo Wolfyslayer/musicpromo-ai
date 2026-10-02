@@ -48,7 +48,7 @@ export default function Dashboard() {
         <ConfigBanner />
         <View className="gap-2">
           <H1>MusicPromo AI</H1>
-          <Muted>Hands-off promo: scheduled publishing and live analytics. Video rendering stays on the web studio.</Muted>
+          <Muted>Hands-off promo: scheduled publishing, live analytics, and on-device video rendering.</Muted>
           <View className="mt-2">
             <Button label="New Campaign" onPress={() => router.push("/create")} />
           </View>

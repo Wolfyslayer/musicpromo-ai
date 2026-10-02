@@ -1,7 +1,7 @@
 import { Asset } from "expo-asset";
 import { readAsStringAsync } from "expo-file-system/legacy";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { View } from "react-native";
+import { createElement, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Platform, View } from "react-native";
 import WebView, { type WebViewMessageEvent } from "react-native-webview";
 import { profileFromSamples } from "@/lib/assets";
 import { groupWhisperChunks, type LyricCue } from "@/lib/lyrics";
@@ -38,7 +38,16 @@ const BRIDGE = `
 window.__post = function (message) {
   var payload = JSON.stringify(message);
   if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(payload);
+  else if (window.parent) window.parent.postMessage(payload, "*");
 };
+window.addEventListener("message", function (event) {
+  var data = event.data;
+  if (!data || data.type !== "musicpromo-eval" || typeof data.script !== "string") return;
+  try { (0, eval)(data.script); }
+  catch (error) {
+    window.__post({ type: "error", task: "render", message: error && error.message ? error.message : "The device engine failed." });
+  }
+});
 function loadImage(url) {
   return new Promise(function (resolve, reject) {
     var image = new Image();
@@ -145,11 +154,21 @@ window.__musicpromoSync = async function (params) {
     window.__post({ type: "error", task: "sync", message: error && error.message ? error.message : "Lyrics sync failed." });
   }
 };
+window.__post({ type: "ready" });
 true;
 `;
 
+function WebEngineFrame({ html, frameRef }: { html: string; frameRef: React.RefObject<HTMLIFrameElement | null> }) {
+  return createElement("iframe", {
+    ref: frameRef,
+    srcDoc: html,
+    style: { width: 1, height: 1, border: 0, opacity: 0 },
+  });
+}
+
 export function EngineProvider({ children }: { children: React.ReactNode }) {
   const webview = useRef<WebView>(null);
+  const frame = useRef<HTMLIFrameElement | null>(null);
   const pending = useRef<Record<string, Pending>>({});
   const chunks = useRef<string[]>([]);
   const queue = useRef<string[]>([]);
@@ -163,10 +182,26 @@ export function EngineProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       const asset = Asset.fromModule(require("../assets/engine/studio.bundle"));
       await asset.downloadAsync();
-      const uri = asset.localUri || asset.uri;
-      const studio = uri.startsWith("http")
-        ? await fetch(uri).then((response) => response.text())
-        : await readAsStringAsync(uri);
+      const candidates = [asset.uri, asset.localUri].filter((value): value is string => Boolean(value));
+      let studio = "";
+      let lastError: unknown = null;
+      for (const uri of candidates) {
+        try {
+          if (uri.startsWith("http") || uri.startsWith("/") || uri.startsWith("blob:")) {
+            const response = await fetch(uri);
+            if (!response.ok) throw new Error(`Renderer bundle request failed (${response.status}).`);
+            studio = await response.text();
+          } else {
+            studio = await readAsStringAsync(uri);
+          }
+          if (studio.includes("__musicpromoRender")) break;
+          studio = "";
+        } catch (error) {
+          lastError = error;
+          studio = "";
+        }
+      }
+      if (!studio) throw lastError instanceof Error ? lastError : new Error("Could not read the on-device renderer.");
       if (!active) return;
       const safeStudio = studio.replace(/<\/script/gi, "<\\/script");
       setHtml(`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><script>${safeStudio}</script><script>${BRIDGE}</script></body></html>`);
@@ -187,6 +222,14 @@ export function EngineProvider({ children }: { children: React.ReactNode }) {
     else job.resolve(value);
   };
 
+  const runScript = (script: string) => {
+    if (Platform.OS === "web") {
+      frame.current?.contentWindow?.postMessage({ type: "musicpromo-eval", script }, "*");
+      return;
+    }
+    webview.current?.injectJavaScript(script);
+  };
+
   const onMessage = (event: WebViewMessageEvent) => {
     let message: Record<string, any> = {};
     try {
@@ -196,7 +239,7 @@ export function EngineProvider({ children }: { children: React.ReactNode }) {
     }
     if (message.type === "ready") {
       setReady(true);
-      queue.current.splice(0).forEach((script) => webview.current?.injectJavaScript(script));
+      queue.current.splice(0).forEach((script) => runScript(script));
       return;
     }
     if (message.type === "progress") {
@@ -243,7 +286,8 @@ export function EngineProvider({ children }: { children: React.ReactNode }) {
       }
       setProgress(null);
       pending.current[task] = { resolve, reject };
-      if (ready && webview.current) webview.current.injectJavaScript(script);
+      const frameReady = Platform.OS === "web" ? Boolean(frame.current?.contentWindow) : Boolean(webview.current);
+      if (ready && frameReady) runScript(script);
       else queue.current.push(script);
     });
   }, [engineError, ready]);
@@ -266,22 +310,37 @@ export function EngineProvider({ children }: { children: React.ReactNode }) {
     },
   }), [call, engineError, progress, ready]);
 
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const handler = (event: MessageEvent) => {
+      if (typeof event.data !== "string") return;
+      if (frame.current && event.source !== frame.current.contentWindow) return;
+      onMessage({ nativeEvent: { data: event.data } } as WebViewMessageEvent);
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
   return (
     <EngineContext.Provider value={api}>
       {children}
       {html ? (
         <View style={{ height: 1, width: 1, opacity: 0, position: "absolute" }}>
-          <WebView
-            ref={webview}
-            originWhitelist={["*"]}
-            source={{ html, baseUrl: "https://musicpromo.local" }}
-            onMessage={onMessage}
-            javaScriptEnabled
-            domStorageEnabled
-            allowsInlineMediaPlayback
-            mediaPlaybackRequiresUserAction={false}
-            setSupportMultipleWindows={false}
-          />
+          {Platform.OS === "web" ? (
+            <WebEngineFrame html={html} frameRef={frame} />
+          ) : (
+            <WebView
+              ref={webview}
+              originWhitelist={["*"]}
+              source={{ html, baseUrl: "https://musicpromo.local" }}
+              onMessage={onMessage}
+              javaScriptEnabled
+              domStorageEnabled
+              allowsInlineMediaPlayback
+              mediaPlaybackRequiresUserAction={false}
+              setSupportMultipleWindows={false}
+            />
+          )}
         </View>
       ) : null}
     </EngineContext.Provider>
