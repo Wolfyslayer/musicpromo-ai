@@ -24,6 +24,8 @@ import VideoRenderProgress from "@/components/VideoRenderProgress";
 import PromoStylePicker from "@/components/video/PromoStylePicker";
 import { getPromoStylePreset, normalizePromoStyleChoice, suggestPromoStyleFromProfile } from "@/services/promoStylePresets";
 import { linkDraftProjectsToCampaignDays, renderPromoForProject } from "@/services/campaignVideoBridge";
+import PageHeader from "@/components/PageHeader";
+import SurfacePanel from "@/components/SurfacePanel";
 import { useAuth } from "@/lib/AuthContext";
 
 const STEPS = [
@@ -326,10 +328,16 @@ export default function CreateCampaign() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-heading text-2xl font-700 tracking-tight">New Campaign</h1>
-        <button onClick={() => navigate("/campaigns")} className="text-sm text-muted-foreground hover:text-foreground">Cancel</button>
-      </div>
+      <PageHeader
+        eyebrow="Studio"
+        title="New campaign"
+        description="Upload assets, set goals, and generate your day-by-day plan."
+        actions={
+          <Button type="button" variant="ghost" className="rounded-full" onClick={() => navigate("/campaigns")}>
+            Cancel
+          </Button>
+        }
+      />
 
       {/* Stepper */}
       <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -351,7 +359,7 @@ export default function CreateCampaign() {
         })}
       </div>
 
-      <div className="rounded-2xl border border-border/60 card-gradient p-5">
+      <SurfacePanel>
         {generating ? (
           <GeneratingScreen stage={stage} renderProgress={renderProgress} />
         ) : (
@@ -390,7 +398,7 @@ export default function CreateCampaign() {
             </div>
           </>
         )}
-      </div>
+      </SurfacePanel>
     </div>
   );
 }
@@ -630,7 +638,7 @@ function GeneratingScreen({ stage, renderProgress }) {
           <Wand2 className="h-9 w-9 text-white animate-pulse" />
         </div>
       </div>
-      <h3 className="font-heading text-xl font-700">Generating your campaign</h3>
+      <h3 className="font-heading text-xl font-semibold">Generating your campaign</h3>
       <p className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" /> {stage || "Working…"}
       </p>

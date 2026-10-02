@@ -95,7 +95,7 @@ export default function Dashboard() {
           <SectionTitle>Active Campaign</SectionTitle>
           <button
             onClick={() => navigate(`/campaigns/${active.id}/plan`)}
-            className="group block w-full overflow-hidden rounded-3xl border border-border/60 card-gradient text-left transition hover:border-primary/40 animate-slide-up"
+            className="surface-interactive group block w-full overflow-hidden rounded-3xl text-left animate-slide-up"
           >
             <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5">
               <ArtworkImage src={active.song?.artwork_url} alt={active.song?.title} className="h-40 w-40 shrink-0 sm:h-28 sm:w-28" rounded="rounded-2xl" />
@@ -103,7 +103,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <StatusBadge status={active.status} />
                 </div>
-                <h2 className="mt-2 truncate font-heading text-xl font-700">{active.song?.title || "Untitled"}</h2>
+                <h2 className="mt-2 truncate font-heading text-xl font-semibold">{active.song?.title || "Untitled"}</h2>
                 <p className="truncate text-sm text-muted-foreground">{active.artist?.name}</p>
                 <div className="mt-3">
                   <div className="mb-1 flex justify-between text-xs text-muted-foreground">

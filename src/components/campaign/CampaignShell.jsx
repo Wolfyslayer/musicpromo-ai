@@ -52,7 +52,7 @@ function CampaignShellInner() {
             rounded="rounded-lg"
           />
           <div className="min-w-0 flex-1">
-            <p className="truncate font-heading text-sm font-700">{song?.title || "Untitled"}</p>
+            <p className="truncate font-heading text-sm font-semibold">{song?.title || "Untitled"}</p>
             <ProgressBar value={progress} showLabel className="mt-1 h-1.5" />
           </div>
         </div>
@@ -65,7 +65,7 @@ function CampaignShellInner() {
           <ArrowLeft className="h-4 w-4" /> Campaigns
         </button>
 
-        <div className="hidden overflow-hidden rounded-3xl border border-border/60 card-gradient md:block">
+        <div className="hero-card hidden md:block">
           <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
             <ArtworkImage
               src={song?.artwork_url}
@@ -75,7 +75,7 @@ function CampaignShellInner() {
             />
             <div className="min-w-0 flex-1">
               <StatusBadge status={campaign.status} />
-              <h1 className="mt-2 truncate font-heading text-2xl font-700">{song?.title || "Untitled"}</h1>
+              <h1 className="mt-2 truncate font-heading text-2xl font-semibold">{song?.title || "Untitled"}</h1>
               <p className="truncate text-sm text-muted-foreground">
                 {artist?.name} · {fmtRange(campaign)}
               </p>

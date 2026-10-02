@@ -119,7 +119,7 @@ export default function AuthModal() {
     <Dialog open={isLoginModalOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[min(92dvh,760px)] w-[calc(100%-1.25rem)] max-w-md overflow-y-auto rounded-3xl border-border bg-card p-5 text-card-foreground sm:p-6">
         <DialogHeader className="space-y-1 pr-10 text-left">
-          <DialogTitle className="font-heading text-xl font-700 tracking-tight">
+          <DialogTitle className="font-heading text-xl font-semibold tracking-tight">
             {showOtp ? "Verify your email" : "Continue"}
           </DialogTitle>
           <DialogDescription>

@@ -20,7 +20,7 @@ export default function Logo({ size = 28, withWord = true, className, linkToHome
         decoding="async"
       />
       {withWord ? (
-        <div className="font-heading font-700 leading-none tracking-tight">
+        <div className="font-heading font-semibold leading-none tracking-tight">
           <span className="text-foreground">MusicPromo</span>
           <span className="text-gradient"> AI</span>
         </div>

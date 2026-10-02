@@ -153,7 +153,7 @@ function PromotionalMoment({ moment, loading, onRegenerate }) {
             <p className="rounded-full bg-yellow-500/10 px-2.5 py-0.5 text-[10px] font-600 uppercase tracking-wider text-yellow-500/90">Estimated — audio analysis service not connected</p>
           )}
           {moment.startTime && moment.endTime && (
-            <p className="flex items-center gap-2 text-lg font-heading font-700">
+            <p className="flex items-center gap-2 text-lg font-heading font-semibold">
               <Clock className="h-4 w-4 text-primary" />{moment.startTime}–{moment.endTime}
             </p>
           )}

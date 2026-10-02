@@ -126,7 +126,7 @@ export default function CampaignDayContentCard({
         {filter === "all" && <PromoTextCard label="CTA" text={day.cta} />}
         {filter === "all" && day.video_concept && (
           <div className="rounded-xl border border-border/50 bg-muted/30 p-3">
-            <p className="text-[10px] font-700 uppercase tracking-wider text-muted-foreground">Video concept</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Video concept</p>
             <p className="mt-1 text-sm break-words">{day.video_concept}</p>
           </div>
         )}
@@ -134,7 +134,7 @@ export default function CampaignDayContentCard({
 
       {hasVideo && (
         <div className="mt-4">
-          <p className="mb-2 text-[10px] font-700 uppercase tracking-wider text-muted-foreground">Video</p>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Video</p>
           <div className="mx-auto max-w-[200px]">
             <VideoPreview project={{ ...video, lyrics: song?.lyrics }} />
           </div>

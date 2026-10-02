@@ -186,7 +186,7 @@ export function SettingsPreferencesPage() {
 
 function Card({ title, children }) {
   return (
-    <div className="space-y-4 rounded-2xl border border-border/60 card-gradient p-5">
+    <div className="surface space-y-4 rounded-2xl p-5">
       <h2 className="font-heading text-sm font-600 uppercase tracking-wider text-muted-foreground">{title}</h2>
       {children}
     </div>

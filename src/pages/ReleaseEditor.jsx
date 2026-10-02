@@ -15,6 +15,8 @@ import { RELEASE_STATUSES } from "@/services/constants";
 import { todayISO } from "@/services/format";
 import ArtworkUpload from "@/components/ArtworkUpload";
 import { useAuth } from "@/lib/AuthContext";
+import PageHeader from "@/components/PageHeader";
+import SurfacePanel from "@/components/SurfacePanel";
 
 export default function ReleaseEditor() {
   const { id } = useParams();
@@ -116,11 +118,9 @@ export default function ReleaseEditor() {
       >
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
-      <h1 className="font-heading text-2xl font-700 tracking-tight">
-        {isNew ? "New Release" : "Edit Release"}
-      </h1>
+      <PageHeader title={isNew ? "New release" : "Edit release"} eyebrow="Catalog" />
 
-      <div className="space-y-5 rounded-2xl border border-border/60 card-gradient p-5">
+      <SurfacePanel className="space-y-5">
         <div>
           <Label className="text-xs text-muted-foreground">Artwork</Label>
           <div className="mt-2">
@@ -196,7 +196,7 @@ export default function ReleaseEditor() {
           {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
           {busy ? "Saving…" : isNew ? "Create Release" : "Save Release"}
         </Button>
-      </div>
+      </SurfacePanel>
     </div>
   );
 }

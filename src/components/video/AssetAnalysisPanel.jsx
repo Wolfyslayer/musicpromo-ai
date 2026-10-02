@@ -7,7 +7,7 @@ export default function AssetAnalysisPanel({ profile, analyzing, onEnergy }) {
     <section className="rounded-2xl border border-border bg-card p-4 text-card-foreground">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] font-700 uppercase tracking-[0.16em] text-primary">Asset analysis</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Asset analysis</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Cover colors and track energy shape the visual template and the hooks saved with this campaign.
           </p>
@@ -38,7 +38,7 @@ export default function AssetAnalysisPanel({ profile, analyzing, onEnergy }) {
       {profile ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-border/70 bg-background/60 p-3">
-            <p className="text-[10px] font-700 uppercase tracking-wide text-muted-foreground">Artwork</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Artwork</p>
             <div className="mt-2 flex items-center gap-2">
               <span className="h-8 w-8 rounded-lg border border-border" style={{ background: profile.palette }} />
               <div>
@@ -55,14 +55,14 @@ export default function AssetAnalysisPanel({ profile, analyzing, onEnergy }) {
             </div>
           </div>
           <div className="rounded-xl border border-border/70 bg-background/60 p-3">
-            <p className="text-[10px] font-700 uppercase tracking-wide text-muted-foreground">Audio</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Audio</p>
             <p className="mt-2 text-sm font-600">{energyLabel(profile.energy)}</p>
             <p className="text-xs text-muted-foreground">
               {profile.energy === profile.detectedEnergy ? "Read from the track" : "Tagged by you"}
             </p>
           </div>
           <div className="sm:col-span-2">
-            <p className="text-[10px] font-700 uppercase tracking-wide text-muted-foreground">Hooks</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Hooks</p>
             <ul className="mt-2 space-y-1.5">
               {(profile.hooks || []).map((hook) => (
                 <li key={hook} className="rounded-lg bg-muted/50 px-3 py-2 text-sm">{hook}</li>

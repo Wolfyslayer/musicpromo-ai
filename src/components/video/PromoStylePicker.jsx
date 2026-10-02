@@ -26,10 +26,10 @@ export default function PromoStylePicker({ value, onChange, suggestedId, classNa
               <p className="text-sm font-600">
                 {preset.label}
                 {suggestedId === preset.id && !selected ? (
-                  <span className="ml-1.5 text-[10px] font-700 uppercase text-primary">Suggested</span>
+                  <span className="ml-1.5 text-[10px] font-semibold uppercase text-primary">Suggested</span>
                 ) : null}
                 {selected && suggestedId === preset.id ? (
-                  <span className="ml-1.5 text-[10px] font-700 uppercase text-primary">Suggested</span>
+                  <span className="ml-1.5 text-[10px] font-semibold uppercase text-primary">Suggested</span>
                 ) : null}
               </p>
               <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{preset.tagline}</p>
