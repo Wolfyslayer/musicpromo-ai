@@ -166,7 +166,16 @@ export async function publishPost(postId) {
  * @param {{ campaignId: string, dayId?: string, renderImmediately?: boolean }} payload
  */
 export async function scheduleCampaignDay(payload) {
-  return invoke("campaignSchedule", payload || {});
+  const result = await invoke("campaignSchedule", payload || {});
+  if (result?.ok && result?.workerNudged !== false) {
+    invoke("kickCampaignWorker", { skipVideo: true, skipStats: true }).catch(() => {});
+  }
+  return result;
+}
+
+/** Process due scheduled posts now (posts remain queued until scheduled_at). */
+export async function kickCampaignWorker(payload) {
+  return invoke("kickCampaignWorker", payload || {});
 }
 
 /**

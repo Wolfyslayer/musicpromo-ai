@@ -9,8 +9,9 @@ import {
 } from "../_shared/socialPublishCore.ts";
 import { processQueuedVideoRenders } from "../_shared/videoRender.ts";
 import { syncSocialStats } from "../_shared/socialStatsSync.ts";
+import { pickSocialAccountForArtist } from "../_shared/socialAccountScope.ts";
 
-const DEFAULT_BATCH = 8;
+const DEFAULT_BATCH = 12;
 const MAX_BATCH = 20;
 const CONCURRENCY = 2;
 const STALE_PUBLISHING_MS = 45 * 60 * 1000;
@@ -322,9 +323,10 @@ async function handler (req: Request): Promise<Response> {
           (await base44.asServiceRole.entities.SocialAccount.filter(
             { user_id: userId, provider, status: "connected" },
             "-connected_at",
-            5
+            20
           )) || [];
-        const account = accounts[0];
+        const campaignArtistId = campaign?.artist_id ? String(campaign.artist_id) : "";
+        const account = pickSocialAccountForArtist(accounts, provider, campaignArtistId);
         if (!account) continue;
 
         if ((provider === "tiktok" || provider === "youtube") && mediaType !== "REELS") {

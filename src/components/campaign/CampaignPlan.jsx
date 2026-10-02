@@ -168,7 +168,9 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
       }
       toast({
         title: "Auto-publish scheduled",
-        description: `Worker will publish around ${new Date(res.scheduledAt).toLocaleString()}.`,
+        description:
+          res?.message ||
+          `Queued until ${new Date(res.scheduledAt).toLocaleString()}. The worker checks every few minutes.`,
       });
       const refreshed = await loadPosts({ campaignId: campaign.id });
       setPosts(refreshed?.posts || []);
