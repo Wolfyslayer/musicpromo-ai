@@ -20,6 +20,7 @@ export function mapUser(sessionUser) {
     id: sessionUser.id,
     email: sessionUser.email || "",
     full_name: meta.full_name || meta.name || "",
+    avatar_url: meta.avatar_url || meta.picture || "",
     role: "artist",
   };
 }
@@ -37,17 +38,29 @@ export async function getCurrentUser() {
 }
 
 /** Save the auth user onto the public.users profile table. */
-export async function upsertUserProfile(user) {
+export async function upsertUserProfile(user, sessionUser) {
   if (!supabase || !user?.id) return;
-  const { error } = await supabase.from("users").upsert(
-    {
-      id: user.id,
-      email: user.email || "",
-      full_name: user.full_name || "",
-      role: user.role || "artist",
-    },
-    { onConflict: "id" }
-  );
+  const meta = sessionUser?.user_metadata || {};
+  const googleAvatar = String(meta.avatar_url || meta.picture || user.avatar_url || "").trim();
+
+  const { data: existing } = await supabase
+    .from("users")
+    .select("avatar_override, avatar_url")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const payload = {
+    id: user.id,
+    email: user.email || "",
+    full_name: user.full_name || "",
+    role: user.role || "artist",
+  };
+  if (googleAvatar && !existing?.avatar_override) {
+    payload.avatar_url = googleAvatar;
+    payload.avatar_override = false;
+  }
+
+  const { error } = await supabase.from("users").upsert(payload, { onConflict: "id" });
   if (error) console.warn("[supabase] user profile", error.message);
 }
 

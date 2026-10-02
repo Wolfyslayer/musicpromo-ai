@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }) => {
     setAuthError(null);
     if (mapped) {
       window.setTimeout(() => {
-        upsertUserProfile(mapped);
+        upsertUserProfile(mapped, sessionUser);
       }, 0);
     }
     return mapped;

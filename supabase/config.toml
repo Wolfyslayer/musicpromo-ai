@@ -25,3 +25,6 @@ verify_jwt = false
 # Public read proxy for music-promo-assets (CORS for on-device video render).
 [functions.promoMediaProxy]
 verify_jwt = false
+
+[functions.getPublicProfile]
+verify_jwt = false

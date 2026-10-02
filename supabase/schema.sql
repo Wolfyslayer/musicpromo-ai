@@ -5,6 +5,12 @@ create table if not exists public.users (
   id uuid primary key references auth.users (id) on delete cascade,
   email text,
   full_name text,
+  display_name text,
+  avatar_url text,
+  avatar_override boolean not null default false,
+  bio text,
+  profile_public boolean not null default true,
+  hide_artists_on_profile boolean not null default false,
   role text default 'artist',
   created_at timestamptz default now()
 );
@@ -54,6 +60,7 @@ alter table public.social_accounts enable row level security;
 alter table public.analytics_entries enable row level security;
 
 create policy "users read own profile" on public.users for select using (id = auth.uid());
+create policy "users read public profiles" on public.users for select using (profile_public = true or id = auth.uid());
 create policy "users insert own profile" on public.users for insert with check (id = auth.uid());
 create policy "users update own profile" on public.users for update using (id = auth.uid());
 

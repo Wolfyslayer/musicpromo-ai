@@ -8,6 +8,7 @@ import { getGoogleClientId } from "@/lib/googleAuth";
 import { getSessionAccessToken } from "@/lib/app-params";
 import { SOCIAL_PROVIDERS, getSocialProviderConfig } from "@/services/social/providers";
 import { CONNECTION_STATUS, CONNECTION_STATUS_META } from "@/services/social/provider";
+import { connectionForProvider } from "@/services/socialArtistScope";
 
 const OAUTH_PROVIDERS = new Set(["instagram", "tiktok", "youtube"]);
 
@@ -102,7 +103,7 @@ export async function getConnectionStatus() {
  * Start OAuth for a provider. Returns { authorizationUrl } — caller navigates.
  * Pass forceReauth when reconnecting so Instagram re-prompts for new scopes.
  */
-export async function startOAuth(provider, { forceReauth = false } = {}) {
+export async function startOAuth(provider, { forceReauth = false, artistId = "" } = {}) {
   const id = String(
     typeof provider === "object" && provider
       ? provider.id || provider.provider || ""
@@ -127,6 +128,7 @@ export async function startOAuth(provider, { forceReauth = false } = {}) {
   const payload = {
     provider: id,
     forceReauth: Boolean(forceReauth),
+    ...(artistId ? { artistId: String(artistId) } : {}),
   };
   if (id === "youtube") {
     const googleClientId = getGoogleClientId();
@@ -219,6 +221,7 @@ export function normalizeSocialConnection(raw) {
   return {
     id: c.id,
     provider,
+    artistId: c.artistId ?? c.artist_id ?? "",
     status: c.status || "connected",
     accountName: c.accountName ?? c.account_name ?? null,
     username: c.username ?? null,
@@ -230,28 +233,24 @@ export function normalizeSocialConnection(raw) {
   };
 }
 
-export function mergeProvidersWithConnections(connections = [], providersConfigured = {}) {
-  const byProvider = {};
-  for (const c of connections) {
-    const normalized = normalizeSocialConnection(c);
-    if (!normalized.provider) continue;
-    if (!byProvider[normalized.provider]) byProvider[normalized.provider] = normalized;
-  }
+export function mergeProvidersWithConnections(connections = [], providersConfigured = {}, artistId = "") {
+  const aid = String(artistId || "").trim();
 
   return SOCIAL_PROVIDERS.map((cfg) => {
-    const live = byProvider[cfg.id];
+    const live = connectionForProvider(connections, cfg.id, aid);
+    const normalized = live ? normalizeSocialConnection(live) : null;
     const oauthReady = cfg.oauthImplemented === true;
 
-    if (live && live.status === "connected") {
+    if (normalized && normalized.status === "connected") {
       return {
         ...cfg,
         configured: true,
         available: true,
         status: CONNECTION_STATUS.CONNECTED,
         statusMeta: CONNECTION_STATUS_META[CONNECTION_STATUS.CONNECTED],
-        connection: live,
-        canPublish: live.canPublish === true,
-        needsPublishReauth: live.needsPublishReauth === true,
+        connection: normalized,
+        canPublish: normalized.canPublish === true,
+        needsPublishReauth: normalized.needsPublishReauth === true,
       };
     }
 

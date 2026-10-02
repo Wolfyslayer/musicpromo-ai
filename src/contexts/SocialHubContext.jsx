@@ -9,6 +9,8 @@ import {
   POST_STATUS,
 } from "@/services/socialService";
 import { deleteSocialAccount, selectSocialWorkspace } from "@/services/studioRecords";
+import { getSocialArtistId, setSocialArtistId } from "@/services/socialArtistScope";
+import { loadArtists } from "@/services/data";
 import { OAUTH_REDIRECTS } from "@/lib/oauthRedirects";
 import { useAuth, useWorkspaceRefresh } from "@/lib/AuthContext";
 
@@ -49,6 +51,19 @@ export function SocialHubProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [connectingId, setConnectingId] = useState(null);
   const [disconnectingId, setDisconnectingId] = useState(null);
+  const [socialArtistId, setSocialArtistIdState] = useState(() => getSocialArtistId());
+  const [artists, setArtists] = useState([]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    loadArtists().then(setArtists).catch(() => setArtists([]));
+  }, [isAuthenticated]);
+
+  const selectSocialArtist = useCallback((artistId) => {
+    const id = String(artistId || "");
+    setSocialArtistId(id);
+    setSocialArtistIdState(id);
+  }, []);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -65,7 +80,7 @@ export function SocialHubProvider({ children }) {
       } catch {
         /* fall back to client-side social_accounts rows */
       }
-      setProviders(mergeProvidersWithConnections(connections, providersConfigured));
+      setProviders(mergeProvidersWithConnections(connections, providersConfigured, socialArtistId));
       setPosts(savedPosts);
     } catch (e) {
       setProviders(mergeProvidersWithConnections([], {}));
@@ -79,7 +94,7 @@ export function SocialHubProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [toast, isAuthenticated]);
+  }, [toast, isAuthenticated, socialArtistId]);
 
   useEffect(() => {
     reload();
@@ -167,7 +182,7 @@ export function SocialHubProvider({ children }) {
     try {
       const forceReauth =
         provider?.needsPublishReauth === true || provider?.status === "connected";
-      const res = await startOAuth(providerId, { forceReauth });
+      const res = await startOAuth(providerId, { forceReauth, artistId: socialArtistId });
       if (res?.authorizationUrl) {
         window.location.assign(res.authorizationUrl);
         return;
@@ -246,6 +261,9 @@ export function SocialHubProvider({ children }) {
       connectingId,
       disconnectingId,
       reload,
+      artists,
+      socialArtistId,
+      selectSocialArtist,
       onConnect,
       onDisconnect,
       ig,

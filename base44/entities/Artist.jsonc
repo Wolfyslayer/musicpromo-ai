@@ -50,6 +50,12 @@
       "type": "boolean",
       "default": false,
       "title": "Is Demo Data"
+    },
+    "show_on_public_profile": {
+      "type": "boolean",
+      "default": true,
+      "title": "Show on public profile",
+      "description": "When your account profile is public, list this artist for community discovery."
     }
   },
   "required": [

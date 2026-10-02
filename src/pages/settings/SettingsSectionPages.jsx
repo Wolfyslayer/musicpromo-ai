@@ -1,8 +1,21 @@
 import { Share2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { deleteAccount } from "@/services/userProfile";
+import { useToast } from "@/components/ui/use-toast";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,8 +23,28 @@ import { CAMPAIGN_DURATIONS, VIDEO_TEMPLATES_LIST } from "@/services/constants";
 import { useSettingsOutlet } from "@/components/settings/SettingsShell";
 
 export function SettingsAccountPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  const runDelete = async () => {
+    if (confirmText !== "DELETE") return;
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      toast({ title: "Account deleted" });
+      await logout(true);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Deletion failed", description: e.message });
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
+      setConfirmText("");
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -19,6 +52,11 @@ export function SettingsAccountPage() {
         <Row label="Name" value={user?.full_name || "—"} />
         <Row label="Email" value={user?.email || "—"} />
         <Row label="Role" value={user?.role || "—"} />
+        <div className="pt-2">
+          <Button variant="outline" className="rounded-full" asChild>
+            <Link to="/profile">Open profile</Link>
+          </Button>
+        </div>
       </Card>
       <Card title="Social Accounts">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -47,6 +85,48 @@ export function SettingsAccountPage() {
           </a>
         </div>
       </Card>
+
+      <Card title="Delete account">
+        <p className="text-sm text-muted-foreground">
+          Permanently removes your campaigns, media, social connections, and sign-in. This cannot be undone.
+        </p>
+        <Button
+          type="button"
+          variant="destructive"
+          className="mt-3 rounded-full"
+          onClick={() => setDeleteOpen(true)}
+        >
+          Delete my account
+        </Button>
+      </Card>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete account permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Type <strong>DELETE</strong> to confirm. All workspace data and your login will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder="DELETE"
+            className="rounded-xl"
+            autoComplete="off"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={confirmText !== "DELETE" || deleting}
+              onClick={runDelete}
+            >
+              {deleting ? "Deleting…" : "Delete forever"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
