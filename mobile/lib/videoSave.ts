@@ -16,6 +16,10 @@ export async function saveRenderedPromo(input: {
   visualStyle?: string;
   particleEffect?: string;
   lyricCues?: LyricCue[];
+  look?: Record<string, unknown>;
+  videoType?: string;
+  outroCta?: string;
+  audioStartTimeOffset?: number;
   duration: number;
   width: number;
   height: number;
@@ -37,6 +41,10 @@ export async function saveRenderedPromo(input: {
     lyrics: String(input.lyrics || "").slice(0, 2000),
     visual_style: input.visualStyle || "pop",
     particle_effect: input.particleEffect || "none",
+    editor_look: input.look || null,
+    video_type: input.videoType || "promo",
+    outro_cta: input.outroCta || "",
+    audioStartTimeOffset: input.audioStartTimeOffset || 0,
     lyric_cues: input.lyricCues || [],
     duration: input.duration,
     aspect_ratio: "9:16",

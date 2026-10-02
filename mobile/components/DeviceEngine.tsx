@@ -158,28 +158,11 @@ window.__post({ type: "ready" });
 true;
 `;
 
-function WebEngineFrame({ html, frameRef }: { html: string; frameRef: React.RefObject<HTMLIFrameElement | null> }) {
-  return createElement("iframe", {
-    ref: frameRef,
-    srcDoc: html,
-    style: { width: 1, height: 1, border: 0, opacity: 0 },
-  });
-}
+let engineHtml: Promise<string> | null = null;
 
-export function EngineProvider({ children }: { children: React.ReactNode }) {
-  const webview = useRef<WebView>(null);
-  const frame = useRef<HTMLIFrameElement | null>(null);
-  const pending = useRef<Record<string, Pending>>({});
-  const chunks = useRef<string[]>([]);
-  const queue = useRef<string[]>([]);
-  const [ready, setReady] = useState(false);
-  const [engineError, setEngineError] = useState("");
-  const [progress, setProgress] = useState<EngineProgress | null>(null);
-  const [html, setHtml] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
+export function loadEngineHtml() {
+  if (!engineHtml) {
+    engineHtml = (async () => {
       const asset = Asset.fromModule(require("../assets/engine/studio.bundle"));
       await asset.downloadAsync();
       const candidates = [asset.uri, asset.localUri].filter((value): value is string => Boolean(value));
@@ -202,9 +185,41 @@ export function EngineProvider({ children }: { children: React.ReactNode }) {
         }
       }
       if (!studio) throw lastError instanceof Error ? lastError : new Error("Could not read the on-device renderer.");
-      if (!active) return;
       const safeStudio = studio.replace(/<\/script/gi, "<\\/script");
-      setHtml(`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><script>${safeStudio}</script><script>${BRIDGE}</script></body></html>`);
+      return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><script>${safeStudio}</script><script>${BRIDGE}</script></body></html>`;
+    })().catch((error) => {
+      engineHtml = null;
+      throw error;
+    });
+  }
+  return engineHtml;
+}
+
+function WebEngineFrame({ html, frameRef }: { html: string; frameRef: React.RefObject<HTMLIFrameElement | null> }) {
+  return createElement("iframe", {
+    ref: frameRef,
+    srcDoc: html,
+    style: { width: 1, height: 1, border: 0, opacity: 0 },
+  });
+}
+
+export function EngineProvider({ children }: { children: React.ReactNode }) {
+  const webview = useRef<WebView>(null);
+  const frame = useRef<HTMLIFrameElement | null>(null);
+  const pending = useRef<Record<string, Pending>>({});
+  const chunks = useRef<string[]>([]);
+  const queue = useRef<string[]>([]);
+  const [ready, setReady] = useState(false);
+  const [engineError, setEngineError] = useState("");
+  const [progress, setProgress] = useState<EngineProgress | null>(null);
+  const [html, setHtml] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const documentHtml = await loadEngineHtml();
+      if (!active) return;
+      setHtml(documentHtml);
     })().catch((error) => {
       console.warn("[engine]", error);
       if (active) setEngineError(error instanceof Error ? error.message : "The on-device renderer failed to load.");

@@ -33,6 +33,14 @@ export async function loadPost(postId: string) {
   return db.functions.invoke("socialPostList", { postId });
 }
 
+export async function loadPosts(filters: Row = {}) {
+  return db.functions.invoke("socialPostList", filters);
+}
+
+export async function scheduleCampaignDay(payload: { campaignDayId: string }) {
+  return db.functions.invoke("campaignSchedule", payload);
+}
+
 export async function syncSocialStats(socialAccountId?: string) {
   return db.functions.invoke("socialStatsSync", socialAccountId ? { socialAccountId } : {});
 }

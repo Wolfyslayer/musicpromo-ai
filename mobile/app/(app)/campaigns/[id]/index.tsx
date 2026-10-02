@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
+import { CampaignAnalyticsPanel } from "@/components/CampaignAnalyticsPanel";
+import { CampaignPlan } from "@/components/CampaignPlan";
 import { Artwork, Badge, Button, Card, Muted, P, Progress, Screen } from "@/components/ui";
 import { loadCampaign } from "@/lib/data";
 import { campaignProgress, errorMessage, fmtDate } from "@/lib/format";
-import { db } from "@/lib/db";
-import { useToast } from "@/components/Toast";
 import type { Row } from "@/lib/types";
 
 const TABS = ["plan", "content", "videos", "analytics"] as const;
@@ -13,7 +13,6 @@ const TABS = ["plan", "content", "videos", "analytics"] as const;
 export default function CampaignDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { toast } = useToast();
   const [data, setData] = useState<Row | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<(typeof TABS)[number]>("plan");
@@ -47,12 +46,6 @@ export default function CampaignDetail() {
   const { campaign, song, artist, days, analytics, videos, content } = data;
   const progress = campaignProgress(days);
 
-  const markComplete = async (day: Row) => {
-    await db.entities.CampaignDay.update(day.id, { status: day.status === "complete" ? "planned" : "complete" });
-    toast({ title: "Day updated" });
-    reload();
-  };
-
   return (
     <Screen>
       <View className="gap-4">
@@ -80,43 +73,23 @@ export default function CampaignDetail() {
             </Pressable>
           ))}
         </View>
-        {tab === "plan" &&
-          (days || []).map((day: Row) => (
-            <Card key={day.id} className="gap-2">
-              <View className="flex-row items-center justify-between">
-                <P className="font-semibold">
-                  Day {day.day_number} · {day.platform}
-                </P>
-                <Badge status={day.status} />
-              </View>
-              <Muted>
-                {fmtDate(day.date)} · {day.content_type}
-              </Muted>
-              <P>{day.hook || day.caption || day.objective || "No copy yet"}</P>
-              <Button label="Compose" variant="outline" onPress={() => router.push({ pathname: "/social/compose", params: { campaign: String(id), day: day.id } })} />
-              <Button label={day.status === "complete" ? "Mark planned" : "Mark complete"} variant="ghost" onPress={() => markComplete(day)} />
-            </Card>
-          ))}
+        {tab === "plan" ? <CampaignPlan campaign={campaign} song={song} days={days || []} onRefresh={reload} /> : null}
         {tab === "content" &&
           (content || []).map((item: Row) => (
             <Card key={item.id}>
               <P className="font-semibold">{item.content_type || item.type || "Content"}</P>
-              <Muted>{item.caption || item.text || item.body || "Saved content"}</Muted>
+              <Muted>{item.caption || item.text || item.body || item.content || "Saved content"}</Muted>
             </Card>
           ))}
         {tab === "videos" &&
           (videos || []).map((video: Row) => (
-            <Card key={video.id}>
+            <Card key={video.id} className="gap-2">
               <P className="font-semibold">{video.title || "Promo video"}</P>
               <Muted>{video.rendering_status || "saved"}</Muted>
+              <Button label="Open editor" variant="outline" onPress={() => router.push({ pathname: `/campaigns/${id}/video`, params: { project: video.id } })} />
             </Card>
           ))}
-        {tab === "analytics" && (
-          <Card>
-            <Muted>{(analytics || []).length} saved metric rows for this campaign.</Muted>
-          </Card>
-        )}
-        {!days?.length && tab === "plan" ? <Muted>This campaign has no days yet.</Muted> : null}
+        {tab === "analytics" ? <CampaignAnalyticsPanel campaign={campaign} analytics={analytics || []} days={days || []} onRefresh={reload} /> : null}
       </View>
     </Screen>
   );

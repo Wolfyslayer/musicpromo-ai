@@ -23,7 +23,7 @@ Google sign-in and password reset use the app scheme `musicpromo`. Add these red
 
 Auth, dashboard, campaigns, artists, releases, social connect/compose, settings, analytics, the YouTube OAuth callback, and the public privacy and terms pages. Guests stay on the current screen and sign in from the same login sheet the website uses.
 
-Studio rendering, artwork analysis, and lyrics sync run on the device. They use the same free Remotion WebCodecs renderer and the free `Xenova/whisper-tiny` model as the website. No paid render API is involved. The renderer is prebuilt at `assets/engine/studio.bundle` from `engine/entry.js`. Rebuild it from the repository root after renderer changes:
+The studio includes the website’s video-type choice, live 9:16 preview, look and particle controls, lyric cue editing, project save, and on-device export. Artwork analysis and lyrics sync use the same free Remotion WebCodecs renderer and the free `Xenova/whisper-tiny` model. Campaign days can be edited, regenerated, and scheduled for auto-publish. Campaign analytics can be entered by hand and reviewed with the same AI write-up. No paid render API is involved. The renderer is prebuilt at `assets/engine/studio.bundle` from `engine/entry.js`. Rebuild it from the repository root after renderer changes:
 
 ```bash
 npx esbuild mobile/engine/entry.js --bundle --format=iife --platform=browser --target=es2022 --jsx=automatic --outfile=mobile/assets/engine/studio.bundle --define:process.env.NODE_ENV=\"production\"
