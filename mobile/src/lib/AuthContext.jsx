@@ -25,12 +25,14 @@ function emitWorkspaceRefresh() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [authChecked, setAuthChecked] = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(isSupabaseConfigured);
+  const [authChecked, setAuthChecked] = useState(!isSupabaseConfigured);
   const [recoveryMode, setRecoveryMode] = useState(false);
   const pendingActionRef = useRef(null);
   const isAuthenticatedRef = useRef(false);
-  isAuthenticatedRef.current = isAuthenticated;
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
 
   const applySessionUser = useCallback((sessionUser) => {
     const mapped = mapUser(sessionUser);
@@ -59,11 +61,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) {
-      setIsLoadingAuth(false);
-      setAuthChecked(true);
-      return undefined;
-    }
+    if (!isSupabaseConfigured || !supabase) return undefined;
 
     supabase.auth
       .getSession()

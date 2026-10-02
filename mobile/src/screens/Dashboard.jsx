@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { Pressable, View } from "react-native";
 import { router } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, BarChart3, CalendarDays, Disc3, Film, PlayCircle, Plus, Sparkles, Users } from "lucide-react-native";
 import { loadCampaigns } from "@/services/data";
 import { selectCampaignVideos } from "@/services/studioRecords";
@@ -15,46 +16,27 @@ import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
 import CampaignCard from "@/components/CampaignCard";
 
+async function loadDashboard() {
+  const campaigns = await loadCampaigns();
+  const active = campaigns.find((c) => ["active", "scheduled", "preparing"].includes(c.status));
+  if (!active?.id) return { campaigns, readyVideos: [] };
+  const videos = await selectCampaignVideos(active.id).catch(() => []);
+  const readyVideos = (videos || []).filter(
+    (v) => v.rendering_status === "complete" && v.render_output_url && /^https:\/\//i.test(v.render_output_url)
+  );
+  return { campaigns, readyVideos };
+}
+
 export default function Dashboard() {
-  const { isAuthenticated, requireAuth } = useAuth();
-  const [data, setData] = useState(null);
-  const [readyVideos, setReadyVideos] = useState([]);
-  const [error, setError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
-
-  const reload = useCallback(async () => {
-    setError("");
-    try {
-      const campaigns = await loadCampaigns();
-      setData(campaigns);
-      const active = campaigns.find((c) => ["active", "scheduled", "preparing"].includes(c.status));
-      if (!active?.id) {
-        setReadyVideos([]);
-        return;
-      }
-      const videos = await selectCampaignVideos(active.id).catch(() => []);
-      setReadyVideos(
-        (videos || []).filter(
-          (v) => v.rendering_status === "complete" && v.render_output_url && /^https:\/\//i.test(v.render_output_url)
-        )
-      );
-    } catch (e) {
-      setData([]);
-      setReadyVideos([]);
-      setError(isAuthenticated ? e.message || "Could not load campaigns." : "");
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  const { user, isAuthenticated, requireAuth } = useAuth();
+  const query = useQuery({ queryKey: ["dashboard", user?.id], queryFn: loadDashboard });
+  const { refetch } = query;
+  const reload = useCallback(() => refetch(), [refetch]);
   useWorkspaceRefresh(reload);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await reload();
-    setRefreshing(false);
-  };
+  const data = query.data?.campaigns ?? (query.isError ? [] : null);
+  const readyVideos = query.data?.readyVideos || [];
+  const error = query.isError && isAuthenticated ? query.error?.message || "Could not load campaigns." : "";
 
   const campaigns = data || [];
   const active = campaigns.find((c) => ["active", "scheduled", "preparing"].includes(c.status));
@@ -71,7 +53,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <Screen refreshing={refreshing} onRefresh={onRefresh} contentClassName="gap-8">
+    <Screen refreshing={query.isRefetching} onRefresh={reload} contentClassName="gap-8">
       {!isAuthenticated ? (
         <View className="flex-row items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3">
           <Text className="flex-1 text-xs">Preview mode. Look around, then sign in to upload, export, or connect.</Text>
