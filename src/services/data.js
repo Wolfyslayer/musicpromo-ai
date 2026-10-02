@@ -1,4 +1,5 @@
 import { db } from '@/api/base44Client';
+import { normalizeArtistRow } from "@/services/artistSocial";
 
 /**
  * Data-access helpers. Pages keep importing these joins. The `db` client
@@ -16,7 +17,8 @@ function notDemo(rows) {
 }
 
 export async function loadArtists() {
-  return notDemo(await db.entities.Artist.list("-created_date", L));
+  const rows = notDemo(await db.entities.Artist.list("-created_date", L));
+  return rows.map(normalizeArtistRow);
 }
 
 export async function loadSongs() {

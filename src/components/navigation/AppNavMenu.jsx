@@ -12,7 +12,14 @@ import {
 } from "@/components/ui/sheet";
 import Logo from "@/components/Logo";
 
-export default function AppNavMenu({ primary, secondary, userLine, footerActions }) {
+export default function AppNavMenu({
+  primary,
+  secondary,
+  userLine,
+  profileLink,
+  onGuestProfileClick,
+  footerActions,
+}) {
   const location = useLocation();
   const [open, setOpen] = useState(false);
 
@@ -49,8 +56,37 @@ export default function AppNavMenu({ primary, secondary, userLine, footerActions
         className="flex w-[min(100%,20rem)] flex-col border-border/60 p-0 shadow-[var(--shadow-elevated)]"
       >
         <SheetHeader className="border-b border-border/60 px-5 py-4 text-left">
+          {profileLink ? (
+            <SheetClose asChild>
+              <Link
+                to={profileLink.to}
+                className="mb-3 block rounded-xl px-1 py-1 transition hover:bg-muted/50"
+              >
+                <span className="block truncate font-heading text-base font-semibold text-foreground">
+                  {profileLink.label || userLine}
+                </span>
+                <span className="text-xs text-primary">{profileLink.hint || "Open profile"}</span>
+              </Link>
+            </SheetClose>
+          ) : null}
           <Logo size={28} />
-          {userLine ? <p className="pt-2 text-xs text-muted-foreground">{userLine}</p> : null}
+          {!profileLink && userLine ? (
+            onGuestProfileClick ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onGuestProfileClick();
+                }}
+                className="mt-3 block w-full rounded-xl px-1 py-1 text-left transition hover:bg-muted/50"
+              >
+                <span className="block truncate text-sm font-600 text-foreground">{userLine}</span>
+                <span className="text-xs text-primary">Sign in to open profile</span>
+              </button>
+            ) : (
+              <p className="pt-2 text-xs text-muted-foreground">{userLine}</p>
+            )
+          ) : null}
         </SheetHeader>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
           {primary.map((item) => {

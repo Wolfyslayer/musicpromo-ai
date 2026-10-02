@@ -1,5 +1,18 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, ListMusic, Plus, BarChart3, Settings, LogOut, LogIn, Users, Disc3, Share2, Film } from "lucide-react";
+import {
+  LayoutDashboard,
+  ListMusic,
+  Plus,
+  BarChart3,
+  Settings,
+  LogOut,
+  LogIn,
+  Users,
+  Disc3,
+  Share2,
+  Film,
+  Globe2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
@@ -17,6 +30,7 @@ const NAV = [
 ];
 
 const SECONDARY = [
+  { to: "/community", label: "Community", icon: Globe2 },
   { to: "/artists", label: "Artists", icon: Users },
   { to: "/releases", label: "Releases", icon: Disc3 },
   { to: "/social", label: "Social", icon: Share2 },
@@ -107,6 +121,16 @@ export default function Layout() {
                 ? user?.full_name || user?.email || "Signed in"
                 : "Guest preview — sign in to save"
             }
+            profileLink={
+              isAuthenticated
+                ? {
+                    to: "/profile",
+                    label: user?.full_name || user?.email?.split("@")[0] || "Your profile",
+                    hint: "View profile",
+                  }
+                : null
+            }
+            onGuestProfileClick={!isAuthenticated ? () => requireAuth(() => navigate("/profile")) : undefined}
             footerActions={
               isAuthenticated ? (
                 <button

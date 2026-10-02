@@ -10,6 +10,7 @@ import {
 } from "@/services/socialService";
 import { deleteSocialAccount, selectSocialWorkspace } from "@/services/studioRecords";
 import { getSocialArtistId, setSocialArtistId } from "@/services/socialArtistScope";
+import { assignLegacySocialToArtistIfNeeded } from "@/services/artistSocial";
 import { loadArtists } from "@/services/data";
 import { OAUTH_REDIRECTS } from "@/lib/oauthRedirects";
 import { useAuth, useWorkspaceRefresh } from "@/lib/AuthContext";
@@ -54,16 +55,23 @@ export function SocialHubProvider({ children }) {
   const [socialArtistId, setSocialArtistIdState] = useState(() => getSocialArtistId());
   const [artists, setArtists] = useState([]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    loadArtists().then(setArtists).catch(() => setArtists([]));
-  }, [isAuthenticated]);
-
   const selectSocialArtist = useCallback((artistId) => {
     const id = String(artistId || "");
     setSocialArtistId(id);
     setSocialArtistIdState(id);
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    loadArtists()
+      .then((list) => {
+        setArtists(list);
+        if (list.length && !getSocialArtistId()) {
+          selectSocialArtist(list[0].id);
+        }
+      })
+      .catch(() => setArtists([]));
+  }, [isAuthenticated, selectSocialArtist]);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -100,6 +108,15 @@ export function SocialHubProvider({ children }) {
     reload();
   }, [reload]);
   useWorkspaceRefresh(reload);
+
+  useEffect(() => {
+    if (!isAuthenticated || artists.length !== 1) return;
+    const artistId = artists[0]?.id;
+    if (!artistId) return;
+    assignLegacySocialToArtistIfNeeded(artistId).then(({ updated }) => {
+      if (updated > 0) reload();
+    });
+  }, [isAuthenticated, artists, reload]);
 
   useEffect(() => {
     const err = params.get("social_error") || params.get("error");
