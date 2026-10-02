@@ -6,7 +6,7 @@ Expo SDK 57 + Expo Router + NativeWind, sharing Supabase with the Vite web app i
 
 ```bash
 npm install
-cp .env.example .env
+cp env.example .env
 # EXPO_PUBLIC_SUPABASE_URL=
 # EXPO_PUBLIC_SUPABASE_ANON_KEY=
 npm start

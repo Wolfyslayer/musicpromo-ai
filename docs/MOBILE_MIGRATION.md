@@ -18,7 +18,7 @@ The web app lives in `src/` (Vite + React Router + Tailwind + shadcn/Radix). The
 
 ```bash
 cd mobile
-cp .env.example .env   # set EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_ANON_KEY
+cp env.example .env   # set EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_ANON_KEY
 npm start
 ```
 
