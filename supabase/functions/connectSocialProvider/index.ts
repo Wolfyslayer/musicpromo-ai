@@ -316,13 +316,17 @@ async function handler (req: Request): Promise<Response> {
         forceConsent: forceReauth,
       });
     } else if (provider === "facebook") {
-      const clientId = secretValue("META_CLIENT_ID", "FACEBOOK_CLIENT_ID");
-      const clientSecret = secretValue("META_CLIENT_SECRET", "FACEBOOK_CLIENT_SECRET");
+      const clientId = secretValue("FACEBOOK_CLIENT_ID");
+      const clientSecret = secretValue("FACEBOOK_CLIENT_SECRET");
       if (!clientId || !clientSecret) {
         return Response.json(
           {
-            error: "Facebook Pages are not configured (META_CLIENT_ID / META_CLIENT_SECRET).",
+            error: "Facebook Pages are not configured (FACEBOOK_CLIENT_ID / FACEBOOK_CLIENT_SECRET).",
             code: "not_configured",
+            missing: {
+              FACEBOOK_CLIENT_ID: !hasSecret("FACEBOOK_CLIENT_ID"),
+              FACEBOOK_CLIENT_SECRET: !hasSecret("FACEBOOK_CLIENT_SECRET"),
+            },
           },
           { status: 503 }
         );

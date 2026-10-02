@@ -449,8 +449,8 @@ async function handleFacebookConnect(params: {
   home: string | null;
   encryptionKey: string;
 }): Promise<Response> {
-  const clientId = secrets.get("META_CLIENT_ID") || secrets.get("FACEBOOK_CLIENT_ID");
-  const clientSecret = secrets.get("META_CLIENT_SECRET") || secrets.get("FACEBOOK_CLIENT_SECRET");
+  const clientId = secrets.get("FACEBOOK_CLIENT_ID");
+  const clientSecret = secrets.get("FACEBOOK_CLIENT_SECRET");
   if (!clientId || !clientSecret) {
     return debugFailureResponse({
       home: params.home,
@@ -458,7 +458,7 @@ async function handleFacebookConnect(params: {
       errorType: "NOT_CONFIGURED",
       socialErrorCode: "not_configured",
       provider: "facebook",
-      err: new Error("Missing META_CLIENT_ID / META_CLIENT_SECRET for Facebook Pages"),
+      err: new Error("Missing FACEBOOK_CLIENT_ID / FACEBOOK_CLIENT_SECRET"),
     });
   }
 

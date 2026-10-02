@@ -170,7 +170,7 @@ async function handler (req: Request): Promise<Response> {
             )
         ),
         facebook: Boolean(
-          sharedReady && hasSecret("META_CLIENT_ID", "FACEBOOK_CLIENT_ID") && hasSecret("META_CLIENT_SECRET", "FACEBOOK_CLIENT_SECRET")
+          sharedReady && hasSecret("FACEBOOK_CLIENT_ID") && hasSecret("FACEBOOK_CLIENT_SECRET")
         ),
         x: Boolean(
           sharedReady &&

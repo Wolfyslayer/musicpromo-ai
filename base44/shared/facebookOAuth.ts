@@ -1,6 +1,6 @@
 /**
  * Facebook Login → Page access for community links and future Page publishing.
- * Uses the same Meta app credentials as Instagram (META_CLIENT_ID / META_CLIENT_SECRET).
+ * Uses a dedicated Meta app: FACEBOOK_CLIENT_ID / FACEBOOK_CLIENT_SECRET (not Instagram META_*).
  */
 
 import { META_OAUTH_REDIRECT_URI } from "./oauthRedirects.ts";

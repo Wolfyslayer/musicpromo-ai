@@ -24,7 +24,7 @@ const SECRET_HINTS = {
   instagram: "Add META_CLIENT_ID and META_CLIENT_SECRET in Base44 secrets.",
   tiktok: "Add TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET in Base44 secrets.",
   youtube: "Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Base44 secrets.",
-  facebook: "Uses your Meta app: META_CLIENT_ID and META_CLIENT_SECRET (enable Facebook Login + Pages).",
+  facebook: "Add FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET (separate Meta app from Instagram).",
   x: "Add X_CLIENT_ID and X_CLIENT_SECRET from the X developer portal (OAuth 2.0).",
 };
 

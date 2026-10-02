@@ -165,9 +165,7 @@ export default async function (req: Request): Promise<Response> {
             hasSecret("GOOGLE_CLIENT_SECRET", "YOUTUBE_CLIENT_SECRET")
         ),
         facebook: Boolean(
-          sharedReady &&
-            hasSecret("META_CLIENT_ID", "FACEBOOK_CLIENT_ID") &&
-            hasSecret("META_CLIENT_SECRET", "FACEBOOK_CLIENT_SECRET")
+          sharedReady && hasSecret("FACEBOOK_CLIENT_ID") && hasSecret("FACEBOOK_CLIENT_SECRET")
         ),
         x: Boolean(
           sharedReady &&
