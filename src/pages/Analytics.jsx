@@ -316,7 +316,7 @@ export default function Analytics() {
                 return (
                   <button
                     key={c.id}
-                    onClick={() => navigate(`/campaigns/${c.id}?tab=analytics`)}
+                    onClick={() => navigate(`/campaigns/${c.id}/analytics`)}
                     className="flex w-full items-center justify-between rounded-xl border border-border/50 bg-card/40 p-3 text-left transition hover:border-primary/40"
                   >
                     <div className="min-w-0">

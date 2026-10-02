@@ -16,8 +16,15 @@ import Layout from '@/components/Layout';
 import Dashboard from '@/pages/Dashboard';
 import Campaigns from '@/pages/Campaigns';
 import CreateCampaign from '@/pages/CreateCampaign';
-import CampaignDetail from '@/pages/CampaignDetail';
 import CampaignContent from '@/pages/CampaignContent';
+import CampaignShell, { CampaignIndexRedirect } from '@/components/campaign/CampaignShell';
+import {
+  CampaignPlanPage,
+  CampaignLibraryPage,
+  CampaignVideosPage,
+  CampaignAnalyticsPage,
+  CampaignSongPage,
+} from '@/pages/campaign/CampaignSectionPages';
 import VideoGenerator from '@/pages/VideoGenerator';
 import Analytics from '@/pages/Analytics';
 import Artists from '@/pages/Artists';
@@ -27,9 +34,19 @@ import ReleaseDetail from '@/pages/ReleaseDetail';
 import ReleaseEditor from '@/pages/ReleaseEditor';
 import ReleaseCalendar from '@/pages/ReleaseCalendar';
 import ReleaseContent from '@/pages/ReleaseContent';
-import SocialHub from '@/pages/SocialHub';
+import SocialShell, { SocialIndexRedirect } from '@/components/social/SocialShell';
+import {
+  SocialConnectPage,
+  SocialQueuePage,
+  SocialActivityPage,
+} from '@/pages/social/SocialSectionPages';
+import SettingsShell, { SettingsIndexRedirect } from '@/components/settings/SettingsShell';
+import {
+  SettingsAccountPage,
+  SettingsStudioPage,
+  SettingsPreferencesPage,
+} from '@/pages/settings/SettingsSectionPages';
 import SocialCompose from '@/pages/SocialCompose';
-import Settings from '@/pages/Settings';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfService from '@/pages/TermsOfService';
 import GoogleAuthCallback from '@/pages/GoogleAuthCallback';
@@ -83,12 +100,24 @@ const AuthenticatedApp = () => {
           <Route path="/campaigns" element={<Campaigns />} />
           <Route path="/create" element={<CreateCampaign />} />
           <Route path="/studio" element={<VideoGenerator />} />
-          <Route path="/campaigns/:id/content" element={<CampaignContent />} />
-          <Route path="/campaigns/:id" element={<CampaignDetail />} />
           <Route path="/campaigns/:id/video" element={<VideoGenerator />} />
+          <Route path="/campaigns/:id" element={<CampaignShell />}>
+            <Route index element={<CampaignIndexRedirect />} />
+            <Route path="plan" element={<CampaignPlanPage />} />
+            <Route path="library" element={<CampaignLibraryPage />} />
+            <Route path="content" element={<CampaignContent />} />
+            <Route path="videos" element={<CampaignVideosPage />} />
+            <Route path="analytics" element={<CampaignAnalyticsPage />} />
+            <Route path="song" element={<CampaignSongPage />} />
+          </Route>
           <Route path="/analytics" element={<Analytics />} />
-          <Route path="/social" element={<SocialHub />} />
           <Route path="/social/compose" element={<SocialCompose />} />
+          <Route path="/social" element={<SocialShell />}>
+            <Route index element={<SocialIndexRedirect />} />
+            <Route path="connect" element={<SocialConnectPage />} />
+            <Route path="queue" element={<SocialQueuePage />} />
+            <Route path="activity" element={<SocialActivityPage />} />
+          </Route>
           <Route path="/artists" element={<Artists />} />
           <Route path="/artists/:id" element={<ArtistEditor />} />
           <Route path="/releases" element={<Releases />} />
@@ -97,7 +126,12 @@ const AuthenticatedApp = () => {
           <Route path="/releases/:id/calendar" element={<ReleaseCalendar />} />
           <Route path="/releases/:id/content" element={<ReleaseContent />} />
           <Route path="/releases/:id" element={<ReleaseDetail />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/settings" element={<SettingsShell />}>
+            <Route index element={<SettingsIndexRedirect />} />
+            <Route path="account" element={<SettingsAccountPage />} />
+            <Route path="studio" element={<SettingsStudioPage />} />
+            <Route path="preferences" element={<SettingsPreferencesPage />} />
+          </Route>
         </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />

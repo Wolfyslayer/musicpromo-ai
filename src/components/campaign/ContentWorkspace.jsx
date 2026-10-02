@@ -84,11 +84,11 @@ export default function ContentWorkspace({
                 Create Content
               </Button>
             ) : (
-              <Button className="rounded-full" onClick={() => navigate(`/campaigns/${campaign.id}?tab=content`)}>
+              <Button className="rounded-full" onClick={() => navigate(`/campaigns/${campaign.id}/library`)}>
                 Create Content
               </Button>
             )}
-            <Button variant="outline" className="rounded-full" onClick={() => navigate(`/campaigns/${campaign.id}?tab=plan`)}>
+            <Button variant="outline" className="rounded-full" onClick={() => navigate(`/campaigns/${campaign.id}/plan`)}>
               Open Campaign Plan
             </Button>
           </div>
@@ -200,7 +200,7 @@ export default function ContentWorkspace({
                 size="sm"
                 variant="outline"
                 className="rounded-full"
-                onClick={() => navigate(`/campaigns/${campaign.id}?tab=content`)}
+                onClick={() => navigate(`/campaigns/${campaign.id}/library`)}
               >
                 <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Generate more
               </Button>
