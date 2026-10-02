@@ -294,7 +294,6 @@ export default function Profile() {
   }
 
   if (isOwn && !editing) {
-    const publicPath = profile?.profile_public !== false ? profilePublicPath(profile || user) : null;
     return (
       <div className="space-y-6">
         <PageHeader
@@ -328,19 +327,11 @@ export default function Profile() {
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">Add a short bio in edit mode.</p>
               )}
-              {publicPath ? (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Public link:{" "}
-                  <Link to={publicPath} className="text-primary hover:underline">
-                    {window.location.origin}
-                    {publicPath}
-                  </Link>
-                </p>
-              ) : (
+              {profile?.profile_public === false ? (
                 <p className="mt-3 flex items-center justify-center gap-1 text-xs text-muted-foreground sm:justify-start">
                   <Lock className="h-3.5 w-3.5" /> Profile is private — only you can see this page.
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
           {ownVisibleArtists.length ? <ArtistCards artists={ownVisibleArtists} /> : null}
@@ -391,19 +382,11 @@ export default function Profile() {
                 Use Google photo
               </Button>
             ) : null}
-            {form.profile_public && profile ? (
-              <p className="text-xs text-muted-foreground">
-                Public link:{" "}
-                <Link to={profilePublicPath({ ...profile, handle: form.handle || profile.handle })} className="text-primary hover:underline">
-                  {window.location.origin}
-                  {profilePublicPath({ ...profile, handle: form.handle || profile.handle })}
-                </Link>
-              </p>
-            ) : (
+            {form.profile_public === false ? (
               <p className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Lock className="h-3.5 w-3.5" /> Profile is private — only you can see this page.
               </p>
-            )}
+            ) : null}
           </div>
         </div>
 
