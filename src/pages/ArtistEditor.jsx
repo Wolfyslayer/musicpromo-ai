@@ -40,6 +40,7 @@ const FIELDS = [
   { key: "tiktok_url", label: "TikTok URL" },
   { key: "instagram_url", label: "Instagram URL" },
   { key: "facebook_url", label: "Facebook URL" },
+  { key: "twitter_url", label: "X (Twitter) URL" },
 ];
 
 export default function ArtistEditor() {
@@ -60,6 +61,7 @@ export default function ArtistEditor() {
     tiktok_url: "",
     instagram_url: "",
     facebook_url: "",
+    twitter_url: "",
     show_on_public_profile: true,
     profile_image_from_provider: "",
   });
@@ -312,7 +314,7 @@ export default function ArtistEditor() {
           <div className="rounded-2xl border border-border/60 bg-muted/15 p-4">
             <p className="text-sm font-600">Social publishing</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Connect TikTok, Instagram, and YouTube for this artist. Links and profile photos can sync from these accounts.
+              Connect TikTok, Instagram, YouTube, Facebook Page, and X for this artist. Links and profile photos can sync from these accounts.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button

@@ -2,6 +2,8 @@ const URL_FIELDS: Record<string, string> = {
   instagram: "instagram_url",
   tiktok: "tiktok_url",
   youtube: "youtube_url",
+  facebook: "facebook_url",
+  x: "twitter_url",
 };
 
 export function publicProfileUrlForProvider(provider: string, username: string): string {
@@ -16,6 +18,8 @@ export function publicProfileUrlForProvider(provider: string, username: string):
     if (u.startsWith("UC") && u.length > 20) return `https://www.youtube.com/channel/${u}`;
     return `https://www.youtube.com/@${u}`;
   }
+  if (p === "facebook") return `https://www.facebook.com/${u}`;
+  if (p === "x" || p === "twitter") return `https://x.com/${u.replace(/^@+/, "")}`;
   return "";
 }
 

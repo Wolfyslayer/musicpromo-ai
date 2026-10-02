@@ -4,6 +4,8 @@ const URL_FIELDS = {
   instagram: "instagram_url",
   tiktok: "tiktok_url",
   youtube: "youtube_url",
+  facebook: "facebook_url",
+  x: "twitter_url",
 };
 
 /** Build a public profile URL from OAuth username / handle when the artist has no manual URL. */
@@ -21,6 +23,11 @@ export function publicProfileUrlForProvider(provider, username) {
     if (u.startsWith("UC") && u.length > 20) return `https://www.youtube.com/channel/${u}`;
     return `https://www.youtube.com/@${u}`;
   }
+  if (p === "facebook") {
+    if (/^\d+$/.test(u)) return `https://www.facebook.com/${u}`;
+    return `https://www.facebook.com/${u}`;
+  }
+  if (p === "x" || p === "twitter") return `https://x.com/${u}`;
   return "";
 }
 
@@ -61,7 +68,13 @@ export function connectionsForArtist(rawConnections, artistId) {
 
 /** Connected OAuth accounts that expose a profile photo for this artist. */
 export function connectionAvatarOptions(rawConnections, artistId) {
-  const labels = { instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube" };
+  const labels = {
+    instagram: "Instagram",
+    tiktok: "TikTok",
+    youtube: "YouTube",
+    facebook: "Facebook",
+    x: "X",
+  };
   return connectionsForArtist(rawConnections, artistId)
     .map((c) => ({
       provider: c.provider,
@@ -107,6 +120,7 @@ export const ARTIST_SOCIAL_URL_KEYS = [
   "tiktok_url",
   "instagram_url",
   "facebook_url",
+  "twitter_url",
 ];
 
 export function pickArtistSocialUrlPatch(form) {

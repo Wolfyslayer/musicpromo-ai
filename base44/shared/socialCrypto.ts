@@ -181,5 +181,17 @@ export async function decryptCredential(payload: string, secret: string): Promis
 /** Cryptographically random URL-safe state token. */
 export function generateOAuthState(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return bytesToBase64Url(bytes);
+}
+
+function bytesToBase64Url(bytes: Uint8Array): string {
   return bytesToBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+/** OAuth 2.0 PKCE pair for X (Twitter) and similar providers. */
+export async function generatePkcePair(): Promise<{ verifier: string; challenge: string }> {
+  const verifier = generateOAuthState();
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(verifier));
+  const challenge = bytesToBase64Url(new Uint8Array(digest));
+  return { verifier, challenge };
 }

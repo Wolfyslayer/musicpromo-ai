@@ -4,18 +4,28 @@ import { useToast } from "@/components/ui/use-toast";
 import StatusBadge from "@/components/StatusBadge";
 import { CONNECTION_STATUS } from "@/services/socialService";
 
+function XBrandIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
 const ICONS = {
   Instagram,
   Music2,
   Youtube,
   Facebook,
+  XBrand: XBrandIcon,
 };
 
 const SECRET_HINTS = {
   instagram: "Add META_CLIENT_ID and META_CLIENT_SECRET in Base44 secrets.",
   tiktok: "Add TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET in Base44 secrets.",
   youtube: "Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Base44 secrets.",
-  facebook: "Facebook Page connect is not available yet.",
+  facebook: "Add FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET (separate Meta app from Instagram).",
+  x: "Add X_CLIENT_ID and X_CLIENT_SECRET from the X developer portal (OAuth 2.0).",
 };
 
 /**
@@ -37,7 +47,6 @@ export default function SocialPlatformCard({
   const accountName =
     provider.connection?.accountName || provider.connection?.account_name || "";
   const oauthReady = provider.oauthImplemented === true;
-  // Only Facebook (oauth not implemented) is truly unavailable for Connect.
   const unavailable = !connected && !oauthReady;
 
   const handleConnect = async () => {
