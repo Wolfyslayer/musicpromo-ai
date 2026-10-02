@@ -59,8 +59,8 @@ export const db = {
         let message = error.message || "Function failed";
         if (/failed to send a request to the edge function/i.test(message)) {
           const hint =
-            "Deploy Supabase Edge Functions for this project (e.g. supabase functions deploy analyzeSong generateCampaign) " +
-            "and confirm VITE_SUPABASE_URL matches the same project.";
+            "Redeploy Edge Functions (especially connectSocialProvider for Instagram/TikTok/YouTube connect) " +
+            "and confirm VITE_SUPABASE_URL matches your Supabase project.";
           message = `${message} ${hint}`;
         }
         try {
