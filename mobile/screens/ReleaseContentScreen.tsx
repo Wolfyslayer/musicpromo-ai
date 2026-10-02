@@ -111,6 +111,7 @@ export default function ReleaseContentScreen() {
               days={active.days as never[]}
               content={active.content as never[]}
               videos={active.videos as never[]}
+              focusDayId={null}
               onRefresh={() =>
                 loadReleaseContent(String(id)).then((result) => {
                   setData(result as Record<string, unknown>);

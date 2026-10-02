@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { queryClient } from '@/lib/query-client';
+import { ToastProvider } from '@/lib/toast';
 import { LoadingScreen } from '@/components/LoadingScreen';
 
 export { ErrorBoundary } from 'expo-router';
@@ -44,7 +45,9 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <NavigationTree />
+        <ToastProvider>
+          <NavigationTree />
+        </ToastProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

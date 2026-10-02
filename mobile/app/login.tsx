@@ -1,10 +1,11 @@
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { LogIn } from 'lucide-react-native';
 import { AuthLayout } from '@/components/AuthLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { db } from '@/api/db';
 import { useAuth } from '@/lib/AuthContext';
 
 export default function LoginScreen() {
@@ -31,11 +32,18 @@ export default function LoginScreen() {
     }
   };
 
-  const onGoogle = () => {
-    Alert.alert(
-      'Google sign-in',
-      'Mobile Google OAuth needs your approval before we wire expo-auth-session to your existing googleAuthExchange flow.',
-    );
+  const onGoogle = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await db.auth.loginWithProvider('google', destination);
+      router.replace(destination as '/');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Google sign-in failed';
+      if (!/cancel/i.test(msg)) setError(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

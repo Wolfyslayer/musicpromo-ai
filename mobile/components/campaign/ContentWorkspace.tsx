@@ -1,7 +1,6 @@
 // @ts-nocheck
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, Pressable, ScrollView, Linking, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from "react";
 import { useRouter } from 'expo-router';
 import { Sparkles, Film, ImageIcon } from 'lucide-react-native';
 import { Button } from '@/components/ui/Button';

@@ -138,7 +138,7 @@ export default function ReleaseEditorScreen() {
 
         <View>
           <Label>Release Date</Label>
-          <Input value={form.release_date} onChangeText={(v) => set('release_date', v)} placeholder="YYYY-MM-DD" />
+          <Input value={form.release_date ?? ''} onChangeText={(v) => set('release_date', v)} placeholder="YYYY-MM-DD" />
         </View>
 
         <View>

@@ -43,12 +43,28 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 const CONNECTABLE = new Set(['instagram', 'tiktok', 'youtube']);
 
+type SocialProvider = {
+  id: string;
+  name: string;
+  status?: string;
+  needsPublishReauth?: boolean;
+  connection?: { id?: string };
+  icon?: string;
+  color?: string;
+  description?: string;
+  oauthImplemented?: boolean;
+  configured?: boolean;
+  canPublish?: boolean;
+};
+
 export default function SocialHubScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<Record<string, string>>();
   const { toast } = useToast();
   const { requireAuth, isAuthenticated } = useAuth();
-  const [providers, setProviders] = useState(() => mergeProvidersWithConnections([], {}));
+  const [providers, setProviders] = useState<SocialProvider[]>(() =>
+    mergeProvidersWithConnections([], {}) as SocialProvider[],
+  );
   const [posts, setPosts] = useState<Array<Record<string, unknown>>>([]);
   const [loading, setLoading] = useState(true);
   const [connectingId, setConnectingId] = useState<string | null>(null);
@@ -58,10 +74,10 @@ export default function SocialHubScreen() {
     setLoading(true);
     try {
       const { connections, posts: savedPosts } = await selectSocialWorkspace();
-      setProviders(mergeProvidersWithConnections(connections, {}));
+      setProviders(mergeProvidersWithConnections(connections, {}) as SocialProvider[]);
       setPosts(savedPosts as Array<Record<string, unknown>>);
     } catch (e) {
-      setProviders(mergeProvidersWithConnections([], {}));
+      setProviders(mergeProvidersWithConnections([], {}) as SocialProvider[]);
       if (isAuthenticated) {
         toast({
           title: 'Could not load social connections',
@@ -150,12 +166,13 @@ export default function SocialHubScreen() {
     requireAuth(() => beginConnect(providerIdOrObj));
   };
 
-  const onDisconnect = async (provider: { id: string; name?: string; connection?: { id?: string } }) => {
-    if (!CONNECTABLE.has(provider.id)) return;
-    setDisconnectingId(provider.id);
+  const onDisconnect = async (provider: unknown) => {
+    const p = provider as SocialProvider;
+    if (!CONNECTABLE.has(p.id)) return;
+    setDisconnectingId(p.id);
     try {
-      if (provider.connection?.id) await deleteSocialAccount(provider.connection.id);
-      toast({ title: 'Disconnected', description: `${provider.name} has been disconnected.` });
+      if (p.connection?.id) await deleteSocialAccount(p.connection.id);
+      toast({ title: 'Disconnected', description: `${p.name} has been disconnected.` });
       await reload();
     } catch (e) {
       toast({

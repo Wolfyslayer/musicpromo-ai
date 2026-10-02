@@ -64,9 +64,11 @@ function collectItems(node: React.ReactNode): Item[] {
   React.Children.forEach(node, (child) => {
     if (!React.isValidElement(child)) return;
     if (child.type === SelectContent) {
-      React.Children.forEach(child.props.children, (c) => {
+      const content = child.props as { children?: React.ReactNode };
+      React.Children.forEach(content.children, (c) => {
         if (React.isValidElement(c) && c.type === SelectItem) {
-          items.push({ value: String(c.props.value), label: String(c.props.children) });
+          const props = c.props as { value: string; children: React.ReactNode };
+          items.push({ value: String(props.value), label: String(props.children) });
         }
       });
     }

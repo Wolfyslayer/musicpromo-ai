@@ -1,4 +1,4 @@
-import { Facebook, Instagram, Loader2, Music2, Youtube } from 'lucide-react-native';
+import { Loader2, Music2, Share2, Video } from 'lucide-react-native';
 import { Image, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -6,10 +6,10 @@ import { useToast } from '@/lib/toast';
 import { CONNECTION_STATUS } from '@/services/socialService';
 
 const ICONS: Record<string, typeof Music2> = {
-  Instagram,
+  Instagram: Share2,
   Music2,
-  Youtube,
-  Facebook,
+  Youtube: Video,
+  Facebook: Share2,
 };
 
 const SECRET_HINTS: Record<string, string> = {

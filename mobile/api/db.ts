@@ -20,8 +20,10 @@ export const db = {
       signUpWithPassword(payload?.email ?? '', payload?.password ?? ''),
     verifyOtp: ({ email, otpCode }: { email: string; otpCode: string }) => verifyEmailOtp(email, otpCode),
     resendOtp: (email: string) => resendSignupOtp(email),
-    loginWithProvider: (_provider: string) => {
-      throw new Error('Google sign-in on mobile requires approval — see docs/MOBILE_MIGRATION.md');
+    loginWithProvider: async (provider: string, returnTo?: string) => {
+      if (provider !== 'google') throw new Error('Only Google sign-in is connected.');
+      const { startGoogleSignIn } = await import('@/lib/googleAuth');
+      return startGoogleSignIn(returnTo || '/');
     },
     resetPasswordRequest: (email: string) => requestPasswordReset(email),
     resetPassword: ({ newPassword }: { newPassword: string }) => updatePassword(newPassword),
