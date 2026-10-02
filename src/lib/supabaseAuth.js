@@ -84,17 +84,17 @@ export async function signOut() {
   if (error) raise(error);
 }
 
-export async function signInWithGoogle() {
-  const client = requireClient();
-  const { error } = await client.auth.signInWithOAuth({
-    provider: "google",
-    options: { redirectTo: `${window.location.origin}/` },
-  });
-  if (error) raise(error);
+export async function signInWithGoogle(returnTo = "/") {
+  requireClient();
+  const { startGoogleSignIn } = await import("@/lib/googleAuth");
+  await startGoogleSignIn(returnTo);
 }
 
 /** Turn the Supabase return URL into a stored session. */
 export async function completeOAuthReturn() {
+  if (typeof window !== "undefined" && window.location.pathname.endsWith("/auth/google/callback")) {
+    return null;
+  }
   const client = requireClient();
   const url = new URL(window.location.href);
   const hash = new URLSearchParams(url.hash.startsWith("#") ? url.hash.slice(1) : "");

@@ -48,14 +48,11 @@ export const db = {
       }
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
-      if (!accessToken) {
-        throw new Error("Sign in to run this action.");
-      }
 
-      const invokeOptions = {
-        body: payload || {},
-        headers: { Authorization: `Bearer ${accessToken}` },
-      };
+      const invokeOptions = { body: payload || {} };
+      if (accessToken) {
+        invokeOptions.headers = { Authorization: `Bearer ${accessToken}` };
+      }
 
       const { data, error } = await supabase.functions.invoke(name, invokeOptions);
       if (error) {

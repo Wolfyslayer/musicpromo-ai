@@ -32,18 +32,21 @@ import SocialCompose from '@/pages/SocialCompose';
 import Settings from '@/pages/Settings';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfService from '@/pages/TermsOfService';
+import GoogleAuthCallback from '@/pages/GoogleAuthCallback';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
   const { pathname } = useLocation();
   const isPublicLegal = pathname === "/privacy" || pathname === "/terms";
+  const isGoogleCallback = pathname === "/auth/google/callback";
 
   // Legal URLs must render without waiting on auth (TikTok / Google / Meta review crawlers).
-  if (isPublicLegal) {
+  if (isPublicLegal || isGoogleCallback) {
     return (
       <Routes>
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
       </Routes>
     );
   }
