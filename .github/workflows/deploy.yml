@@ -40,6 +40,8 @@ jobs:
               - 'components.json'
               - 'package.json'
               - 'package-lock.json'
+              # Deploy workflow changes base path / Pages steps — must rebuild the site.
+              - '.github/workflows/deploy.yml'
 
   deploy-supabase:
     name: Supabase (Edge Functions)
