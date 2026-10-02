@@ -9,6 +9,7 @@ import EmptyState from "@/components/EmptyState";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
 import { loadCommunityMembers } from "@/services/communityService";
+import { profilePublicPath, formatHandleLabel } from "@/services/profileHandle";
 import { fetchOwnProfile } from "@/services/userProfile";
 
 function MemberAvatar({ url, name }) {
@@ -71,7 +72,7 @@ export default function Community() {
     const q = query.trim().toLowerCase();
     if (!q) return members;
     return members.filter((m) => {
-      const blob = `${m.displayName} ${m.bio || ""} ${(m.artists || []).map((a) => a.name).join(" ")}`.toLowerCase();
+      const blob = `${m.displayName} ${m.handle || ""} ${m.bio || ""} ${(m.artists || []).map((a) => a.name).join(" ")}`.toLowerCase();
       return blob.includes(q);
     });
   }, [members, query]);
@@ -90,7 +91,7 @@ export default function Community() {
             Your profile is private. Turn on a public profile so others can discover you in Community.
           </p>
           <Button className="shrink-0 rounded-full" asChild>
-            <Link to="/profile">Open profile settings</Link>
+            <Link to="/profile">Open your profile</Link>
           </Button>
         </SurfacePanel>
       ) : null}
@@ -134,12 +135,15 @@ export default function Community() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h2 className="font-heading truncate text-base font-semibold">{member.displayName}</h2>
+                      {member.handle ? (
+                        <p className="truncate text-xs text-muted-foreground">{formatHandleLabel(member.handle)}</p>
+                      ) : null}
                       {member.isSelf ? (
                         <span className="text-xs font-medium text-primary">You</span>
                       ) : null}
                     </div>
                     <Button variant="ghost" size="sm" className="shrink-0 rounded-full" asChild>
-                      <Link to={member.isSelf ? "/profile" : `/profile/${member.id}`}>View</Link>
+                      <Link to={member.isSelf ? "/profile" : profilePublicPath(member)}>View</Link>
                     </Button>
                   </div>
                   {member.bio ? (

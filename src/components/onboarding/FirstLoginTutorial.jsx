@@ -6,6 +6,7 @@ import {
   Link2,
   ListMusic,
   Sparkles,
+  UserCircle,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,13 @@ const STEPS = [
     title: "Welcome to MusicPromo AI",
     body: "This app turns your release into a day-by-day promo plan — hooks, captions, platform picks, and short-form videos — then helps you schedule posts.",
     icon: Sparkles,
+  },
+  {
+    id: "profile",
+    title: "Claim your @handle",
+    body: "Tap your name in the menu to open your profile. Use the edit (pen) button to set a unique @handle, photo, and bio so other artists can find you in Community.",
+    icon: UserCircle,
+    cta: { label: "Open your profile", to: "/profile" },
   },
   {
     id: "social",

@@ -6,34 +6,44 @@ function unpackArtist(row: Record<string, unknown>) {
   return { ...data, id: row.id };
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /**
- * Public profile card for future community discovery (no secrets).
- * Body or query: userId
+ * Public profile card for community discovery (no secrets).
+ * Body or query: userId — UUID or lowercase handle.
  */
 async function handler(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url);
-    let userId = url.searchParams.get("userId") || "";
+    let profileKey = url.searchParams.get("userId") || "";
     if (req.method === "POST") {
       const body = await req.json().catch(() => ({}));
-      if (body?.userId) userId = String(body.userId);
+      if (body?.userId) profileKey = String(body.userId);
     }
-    userId = String(userId || "").trim();
-    if (!userId) {
+    profileKey = String(profileKey || "").trim();
+    if (!profileKey) {
       return Response.json({ error: "userId is required." }, { status: 400 });
     }
 
     const admin = serviceClient();
-    const { data: userRow, error: userErr } = await admin
+    let userQuery = admin
       .from("users")
       .select(
-        "id, display_name, full_name, avatar_url, bio, profile_public, hide_artists_on_profile"
-      )
-      .eq("id", userId)
-      .maybeSingle();
+        "id, display_name, full_name, handle, avatar_url, bio, profile_public, hide_artists_on_profile"
+      );
+
+    if (UUID_RE.test(profileKey)) {
+      userQuery = userQuery.eq("id", profileKey);
+    } else {
+      userQuery = userQuery.eq("handle", profileKey.toLowerCase());
+    }
+
+    const { data: userRow, error: userErr } = await userQuery.maybeSingle();
+    const userId = userRow?.id ? String(userRow.id) : "";
 
     if (userErr) throw new Error(userErr.message);
-    if (!userRow || userRow.profile_public !== true) {
+    if (!userRow || !userId || userRow.profile_public !== true) {
       return Response.json({ ok: false, code: "PRIVATE" }, { status: 404 });
     }
 
@@ -88,6 +98,7 @@ async function handler(req: Request): Promise<Response> {
       ok: true,
       profile: {
         id: userRow.id,
+        handle: userRow.handle || null,
         displayName,
         avatarUrl: userRow.avatar_url || null,
         bio: userRow.bio || null,
