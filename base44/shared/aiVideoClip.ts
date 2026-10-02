@@ -3,7 +3,7 @@
  * Pixel generation requires fal.ai or Replicate — Groq cannot render video.
  *
  * Secrets (Supabase Edge Functions):
- * - AI_VIDEO_PROVIDER: fal | replicate | off  (auto: fal if FAL_KEY, else replicate if token, else off)
+ * - AI_VIDEO_PROVIDER: fal | replicate | off (default off — must be set to fal/replicate to enable paid clips)
  * - FAL_KEY — fal.ai (recommended; default model fal-ai/wan-i2v @ 480p ≈ $0.20/clip)
  * - FAL_VIDEO_MODEL — optional, default fal-ai/wan-i2v
  * - REPLICATE_API_TOKEN + REPLICATE_VIDEO_MODEL (default wavespeedai/wan-2.1-i2v-480p)
@@ -19,20 +19,20 @@ const DEFAULT_REPLICATE_MODEL = "wavespeedai/wan-2.1-i2v-480p";
 export type AiVideoProvider = "fal" | "replicate" | "off";
 
 export function resolveAiVideoProvider(): AiVideoProvider {
-  const forced = (Deno.env.get("AI_VIDEO_PROVIDER") || "").trim().toLowerCase();
-  if (forced === "off" || forced === "none" || forced === "false") return "off";
-  if (forced === "fal" && (Deno.env.get("FAL_KEY") || "").trim()) return "fal";
-  if (forced === "replicate" && (Deno.env.get("REPLICATE_API_TOKEN") || "").trim()) {
+  const mode = (Deno.env.get("AI_VIDEO_PROVIDER") || "").trim().toLowerCase();
+  if (!mode || mode === "off" || mode === "none" || mode === "false" || mode === "0") {
+    return "off";
+  }
+  if (mode === "fal" && (Deno.env.get("FAL_KEY") || "").trim()) return "fal";
+  if (mode === "replicate" && (Deno.env.get("REPLICATE_API_TOKEN") || "").trim()) {
     return "replicate";
   }
-  if ((Deno.env.get("FAL_KEY") || "").trim()) return "fal";
-  if ((Deno.env.get("REPLICATE_API_TOKEN") || "").trim()) return "replicate";
   return "off";
 }
 
 export function aiVideoProviderStatus() {
   const provider = resolveAiVideoProvider();
-  const paidEnabled = provider !== "off";
+  const paidEnabled = provider === "fal" || provider === "replicate";
   return {
     provider,
     configured: paidEnabled,
