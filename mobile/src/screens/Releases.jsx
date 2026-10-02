@@ -15,14 +15,14 @@ import ArtworkImage from "@/components/ArtworkImage";
 import StatusBadge from "@/components/StatusBadge";
 
 export default function Releases() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const query = useQuery({ queryKey: ["releases", user?.id], queryFn: loadReleases });
   const { refetch } = query;
   const reload = useCallback(() => refetch(), [refetch]);
   useWorkspaceRefresh(reload);
 
   const releases = query.data ?? (query.isError ? [] : null);
-  const error = query.isError ? query.error?.message || "Failed to load releases" : "";
+  const error = query.isError && isAuthenticated ? query.error?.message || "Failed to load releases" : "";
 
   return (
     <Screen refreshing={query.isRefetching} onRefresh={reload}>
