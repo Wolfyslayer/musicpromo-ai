@@ -21,3 +21,7 @@ verify_jwt = false
 # Google login code exchange (pre-session; redirect URI is the app domain).
 [functions.googleAuthExchange]
 verify_jwt = false
+
+# Public read proxy for music-promo-assets (CORS for on-device video render).
+[functions.promoMediaProxy]
+verify_jwt = false

@@ -84,7 +84,7 @@ supabase functions deploy --project-ref YOUR_REF
 | Routes 404 on refresh (GitHub Pages) | Workflow copies `index.html` → `404.html`; ensure Pages source is **GitHub Actions** |
 | Blank page, gray/white screen | **Wrong `VITE_BASE_PATH`.** For `musicpromoai.site` use **`/`** only — never the domain (`/MusicPromoAi.site/`). Delete the bad variable or set `VITE_BASE_PATH` = `/`, then re-run **Deploy**. View page source: script `src` should be `/assets/...`, not `/yourdomain/...`. |
 | “Connection is not secure” | Site opened over **http://** or HTTPS not ready. In **Pages**, wait for DNS check → enable **Enforce HTTPS** → use **https://** |
-| Video render: **tainted VideoFrame** / CORS | On-device encode needs untainted artwork. The app uses local upload files when possible; otherwise enable **Storage CORS** for `musicpromoai.site` on bucket `music-promo-assets` (Supabase → Storage → bucket → Configuration), or re-render from a device that still has the original file. |
+| Video render: **tainted VideoFrame** / CORS | Deploy **`promoMediaProxy`** + frontend, or configure Storage CORS — see **[docs/STORAGE_CORS.md](./STORAGE_CORS.md)**. Local upload files during create also avoid CORS for that session. |
 
 ## Other frontend hosts
 
