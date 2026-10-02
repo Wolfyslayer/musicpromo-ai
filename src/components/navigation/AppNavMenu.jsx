@@ -12,7 +12,14 @@ import {
 } from "@/components/ui/sheet";
 import Logo from "@/components/Logo";
 
-export default function AppNavMenu({ primary, secondary, userLine, footerActions }) {
+export default function AppNavMenu({
+  primary,
+  secondary,
+  userLine,
+  profileLink,
+  onGuestProfileClick,
+  footerActions,
+}) {
   const location = useLocation();
   const [open, setOpen] = useState(false);
 
@@ -50,7 +57,33 @@ export default function AppNavMenu({ primary, secondary, userLine, footerActions
       >
         <SheetHeader className="border-b border-border/60 px-5 py-4 text-left">
           <Logo size={28} />
-          {userLine ? <p className="pt-2 text-xs text-muted-foreground">{userLine}</p> : null}
+          {userLine ? (
+            profileLink ? (
+              <SheetClose asChild>
+                <Link
+                  to={profileLink.to}
+                  className="mt-3 block rounded-xl px-1 py-1 transition hover:bg-muted/50"
+                >
+                  <span className="block truncate text-sm font-600 text-foreground">{profileLink.label}</span>
+                  <span className="text-xs text-muted-foreground">{profileLink.hint || "View profile"}</span>
+                </Link>
+              </SheetClose>
+            ) : onGuestProfileClick ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onGuestProfileClick();
+                }}
+                className="mt-3 block w-full rounded-xl px-1 py-1 text-left transition hover:bg-muted/50"
+              >
+                <span className="block truncate text-sm font-600 text-foreground">{userLine}</span>
+                <span className="text-xs text-primary">Sign in to open profile</span>
+              </button>
+            ) : (
+              <p className="pt-2 text-xs text-muted-foreground">{userLine}</p>
+            )
+          ) : null}
         </SheetHeader>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
           {primary.map((item) => {
