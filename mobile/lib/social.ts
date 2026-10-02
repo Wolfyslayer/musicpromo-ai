@@ -9,8 +9,12 @@ export const SOCIAL_PROVIDERS = [
   { id: "facebook", name: "Facebook", description: "Pages are not connected in the mobile app yet.", color: "#1877f2", oauth: false },
 ];
 
-export async function startOAuth(provider: string) {
-  return db.functions.invoke("connectSocialProvider", { provider, forceReauth: false });
+export async function startOAuth(provider: string, options?: { forceReauth?: boolean }) {
+  return db.functions.invoke("connectSocialProvider", { provider, forceReauth: Boolean(options?.forceReauth) });
+}
+
+export async function getConnectionStatus() {
+  return db.functions.invoke("socialConnectionStatus", {});
 }
 
 export async function publishPost(postId: string) {
@@ -19,6 +23,22 @@ export async function publishPost(postId: string) {
 
 export async function createPost(payload: Row) {
   return db.functions.invoke("socialPostCreate", payload);
+}
+
+export async function updatePost(payload: Row) {
+  return db.functions.invoke("socialPostUpdate", payload);
+}
+
+export async function loadPost(postId: string) {
+  return db.functions.invoke("socialPostList", { postId });
+}
+
+export async function syncSocialStats(socialAccountId?: string) {
+  return db.functions.invoke("socialStatsSync", socialAccountId ? { socialAccountId } : {});
+}
+
+export async function triggerCampaignAutoVideo(payload: { campaignId: string; videoUrl: string }) {
+  return db.functions.invoke("campaignAutoVideo", payload);
 }
 
 function unpack(row: Row) {

@@ -8,7 +8,9 @@ import * as WebBrowser from "expo-web-browser";
 import { useFonts, Inter_400Regular, Inter_600SemiBold } from "@expo-google-fonts/inter";
 import { SpaceGrotesk_700Bold } from "@expo-google-fonts/space-grotesk";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { AuthModal } from "@/components/AuthModal";
 import { AuthProvider } from "@/components/AuthProvider";
+import { EngineProvider } from "@/components/DeviceEngine";
 import { ToastProvider } from "@/components/Toast";
 import "../global.css";
 
@@ -42,17 +44,21 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <ToastProvider>
-          <StatusBar style="auto" />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "transparent" } }}>
-            <Stack.Screen name="(app)" />
-            <Stack.Screen name="login" />
-            <Stack.Screen name="register" />
-            <Stack.Screen name="forgot-password" />
-            <Stack.Screen name="reset-password" />
-            <Stack.Screen name="privacy" />
-            <Stack.Screen name="terms" />
-            <Stack.Screen name="auth/google/callback" />
-          </Stack>
+          <EngineProvider>
+            <StatusBar style="auto" />
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "transparent" } }}>
+              <Stack.Screen name="(app)" />
+              <Stack.Screen name="login" />
+              <Stack.Screen name="register" />
+              <Stack.Screen name="forgot-password" />
+              <Stack.Screen name="reset-password" />
+              <Stack.Screen name="privacy" />
+              <Stack.Screen name="terms" />
+              <Stack.Screen name="auth/google/callback" />
+              <Stack.Screen name="auth/youtube/callback" />
+            </Stack>
+            <AuthModal />
+          </EngineProvider>
         </ToastProvider>
       </AuthProvider>
     </SafeAreaProvider>

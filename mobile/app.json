@@ -35,7 +35,8 @@
         {
           "photosPermission": "MusicPromo uses photos you pick for campaign artwork."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": false

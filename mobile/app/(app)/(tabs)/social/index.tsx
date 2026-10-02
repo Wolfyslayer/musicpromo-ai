@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import * as WebBrowser from "expo-web-browser";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { View } from "react-native";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/Toast";
@@ -12,6 +12,7 @@ import type { Row } from "@/lib/types";
 
 export default function SocialHub() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ social_connected?: string; social_error?: string }>();
   const { toast } = useToast();
   const { isAuthenticated, requireAuth, refreshKey } = useAuth();
   const [providers, setProviders] = useState<ReturnType<typeof mergeProviders>>([]);
@@ -35,6 +36,11 @@ export default function SocialHub() {
   useEffect(() => {
     reload();
   }, [reload, refreshKey]);
+
+  useEffect(() => {
+    if (params.social_connected) toast({ title: `${params.social_connected} connected` });
+    if (params.social_error) toast({ title: "Connection failed", description: String(params.social_error), variant: "destructive" });
+  }, [params.social_connected, params.social_error, toast]);
 
   const connect = async (id: string) => {
     if (!requireAuth()) return;

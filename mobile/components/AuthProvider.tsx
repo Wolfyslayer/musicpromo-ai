@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import { mapUser, signOut, type AppUser } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
@@ -8,7 +8,9 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   isLoadingAuth: boolean;
   refreshKey: number;
-  requireAuth: () => boolean;
+  loginOpen: boolean;
+  closeLogin: () => void;
+  requireAuth: (action?: () => void) => boolean;
   logout: () => Promise<void>;
   refreshWorkspace: () => void;
 };
@@ -20,6 +22,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const pendingAction = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!supabase) {
@@ -43,11 +47,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const requireAuth = useCallback(() => {
-    if (user) return true;
-    router.push("/login");
+  const closeLogin = useCallback(() => {
+    pendingAction.current = null;
+    setLoginOpen(false);
+  }, []);
+
+  const requireAuth = useCallback((action?: () => void) => {
+    if (user) {
+      action?.();
+      return true;
+    }
+    pendingAction.current = action || null;
+    setLoginOpen(true);
     return false;
-  }, [router, user]);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !pendingAction.current) return;
+    const action = pendingAction.current;
+    pendingAction.current = null;
+    setLoginOpen(false);
+    action();
+  }, [user]);
 
   const logout = useCallback(async () => {
     await signOut();
@@ -61,11 +82,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: Boolean(user),
       isLoadingAuth,
       refreshKey,
+      loginOpen,
+      closeLogin,
       requireAuth,
       logout,
       refreshWorkspace: () => setRefreshKey((key) => key + 1),
     }),
-    [user, isLoadingAuth, refreshKey, requireAuth, logout]
+    [user, isLoadingAuth, refreshKey, loginOpen, closeLogin, requireAuth, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

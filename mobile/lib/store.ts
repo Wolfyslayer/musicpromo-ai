@@ -204,6 +204,28 @@ export function createEntityApi() {
   };
 }
 
+export async function uploadArrayBuffer(body: ArrayBuffer, name: string, contentType: string, folder = "assets") {
+  const client = requireClient();
+  const userId = await requireUserId();
+  const safeName = String(name || "file").replace(/[^\w.\-]+/g, "_");
+  const path = `${userId}/${folder}/${Date.now()}-${safeName}`;
+  const { error } = await client.storage.from(PROMO_BUCKET).upload(path, body, {
+    contentType,
+    upsert: false,
+  });
+  if (error) throw new Error(error.message);
+  const { data } = client.storage.from(PROMO_BUCKET).getPublicUrl(path);
+  const publicUrl = data?.publicUrl || "";
+  return { path, publicUrl, file_url: publicUrl };
+}
+
+export function decodeBase64(value: string) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes.buffer;
+}
+
 export async function uploadPromoAsset(file: UploadFile, folder = "assets") {
   const client = requireClient();
   const userId = await requireUserId();

@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { View } from "react-native";
 import { useAuth } from "@/components/AuthProvider";
+import { useEngine } from "@/components/DeviceEngine";
 import { useToast } from "@/components/Toast";
 import { Button, Chip, Field, Muted, P, Screen, SelectField } from "@/components/ui";
 import { aiService } from "@/lib/ai";
@@ -13,6 +14,7 @@ import { db } from "@/lib/db";
 import { addDaysISO, errorMessage, todayISO } from "@/lib/format";
 import { getSettings } from "@/lib/settings";
 import { uploadPromoAsset } from "@/lib/store";
+import { saveRenderedPromo } from "@/lib/videoSave";
 import type { Row } from "@/lib/types";
 
 const STEPS = ["Song", "Artwork", "Audio", "Lyrics", "Goals", "Generate"];
@@ -42,6 +44,7 @@ function localPlan(input: { title: string; durationDays: number; startDate: stri
 export default function CreateCampaign() {
   const router = useRouter();
   const { toast } = useToast();
+  const engine = useEngine();
   const { user, requireAuth } = useAuth();
   const [step, setStep] = useState(0);
   const [artists, setArtists] = useState<Row[]>([]);
@@ -150,9 +153,24 @@ export default function CreateCampaign() {
         is_demo: false,
       });
       setStage("Generating the campaign…");
+      const deviceProfilePromise =
+        form.artworkUrl || form.audioUrl
+          ? engine
+              .analyze({ artworkUrl: form.artworkUrl, audioUrl: form.audioUrl, title: form.title.trim() })
+              .catch(() => null)
+          : Promise.resolve(null);
       let plan: Row;
+      let assetProfile: Row | null = null;
       try {
-        const analysis = await aiService.analyzeSong({ ...song, artistName: artist.name });
+        const [generated, profile] = await Promise.all([
+          aiService.analyzeSong({ ...song, artistName: artist.name }),
+          deviceProfilePromise,
+        ]);
+        assetProfile = profile;
+        const analysis = {
+          ...(generated && typeof generated === "object" ? generated : {}),
+          assetProfile: profile,
+        };
         await db.entities.Song.update(song.id, { analysis });
         plan = await aiService.generateCampaign({
           song: { ...song, artistName: artist.name },
@@ -162,6 +180,7 @@ export default function CreateCampaign() {
           startDate: form.startDate,
         });
       } catch {
+        assetProfile = await deviceProfilePromise;
         plan = localPlan({
           title: form.title.trim(),
           durationDays: form.durationDays,
@@ -200,9 +219,60 @@ export default function CreateCampaign() {
         status: "planned",
       }));
       if (days.length) await db.entities.CampaignDay.bulkCreate(days);
+      let renderedVideoUrl = "";
+      if (form.artworkUrl && form.audioUrl) {
+        setStage("Rendering promo video on this device…");
+        try {
+          const firstDay = (plan.days || [])[0] || {};
+          const duration = Math.min(15, Math.max(8, Number(assetProfile?.duration) || 12));
+          const rendered = await engine.renderPromo({
+            artworkUrl: form.artworkUrl,
+            audioUrl: form.audioUrl,
+            duration,
+            title: form.title.trim(),
+            artistName: artist.name || form.newArtistName || "",
+            text: firstDay.hook || assetProfile?.hooks?.[0] || firstDay.caption || form.description || "",
+            lyrics: form.lyrics || "",
+            visualStyle: assetProfile?.visualStyle || "pop",
+            particleEffect: assetProfile?.particleEffect || "none",
+          });
+          setStage("Uploading promo video…");
+          const saved = await saveRenderedPromo({
+            base64: rendered.base64,
+            campaignId: campaign.id,
+            songId: song.id,
+            title: form.title.trim(),
+            artistName: artist.name || form.newArtistName || "",
+            text: firstDay.hook || firstDay.caption || "",
+            artworkUrl: form.artworkUrl,
+            audioUrl: form.audioUrl,
+            lyrics: form.lyrics,
+            visualStyle: rendered.visualStyle || assetProfile?.visualStyle || "pop",
+            particleEffect: rendered.particleEffect || assetProfile?.particleEffect || "none",
+            lyricCues: rendered.lyricCues,
+            duration: rendered.duration,
+            width: rendered.width,
+            height: rendered.height,
+            userId: user?.id,
+          });
+          renderedVideoUrl = saved.videoUrl;
+        } catch (err) {
+          toast({
+            title: "Video render skipped",
+            description: errorMessage(err, "Campaign was created, but the promo video could not be rendered on this device."),
+            variant: "destructive",
+          });
+        }
+      }
       toast({
-        title: plan.local ? "Campaign saved locally" : "Campaign created",
-        description: plan.local ? "AI generation was unavailable, so a day plan was built on device. Video render stays on the web." : "Video render stays on the web studio.",
+        title: plan.local ? "Campaign saved on device" : "Campaign created",
+        description: renderedVideoUrl
+          ? "Promo video rendered on this device and uploaded."
+          : plan.local
+            ? "AI generation was unavailable, so a day plan was built on device."
+            : form.artworkUrl && form.audioUrl
+              ? "Campaign ready. You can re-render the promo from Studio."
+              : undefined,
       });
       router.replace(`/campaigns/${campaign.id}`);
     } catch (err) {
@@ -271,7 +341,7 @@ export default function CreateCampaign() {
         )}
         {step === 2 && (
           <View className="gap-3">
-            <Muted>Audio is stored for later web rendering. On-device waveform and lyrics sync are not included.</Muted>
+            <Muted>Audio is stored in your bucket and used for the free on-device promo render and lyrics sync.</Muted>
             <Field label="Audio URL" value={form.audioUrl} onChangeText={(value) => set("audioUrl", value)} placeholder="https://" />
             <Button label="Choose audio" variant="outline" onPress={pickAudio} />
           </View>
@@ -311,9 +381,14 @@ export default function CreateCampaign() {
         {step === 5 && (
           <View className="gap-3">
             <Muted>
-              {form.title || "Untitled"} · {form.durationDays} days. Promo video rendering stays on the web studio.
+              {form.title || "Untitled"} · {form.durationDays} days. When artwork and audio are present, the promo renders on this device for free.
             </Muted>
             {stage ? <Muted>{stage}</Muted> : null}
+            {generating && engine.progress?.message ? (
+              <Muted>
+                {engine.progress.message} ({Math.round(engine.progress.progress)}%)
+              </Muted>
+            ) : null}
             <Button label="Create campaign" onPress={generate} loading={generating} />
           </View>
         )}
