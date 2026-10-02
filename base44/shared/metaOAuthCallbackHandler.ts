@@ -28,6 +28,7 @@ import { findOAuthState } from "./socialOAuthState.ts";
 import {
   exchangeFacebookCode,
   exchangeFacebookLongLived,
+  FB_GRAPH,
   FACEBOOK_CONNECT_SCOPES,
   FACEBOOK_OAUTH_REDIRECT_URI,
   facebookPagePublicUrl,
@@ -521,7 +522,21 @@ async function handleFacebookConnect(params: {
   }
 
   const page = pages[0];
-  const scopes = FACEBOOK_CONNECT_SCOPES.join(",");
+  let grantedScopes = FACEBOOK_CONNECT_SCOPES.join(",");
+  try {
+    const dbg = await fetch(
+      `${FB_GRAPH}/debug_token?${new URLSearchParams({
+        input_token: userToken,
+        access_token: `${clientId}|${clientSecret}`,
+      })}`
+    );
+    const dbgJson = await dbg.json().catch(() => ({}));
+    const raw = dbgJson?.data?.scopes;
+    if (Array.isArray(raw) && raw.length) grantedScopes = raw.join(",");
+  } catch {
+    /* ignore */
+  }
+  const scopes = grantedScopes;
   const encrypted = await encryptPayload(
     JSON.stringify({
       page_access_token: page.access_token,

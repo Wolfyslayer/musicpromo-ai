@@ -7,13 +7,14 @@ import { META_OAUTH_REDIRECT_URI } from "./oauthRedirects.ts";
 
 export const FB_GRAPH = "https://graph.facebook.com/v21.0";
 
-/** Scopes for managing a Facebook Page the user admins. */
-export const FACEBOOK_CONNECT_SCOPES = [
-  "pages_show_list",
-  "pages_manage_posts",
-  "pages_read_engagement",
-  "public_profile",
-] as const;
+/**
+ * Minimal scopes so connect works in Meta **Development** mode without App Review.
+ * Publishing may require reconnect after `pages_manage_posts` is approved in the Meta app.
+ */
+export const FACEBOOK_CONNECT_SCOPES = ["pages_show_list", "pages_read_engagement"] as const;
+
+/** Optional — request on reconnect when App Review has approved Page publishing. */
+export const FACEBOOK_PUBLISH_SCOPES = ["pages_manage_posts"] as const;
 
 export { META_OAUTH_REDIRECT_URI as FACEBOOK_OAUTH_REDIRECT_URI };
 
@@ -31,13 +32,22 @@ export function buildFacebookAuthorizeUrl(params: {
   state: string;
   scopes: readonly string[];
   forceReauth?: boolean;
+  /** When true, ask for Page publishing scopes (App Review required in Live mode). */
+  includePublishScopes?: boolean;
 }): string {
+  const scopeList = [...params.scopes];
+  if (params.includePublishScopes) {
+    for (const s of FACEBOOK_PUBLISH_SCOPES) {
+      if (!scopeList.includes(s)) scopeList.push(s);
+    }
+  }
   const q = new URLSearchParams({
     client_id: params.clientId,
     redirect_uri: params.redirectUri,
     state: params.state,
-    scope: params.scopes.join(","),
+    scope: scopeList.join(","),
     response_type: "code",
+    return_scopes: "true",
   });
   if (params.forceReauth) q.set("auth_type", "rerequest");
   return `https://www.facebook.com/v21.0/dialog/oauth?${q}`;
@@ -49,16 +59,21 @@ export async function exchangeFacebookCode(params: {
   redirectUri: string;
   code: string;
 }): Promise<{ access_token: string; token_type?: string; expires_in?: number }> {
-  const url = `${FB_GRAPH}/oauth/access_token?${new URLSearchParams({
+  const body = new URLSearchParams({
     client_id: params.clientId,
     client_secret: params.clientSecret,
     redirect_uri: params.redirectUri,
     code: params.code,
-  })}`;
-  const res = await fetch(url);
+  });
+  const res = await fetch(`${FB_GRAPH}/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data?.access_token) {
-    throw new Error(data?.error?.message || data?.error || "Facebook token exchange failed");
+    const msg = data?.error?.message || data?.error || "Facebook token exchange failed";
+    throw new Error(String(msg));
   }
   return data;
 }
