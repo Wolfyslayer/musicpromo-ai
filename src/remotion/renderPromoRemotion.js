@@ -100,6 +100,7 @@ export async function renderPromoRemotion(params = {}) {
     aiClipUrl,
     compositingMode: params.compositingMode || params.compositing_mode || "artwork",
     aiClipOpacity: params.aiClipOpacity ?? params.ai_clip_opacity ?? 1,
+    artworkMotion: params.artworkMotion || params.artwork_motion || "standard",
   };
 
   let result;
