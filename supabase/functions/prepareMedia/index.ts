@@ -1,3 +1,4 @@
+import { serveWithCors } from "../_shared/cors.ts";
 import { createClientFromRequest } from "../_shared/runtime.ts";
 import {
   MEDIA_REQUIREMENTS,
@@ -99,4 +100,4 @@ async function handler (req: Request): Promise<Response> {
 }
 
 
-Deno.serve(handler);
+serveWithCors(handler);

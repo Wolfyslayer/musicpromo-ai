@@ -1,3 +1,4 @@
+import { serveWithCors } from "../_shared/cors.ts";
 import { createClientFromRequest } from "../_shared/runtime.ts";
 import { INSTAGRAM_CAPTION_MAX } from "../_shared/instagramPublishing.ts";
 import { recordOwnedByUser } from "../_shared/ownership.ts";
@@ -200,4 +201,4 @@ async function handler (req: Request): Promise<Response> {
 }
 
 
-Deno.serve(handler);
+serveWithCors(handler);
