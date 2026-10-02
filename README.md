@@ -43,6 +43,10 @@ base44 dev --remote
 
 ⚠️ In this mode writes go to your app's **production data** — plain `base44 dev` keeps everything local.
 
+## Deploy with GitHub Actions (Supabase)
+
+If you use Supabase instead of the Base44 hosted backend, pushes to **`main`** can deploy Edge Functions and the Vite frontend via GitHub Actions. See **[docs/GITHUB_DEPLOY.md](docs/GITHUB_DEPLOY.md)** for required secrets and Pages setup.
+
 ## Publish Your Changes
 
 After pushing your changes to git, open the Base44 dashboard and publish the app:
