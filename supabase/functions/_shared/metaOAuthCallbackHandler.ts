@@ -29,6 +29,15 @@ import {
   fetchYouTubeChannel,
 } from "./youtubeOAuth.ts";
 
+function youtubeClientSecret(): string {
+  return (
+    secrets.get("GOOGLE_LOGIN_CLIENT_SECRET") ||
+    secrets.get("GOOGLE_CLIENT_SECRET") ||
+    secrets.get("YOUTUBE_CLIENT_SECRET") ||
+    ""
+  ).trim();
+}
+
 function requirePublicAppUrl(): string | null {
   const configured = secrets.get("PUBLIC_APP_URL") || secrets.get("APP_PUBLIC_URL");
   if (!configured || !String(configured).trim()) return null;
@@ -405,9 +414,15 @@ async function handleYouTubeConnect(params: {
   boundUserId: string;
   home: string | null;
   encryptionKey: string;
+  oauthClientId?: string | null;
 }): Promise<Response> {
-  const clientId = secrets.get("GOOGLE_CLIENT_ID") || secrets.get("YOUTUBE_CLIENT_ID");
-  const clientSecret = secrets.get("GOOGLE_CLIENT_SECRET") || secrets.get("YOUTUBE_CLIENT_SECRET");
+  const clientId = (
+    String(params.oauthClientId || "").trim() ||
+    secrets.get("GOOGLE_CLIENT_ID") ||
+    secrets.get("YOUTUBE_CLIENT_ID") ||
+    ""
+  ).trim();
+  const clientSecret = youtubeClientSecret();
   if (!clientId || !clientSecret) {
     return debugFailureResponse({
       home: params.home,
@@ -548,6 +563,8 @@ export default async function (req: Request): Promise<Response> {
     }
 
     const record = await findOAuthState(base44, state);
+    const oauthClientId =
+      record?.oauth_client_id != null ? String(record.oauth_client_id).trim() : "";
     let boundUserId: string | null = record?.user_id != null ? String(record.user_id) : null;
     let provider = record?.provider != null ? String(record.provider) : "instagram";
 
@@ -587,7 +604,9 @@ export default async function (req: Request): Promise<Response> {
     };
 
     if (provider === "tiktok") return await handleTikTokConnect(ctx);
-    if (provider === "youtube") return await handleYouTubeConnect(ctx);
+    if (provider === "youtube") {
+      return await handleYouTubeConnect({ ...ctx, oauthClientId: oauthClientId || null });
+    }
     return await handleInstagramConnect(ctx);
   } catch (err) {
     return debugFailureResponse({

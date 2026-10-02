@@ -14,6 +14,23 @@ export const YT_UPLOAD = "https://www.googleapis.com/upload/youtube/v3/videos";
 export { YOUTUBE_OAUTH_REDIRECT_URI };
 export const SOCIAL_OAUTH_REDIRECT_URI = YOUTUBE_OAUTH_REDIRECT_URI;
 
+/** Client ID from the SPA (`VITE_GOOGLE_CLIENT_ID`) on connectSocialProvider invoke. */
+export function readGoogleClientIdFromInvokeBody(
+  body: Record<string, unknown> | undefined | null
+): string {
+  if (!body) return "";
+  const nested = [body, body.args, body.data, body.payload, body.params].filter(
+    (x): x is Record<string, unknown> => Boolean(x && typeof x === "object")
+  );
+  for (const obj of nested) {
+    for (const key of ["googleClientId", "clientId"]) {
+      const v = obj[key];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+  }
+  return "";
+}
+
 export const YOUTUBE_CONNECT_SCOPES = [
   "https://www.googleapis.com/auth/youtube.upload",
   "https://www.googleapis.com/auth/youtube.readonly",

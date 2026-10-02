@@ -70,6 +70,7 @@ VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 | --- | --- |
 | **Edge Function returned a non-2xx** | Open the error text after the fix deploy — usually Google token exchange. See rows below. |
 | **The OAuth client was not found** | `GOOGLE_CLIENT_SECRET` must belong to the **same** Web client as **`VITE_GOOGLE_CLIENT_ID`**. If YouTube uses another OAuth client, set `GOOGLE_LOGIN_CLIENT_SECRET` for login. |
+| **YouTube Connect: invalid_client** | Same Web client as login: app sends `VITE_GOOGLE_CLIENT_ID`; Supabase needs `GOOGLE_CLIENT_SECRET` (or `GOOGLE_LOGIN_CLIENT_SECRET`). In Google Cloud, add redirect URI `https://<project-ref>.supabase.co/functions/v1/youtube-oauth-callback`. Remove wrong `GOOGLE_CLIENT_ID` secret if it was an old/typo value. |
 | **Client ID mismatch** (old deploys) | Redeploy `googleAuthExchange`; app client ID is used for exchange — only the **secret** must match in Supabase. |
 | `redirect_uri_mismatch` | Redirect URI in Google must **exactly** match `https://musicpromoai.site/auth/google/callback` |
 | `Sign in with Google is not enabled` | Enable Google provider in Supabase with matching Client ID |
