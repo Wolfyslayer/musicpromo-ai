@@ -46,6 +46,7 @@ AI and OAuth handlers read secrets from **Supabase**, not from the frontend bund
 
 ```bash
 supabase secrets set OPENAI_API_KEY=sk-... --project-ref YOUR_REF
+# Free-tier alternative (Groq): see docs/FREE_AI.md — set OPENAI_BASE_URL and OPENAI_MODEL too.
 
 # Social connect (required for Instagram / TikTok / YouTube — not stored in GitHub)
 supabase secrets set PUBLIC_APP_URL=https://musicpromoai.site --project-ref YOUR_REF
