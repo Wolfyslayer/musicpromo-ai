@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, useWindowDimensions, View } from "react-native";
-import { BarChart, PieChart } from "react-native-gifted-charts";
+import { BarChart, PieChart } from "@/components/ui/charts";
 import { BarChart3, Eye, Heart, Plus, Sparkles, Trash2, TrendingUp } from "lucide-react-native";
 import { db } from "@/api/db";
 import { useAuth } from "@/lib/AuthContext";

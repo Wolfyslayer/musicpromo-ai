@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Pressable, View, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart, LineChart, PieChart } from "react-native-gifted-charts";
+import { BarChart, LineChart, PieChart } from "@/components/ui/charts";
 import { BarChart3, Camera, Disc3, Eye, Heart, Music2, PlayCircle, RefreshCw, TrendingUp, Users } from "lucide-react-native";
 import { sum } from "@/services/format";
 import { selectAnalyticsWorkspace } from "@/services/studioRecords";
