@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import SocialPlatformCard from "@/components/social/SocialPlatformCard";
 import EmptyState from "@/components/EmptyState";
 import StatusBadge from "@/components/StatusBadge";
-import { CONNECTABLE_SOCIAL, useSocialHub } from "@/contexts/SocialHubContext";
+import { useSocialHub } from "@/contexts/SocialHubContext";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { buildComposePath } from "@/services/socialService";
@@ -129,8 +129,8 @@ export function SocialConnectPage() {
               <SocialPlatformCard
                 key={provider.id}
                 provider={provider}
-                onConnect={CONNECTABLE_SOCIAL.has(provider.id) ? onConnect : undefined}
-                onDisconnect={CONNECTABLE_SOCIAL.has(provider.id) ? onDisconnect : undefined}
+                onConnect={provider.oauthImplemented ? onConnect : undefined}
+                onDisconnect={provider.oauthImplemented ? onDisconnect : undefined}
                 connecting={connectingId === provider.id}
                 disconnecting={disconnectingId === provider.id}
               />
