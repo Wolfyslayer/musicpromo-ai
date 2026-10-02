@@ -1,9 +1,11 @@
+import { useEffect, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
@@ -15,6 +17,13 @@ import { CAMPAIGN_EXTRA_SECTIONS, CAMPAIGN_PRIMARY_TABS } from "@/lib/campaignNa
  * Mobile + desktop campaign nav — matches the 4-tab strip from the campaign screenshot.
  */
 export default function CampaignTabBar({ basePath }) {
+  const location = useLocation();
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [location.pathname]);
+
   const tabClass = (isActive) =>
     cn(
       "w-full px-1 sm:text-sm",
@@ -44,7 +53,7 @@ export default function CampaignTabBar({ basePath }) {
 
       {CAMPAIGN_EXTRA_SECTIONS.length ? (
         <div className="flex justify-end md:hidden">
-          <Sheet>
+          <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
             <SheetTrigger asChild>
               <Button type="button" variant="ghost" size="sm" className="h-9 rounded-full px-3 text-xs">
                 <MoreHorizontal className="mr-1 h-4 w-4" />
@@ -60,10 +69,12 @@ export default function CampaignTabBar({ basePath }) {
                   const Icon = item.icon;
                   const to = `${basePath}/${item.segment}`;
                   return (
-                    <NavLink key={item.segment} to={to} className={({ isActive }) => extraLinkClass(isActive)}>
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {item.label}
-                    </NavLink>
+                    <SheetClose asChild key={item.segment}>
+                      <NavLink to={to} className={({ isActive }) => extraLinkClass(isActive)}>
+                        <Icon className="h-4 w-4 shrink-0" />
+                        {item.label}
+                      </NavLink>
+                    </SheetClose>
                   );
                 })}
               </nav>
