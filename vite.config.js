@@ -35,6 +35,8 @@ const onnxWeb = resolve(root, "src/shims/onnxRuntimeWeb.js");
 
 // https://vite.dev/config/
 export default defineConfig({
+  // GitHub Pages project sites use /repo-name/; override with VITE_BASE_PATH=/ for a custom domain.
+  base: process.env.VITE_BASE_PATH || "/",
   plugins: [
     copyOrtWasm(),
     base44({
