@@ -46,6 +46,7 @@ AI and OAuth handlers read secrets from **Supabase**, not from the frontend bund
 
 ```bash
 supabase secrets set OPENAI_API_KEY=sk-... --project-ref YOUR_REF
+# Free-tier alternative (Groq): see docs/FREE_AI.md — set OPENAI_BASE_URL and OPENAI_MODEL too.
 
 # Social connect (required for Instagram / TikTok / YouTube — not stored in GitHub)
 supabase secrets set PUBLIC_APP_URL=https://musicpromoai.site --project-ref YOUR_REF
@@ -83,6 +84,7 @@ supabase functions deploy --project-ref YOUR_REF
 | Routes 404 on refresh (GitHub Pages) | Workflow copies `index.html` → `404.html`; ensure Pages source is **GitHub Actions** |
 | Blank page, gray/white screen | **Wrong `VITE_BASE_PATH`.** For `musicpromoai.site` use **`/`** only — never the domain (`/MusicPromoAi.site/`). Delete the bad variable or set `VITE_BASE_PATH` = `/`, then re-run **Deploy**. View page source: script `src` should be `/assets/...`, not `/yourdomain/...`. |
 | “Connection is not secure” | Site opened over **http://** or HTTPS not ready. In **Pages**, wait for DNS check → enable **Enforce HTTPS** → use **https://** |
+| Video render: **tainted VideoFrame** / CORS | Deploy **`promoMediaProxy`** + frontend, or configure Storage CORS — see **[docs/STORAGE_CORS.md](./STORAGE_CORS.md)**. Local upload files during create also avoid CORS for that session. |
 
 ## Other frontend hosts
 

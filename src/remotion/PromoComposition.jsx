@@ -155,6 +155,7 @@ function PromoCompositionBody({
           <img
             src={artworkUrl}
             alt=""
+            crossOrigin="anonymous"
             style={{
               width: "140%",
               height: "140%",
@@ -187,6 +188,7 @@ function PromoCompositionBody({
           <img
             src={artworkUrl}
             alt=""
+            crossOrigin="anonymous"
             style={{
               width: 720,
               height: 720,

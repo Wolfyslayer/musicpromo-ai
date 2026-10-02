@@ -56,12 +56,24 @@ export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<st
     console.warn("[invokeLlm] file_urls are not supported on Supabase; ignoring attachments.");
   }
 
-  const body: Record<string, unknown> = {
+  const schema = args.response_json_schema;
+  const baseBody: Record<string, unknown> = {
     model: modelName(),
     messages: [{ role: "user", content: prompt }],
   };
 
-  const schema = args.response_json_schema;
+  async function requestWithBody(body: Record<string, unknown>): Promise<Response> {
+    return fetch(`${apiBase()}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  let body = { ...baseBody };
   if (schema && typeof schema === "object") {
     body.response_format = {
       type: "json_schema",
@@ -73,17 +85,32 @@ export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<st
     };
   }
 
-  const res = await fetch(`${apiBase()}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+  let res = await requestWithBody(body);
+  let raw = await res.text();
 
-  const raw = await res.text();
+  // Groq / some free tiers reject json_schema — retry with json_object + prompt JSON hint.
+  if (!res.ok && schema && (res.status === 400 || res.status === 422)) {
+    console.warn("[invokeLlm] json_schema rejected; retrying with json_object");
+    body = {
+      ...baseBody,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "user",
+          content: `${prompt}\n\nRespond with a single valid JSON object only, no markdown.`,
+        },
+      ],
+    };
+    res = await requestWithBody(body);
+    raw = await res.text();
+  }
+
   if (!res.ok) {
+    if (res.status === 429 && /insufficient_quota|credit_balance|rate_limit/i.test(raw)) {
+      throw new Error(
+        "AI quota exceeded. Add OpenAI credits or switch to a free provider (Groq): set OPENAI_BASE_URL=https://api.groq.com/openai/v1 and a Groq API key — see docs/FREE_AI.md."
+      );
+    }
     throw new Error(`AI request failed (${res.status}): ${raw.slice(0, 400)}`);
   }
 
