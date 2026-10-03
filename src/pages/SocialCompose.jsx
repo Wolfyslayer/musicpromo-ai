@@ -10,7 +10,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import StatusBadge from "@/components/StatusBadge";
 import ArtworkImage from "@/components/ArtworkImage";
 import PageHeader from "@/components/PageHeader";
-import SocialPlatformPreview from "@/components/social/SocialPlatformPreview";
+import SocialPlatformPreview, { isVideoMediaUrl } from "@/components/social/SocialPlatformPreview";
 
 import { db } from "@/api/base44Client";
 import {
@@ -571,10 +571,16 @@ export default function SocialCompose() {
       <aside className="lg:sticky lg:top-24 lg:self-start">
         <SocialPlatformPreview
           caption={caption}
-          mediaUrl={mediaType === "REELS" ? mediaUrl : ""}
-          artworkUrl={mediaUrl || release?.artwork_url || song?.artwork_url || ""}
+          mediaUrl={mediaUrl}
+          mediaType={mediaType}
+          artworkUrl={
+            isVideoMediaUrl(mediaUrl)
+              ? release?.artwork_url || song?.artwork_url || ""
+              : release?.artwork_url || song?.artwork_url || mediaUrl || ""
+          }
           username={connection?.username || ""}
           defaultPlatform={providerId}
+          lockPlatform={Boolean(dayId || day?.id)}
         />
       </aside>
       </div>
