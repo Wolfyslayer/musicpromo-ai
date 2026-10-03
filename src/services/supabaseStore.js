@@ -7,6 +7,17 @@ export const PROMO_BUCKET = "music-promo-assets";
  * users, campaign_days, social_accounts, prepared_media, analytics_entries.
  * The original field set lives in `data` so the studio screens keep their shape.
  */
+/** When set (verified studio manager), entity reads/writes use this user_id. */
+let workspaceEffectiveUserId = null;
+
+export function setWorkspaceEffectiveUserId(userId) {
+  workspaceEffectiveUserId = userId ? String(userId) : null;
+}
+
+export function getWorkspaceEffectiveUserId() {
+  return workspaceEffectiveUserId;
+}
+
 const SPECS = {
   Artist: { table: "prepared_media", kind: "artist" },
   Song: { table: "prepared_media", kind: "song" },
@@ -33,8 +44,17 @@ async function currentUserId() {
   return data?.user?.id || null;
 }
 
+async function effectiveUserId() {
+  const self = await currentUserId();
+  if (!self) return null;
+  if (workspaceEffectiveUserId && workspaceEffectiveUserId !== self) {
+    return workspaceEffectiveUserId;
+  }
+  return self;
+}
+
 async function requireUserId() {
-  const userId = await currentUserId();
+  const userId = await effectiveUserId();
   if (!userId) throw new Error("Sign in to save.");
   return userId;
 }
@@ -96,7 +116,7 @@ function columnExtras(spec, data) {
 }
 
 async function fetchRows(spec) {
-  const userId = await currentUserId();
+  const userId = await effectiveUserId();
   if (!userId) return [];
   let query = requireClient().from(spec.table).select("*").eq("user_id", userId);
   if (spec.kind) query = query.eq("kind", spec.kind);

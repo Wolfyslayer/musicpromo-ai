@@ -29,6 +29,7 @@ import { useCountdown } from "@/hooks/useCountdown";
 import CopyButton from "@/components/CopyButton";
 import CreateVideoButton from "@/components/video/CreateVideoButton";
 import StatusBadge from "@/components/StatusBadge";
+import CampaignPlanInsights from "@/components/campaign/CampaignPlanInsights";
 
 const DAY_STATUSES = [
   { id: "planned", label: "Planned", color: "#8b8b9a" },
@@ -238,6 +239,7 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
 
   return (
     <div className="space-y-3">
+      {campaign?.id ? <CampaignPlanInsights campaignId={campaign.id} /> : null}
       <p className="text-xs text-muted-foreground">
         Use <span className="text-foreground">Schedule auto-publish</span> to queue Instagram, TikTok, YouTube, and X.
         The background worker runs hourly (:38 UTC) and publishes due posts without manual action.
