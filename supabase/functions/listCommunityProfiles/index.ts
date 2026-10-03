@@ -54,6 +54,9 @@ async function handler(req: Request): Promise<Response> {
         tiktok_url: a.tiktok_url || null,
         youtube_url: a.youtube_url || null,
         spotify_url: a.spotify_url || null,
+        facebook_url: a.facebook_url || null,
+        twitter_url: a.twitter_url || null,
+        website: a.website || null,
       });
     }
 
