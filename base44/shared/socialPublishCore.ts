@@ -1,5 +1,5 @@
 /**
- * Shared SocialPost publish pipeline (Instagram / TikTok / YouTube).
+ * Shared SocialPost publish pipeline (Instagram / TikTok / YouTube / X).
  * Used by socialPublish (user-invoked) and campaignWorker (cron).
  * Tokens never leave the backend.
  */
@@ -24,6 +24,13 @@ import {
   refreshTikTokToken,
 } from "./tiktokOAuth.ts";
 import { uploadYouTubeShort, refreshYouTubeToken } from "./youtubeOAuth.ts";
+import {
+  createXTweet,
+  guessMediaMime,
+  hasXPublishScope,
+  refreshXToken,
+  uploadXMedia,
+} from "./xOAuth.ts";
 
 // deno-lint-ignore no-explicit-any
 export type Base44Client = any;
@@ -77,12 +84,13 @@ export function safeSocialPost(row: Record<string, unknown>) {
 /** Map CampaignDay.platform labels → SocialPost provider ids. */
 export function mapDayPlatformToProviders(platform: string | null | undefined): string[] {
   const p = String(platform || "").toLowerCase();
-  if (!p) return ["instagram", "tiktok", "youtube"];
+  if (!p) return ["instagram", "tiktok", "youtube", "x"];
   if (p.includes("instagram") || p.includes("reels") || p === "ig") return ["instagram"];
   if (p.includes("tiktok")) return ["tiktok"];
   if (p.includes("youtube") || p.includes("shorts")) return ["youtube"];
+  if (p.includes("twitter") || p === "x" || /\bx\b/.test(p)) return ["x"];
   if (p.includes("facebook")) return [];
-  return ["instagram", "tiktok", "youtube"];
+  return ["instagram", "tiktok", "youtube", "x"];
 }
 
 export function buildDayCaption(day: Record<string, unknown> | null | undefined): string {
@@ -151,7 +159,7 @@ export async function publishSocialPostCore(params: {
     }
 
     const provider = String(post.provider || "instagram").toLowerCase();
-    if (!["instagram", "tiktok", "youtube"].includes(provider)) {
+    if (!["instagram", "tiktok", "youtube", "x"].includes(provider)) {
       return {
         ok: false,
         code: "VALIDATION",
@@ -236,6 +244,16 @@ export async function publishSocialPostCore(params: {
       };
     }
 
+    if (provider === "x" && !hasXPublishScope(account.scopes)) {
+      return {
+        ok: false,
+        code: "PERMISSION_DENIED",
+        message: "Reconnect X to grant tweet.write publishing permission.",
+        status: 400,
+        needsReauth: true,
+      };
+    }
+
     let videoProject: Record<string, unknown> | null = null;
     if (post.video_project_id) {
       try {
@@ -268,6 +286,112 @@ export async function publishSocialPostCore(params: {
         code: "DUPLICATE",
         message: "Could not start publishing.",
         status: 409,
+      };
+    }
+
+    // --- X ---
+    if (provider === "x") {
+      let creds: Record<string, unknown>;
+      try {
+        creds = JSON.parse(await decryptCredential(account.encrypted_credentials, encryptionKey));
+      } catch {
+        await base44.asServiceRole.entities.SocialPost.update(postId, {
+          status: "failed",
+          error_code: "INVALID_TOKEN",
+          error_message: "Could not decrypt X credentials.",
+        });
+        return {
+          ok: false,
+          code: "INVALID_TOKEN",
+          message: "Could not decrypt X credentials.",
+          status: 400,
+        };
+      }
+
+      let accessToken = String(creds.access_token || "");
+      const clientId =
+        secrets.get("X_CLIENT_ID") ||
+        secrets.get("TWITTER_CLIENT_ID") ||
+        secrets.get("X_API_KEY");
+      const clientSecret =
+        secrets.get("X_CLIENT_SECRET") ||
+        secrets.get("TWITTER_CLIENT_SECRET") ||
+        secrets.get("X_API_SECRET");
+      if (creds.refresh_token && clientId && clientSecret) {
+        try {
+          const refreshed = await refreshXToken({
+            clientId,
+            clientSecret,
+            refreshToken: String(creds.refresh_token),
+          });
+          accessToken = refreshed.access_token;
+        } catch (err) {
+          console.warn("[socialPublishCore] x refresh", (err as Error)?.message || err);
+        }
+      }
+
+      const videoUrl =
+        (videoProject?.rendering_status === "complete" && videoProject?.render_output_url
+          ? String(videoProject.render_output_url)
+          : "") ||
+        (mediaType === "VIDEO" || mediaType === "REELS" ? String(post.media_url || "") : "");
+      const imageUrl =
+        mediaType === "IMAGE" && post.media_url && /^https:\/\//i.test(String(post.media_url))
+          ? String(post.media_url)
+          : "";
+      const publishMediaUrl = videoUrl || imageUrl;
+
+      if (!caption && !publishMediaUrl) {
+        await base44.asServiceRole.entities.SocialPost.update(postId, {
+          status: "failed",
+          error_code: "VALIDATION",
+          error_message: "X posts need a caption and/or public HTTPS media.",
+        });
+        return {
+          ok: false,
+          code: "VALIDATION",
+          message: "X posts need a caption and/or public HTTPS media.",
+          status: 400,
+        };
+      }
+
+      let mediaId: string | undefined;
+      if (publishMediaUrl) {
+        const bytes = await fetchPublicMediaBytes(publishMediaUrl);
+        const mime = guessMediaMime(publishMediaUrl, videoUrl ? "REELS" : "IMAGE");
+        mediaId = await uploadXMedia({ accessToken, bytes, mimeType: mime });
+        await base44.asServiceRole.entities.SocialPost.update(postId, {
+          media_url: publishMediaUrl,
+          media_type: videoUrl ? "REELS" : "IMAGE",
+        });
+      }
+
+      const posted = await createXTweet({ accessToken, text: caption, mediaId });
+      const publishedAt = new Date().toISOString();
+      const updated = await base44.asServiceRole.entities.SocialPost.update(postId, {
+        status: "published",
+        published_at: publishedAt,
+        external_post_id: posted.tweetId,
+        external_permalink: posted.permalink,
+        container_id: posted.tweetId,
+        error_code: "",
+        error_message: "",
+      });
+      await markDayFromPost(base44, post, {
+        status: "posted",
+        publish_error: "",
+        live_permalink: posted.permalink,
+      });
+      return {
+        ok: true,
+        post: safeSocialPost({
+          ...post,
+          ...updated,
+          status: "published",
+          published_at: publishedAt,
+          external_post_id: posted.tweetId,
+          external_permalink: posted.permalink,
+        }),
       };
     }
 

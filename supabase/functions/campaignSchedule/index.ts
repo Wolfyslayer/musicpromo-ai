@@ -57,7 +57,7 @@ async function handler (req: Request): Promise<Response> {
       ? body.providers.map((p: unknown) => String(p).toLowerCase())
       : mapDayPlatformToProviders(day.platform);
     const providers = requestedProviders.filter((p: string) =>
-      ["instagram", "tiktok", "youtube"].includes(p)
+      ["instagram", "tiktok", "youtube", "x"].includes(p)
     );
     if (!providers.length) {
       return Response.json(
@@ -134,6 +134,11 @@ async function handler (req: Request): Promise<Response> {
         continue;
       }
 
+      if (provider === "x" && !caption.trim() && !mediaUrl) {
+        skipped.push({ provider, reason: "caption_or_media_required" });
+        continue;
+      }
+
       const active = existing.find(
         (p: Record<string, unknown>) =>
           String(p.provider) === provider &&
@@ -184,7 +189,7 @@ async function handler (req: Request): Promise<Response> {
         {
           ok: false,
           error:
-            "Could not schedule any platforms. Connect Instagram/TikTok/YouTube and ensure video is ready for TikTok/YouTube.",
+            "Could not schedule any platforms. Connect Instagram/TikTok/YouTube/X and ensure video is ready for TikTok/YouTube.",
           code: "NOT_CONFIGURED",
           skipped,
         },

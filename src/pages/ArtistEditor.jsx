@@ -314,7 +314,7 @@ export default function ArtistEditor() {
           <div className="rounded-2xl border border-border/60 bg-muted/15 p-4">
             <p className="text-sm font-600">Social publishing</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Connect TikTok, Instagram, YouTube, Facebook Page, and X for this artist. Links and profile photos can sync from these accounts.
+              Connect TikTok, Instagram, YouTube, and X for this artist. Links and profile photos can sync from OAuth. Add Facebook manually in the URL fields below.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
