@@ -23,6 +23,8 @@ export function SocialConnectPage() {
     disconnectingId,
     onConnect,
     onDisconnect,
+    pendingOAuthRedirect,
+    clearPendingOAuthRedirect,
     ig,
     anyConnected,
     artists,
@@ -54,6 +56,34 @@ export function SocialConnectPage() {
 
   return (
     <div className="space-y-5">
+      {pendingOAuthRedirect?.url ? (
+        <section
+          className="rounded-2xl border border-primary/40 bg-primary/10 p-4"
+          role="status"
+          aria-live="polite"
+        >
+          <p className="text-sm font-600">Finish connecting {pendingOAuthRedirect.label}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            If the login page did not open automatically, tap Continue. Some mobile browsers (including Brave) block
+            redirects to Facebook until you tap a link.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button asChild className="min-h-11 rounded-full">
+              <a href={pendingOAuthRedirect.url} rel="noopener noreferrer">
+                Continue to {pendingOAuthRedirect.label}
+              </a>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 rounded-full"
+              onClick={clearPendingOAuthRedirect}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </section>
+      ) : null}
       <section className="rounded-2xl border border-border/60 bg-muted/20 p-4">
         <div className="mb-3 space-y-1.5">
           <Label className="text-xs text-muted-foreground">Connect socials for artist</Label>

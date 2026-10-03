@@ -147,7 +147,7 @@ export const AuthProvider = ({ children }) => {
 
   const requireAuth = useCallback((actionCallback) => {
     if (isAuthenticatedRef.current) {
-      if (typeof actionCallback === "function") actionCallback();
+      if (typeof actionCallback === "function") return actionCallback();
       return true;
     }
     pendingActionRef.current = typeof actionCallback === "function" ? actionCallback : null;

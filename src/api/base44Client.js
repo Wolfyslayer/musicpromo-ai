@@ -57,6 +57,7 @@ export const db = {
       const { data, error } = await supabase.functions.invoke(name, invokeOptions);
       if (error) {
         let message = error.message || "Function failed";
+        let body = data && typeof data === "object" ? data : null;
         if (/failed to send a request to the edge function/i.test(message)) {
           const hint =
             "Redeploy Edge Functions (especially connectSocialProvider for Instagram/TikTok/YouTube connect) " +
@@ -66,7 +67,8 @@ export const db = {
         try {
           const context = error.context;
           if (context && typeof context.json === "function") {
-            const body = await context.json();
+            const parsed = await context.json();
+            body = parsed && typeof parsed === "object" ? parsed : body;
             message = body?.error || body?.message || message;
           }
         } catch {
@@ -74,6 +76,7 @@ export const db = {
         }
         const err = new Error(message);
         err.status = error.status || 500;
+        err.data = body;
         throw err;
       }
       return { data };

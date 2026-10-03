@@ -23,21 +23,40 @@ function unwrapInvokeResult(res) {
   // SDK may return the JSON body directly or an axios-like { data }.
   let payload = res?.data ?? res;
   // Rare double-wrap: { data: { data: {...} } }
-  if (
-    payload &&
-    typeof payload === "object" &&
-    payload.data &&
-    typeof payload.data === "object" &&
-    (payload.data.providersConfigured != null || payload.data.connections != null)
-  ) {
-    payload = payload.data;
+  if (payload && typeof payload === "object" && payload.data && typeof payload.data === "object") {
+    const inner = payload.data;
+    if (
+      inner.providersConfigured != null ||
+      inner.connections != null ||
+      inner.authorizationUrl != null ||
+      inner.authorization_url != null ||
+      inner.ok != null ||
+      inner.error != null
+    ) {
+      payload = inner;
+    }
+  }
+  return normalizeOAuthStartResult(payload);
+}
+
+/** Normalize connectSocialProvider responses from gateways / older deploys. */
+export function normalizeOAuthStartResult(payload) {
+  if (!payload || typeof payload !== "object") return payload;
+  const url =
+    payload.authorizationUrl ||
+    payload.authorization_url ||
+    payload.authUrl ||
+    payload.auth_url ||
+    null;
+  if (url && !payload.authorizationUrl) {
+    return { ...payload, authorizationUrl: String(url) };
   }
   return payload;
 }
 
 function errorFromInvoke(err) {
   const status = err?.status || err?.response?.status || null;
-  const data = err?.data || err?.response?.data || {};
+  const data = err?.data || err?.response?.data || err?.context || {};
   return {
     ...(data && typeof data === "object" ? data : {}),
     ok: false,
