@@ -25,6 +25,7 @@ import { useAuth } from "@/lib/AuthContext";
 import ListenEmbed from "@/components/community/ListenEmbed";
 import ProfileBadges from "@/components/community/ProfileBadges";
 import ProfileCompletenessMeter from "@/components/community/ProfileCompletenessMeter";
+import PromoSwapRequestDialog from "@/components/community/PromoSwapRequestDialog";
 import ReportProfileDialog from "@/components/community/ReportProfileDialog";
 import ArtworkImage from "@/components/ArtworkImage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -387,6 +388,14 @@ export default function Profile() {
               <Bookmark className={`mr-1.5 h-3.5 w-3.5 ${isFollowing ? "fill-current" : ""}`} />
               {isFollowing ? "Following" : "Follow"}
             </Button>
+          ) : null}
+          {isAuthenticated &&
+          (publicView.openToContact ||
+            (publicView.collabIntents || []).some((id) => id === "promo_swap" || id === "feature")) ? (
+            <PromoSwapRequestDialog
+              targetUserId={publicView.id}
+              displayName={publicView.displayName}
+            />
           ) : null}
           {isAuthenticated ? (
             <ReportProfileDialog reportedUserId={publicView.id} displayName={publicView.displayName} />

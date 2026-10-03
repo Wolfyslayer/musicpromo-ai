@@ -518,6 +518,7 @@ export default function SocialCompose() {
           )}
         </div>
       </section>
+      </div>
 
       <aside className="lg:sticky lg:top-24 lg:self-start">
         <SocialPlatformPreview

@@ -16,7 +16,9 @@ import { useAuth } from "@/lib/AuthContext";
 import CommunityFeedPanel from "@/components/community/CommunityFeedPanel";
 import ProfileBadges from "@/components/community/ProfileBadges";
 import { COLLAB_INTENT_OPTIONS, collabIntentLabel, genreToSlug } from "@/services/communityProfileUtils";
-import { loadCommunityFeed, loadCommunityMembers, toggleCommunityFollow } from "@/services/communityService";
+import CommunityCirclesPanel from "@/components/community/CommunityCirclesPanel";
+import CommunityInboxPanel from "@/components/community/CommunityInboxPanel";
+import { loadCommunityFeed, loadCommunityMembers, loadPromoSwapRequests, toggleCommunityFollow } from "@/services/communityService";
 import { absoluteProfileUrl, formatHandleLabel, profilePublicPath } from "@/services/profileHandle";
 import { fetchOwnProfile } from "@/services/userProfile";
 
@@ -57,6 +59,7 @@ export default function Community() {
   const [tab, setTab] = useState("discover");
   const [feedLoading, setFeedLoading] = useState(false);
   const [feedItems, setFeedItems] = useState([]);
+  const [inboxPending, setInboxPending] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,6 +89,13 @@ export default function Community() {
       cancelled = true;
     };
   }, [user?.id, toast]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    loadPromoSwapRequests()
+      .then((data) => setInboxPending(data.pendingIncoming || 0))
+      .catch(() => setInboxPending(0));
+  }, [user?.id, tab]);
 
   useEffect(() => {
     if (tab !== "following" || !user?.id) return;
@@ -202,9 +212,29 @@ export default function Community() {
         >
           Following feed
         </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={tab === "circles" ? "default" : "outline"}
+          className="rounded-full"
+          onClick={() => setTab("circles")}
+        >
+          Circles
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={tab === "inbox" ? "default" : "outline"}
+          className="rounded-full"
+          onClick={() => setTab("inbox")}
+        >
+          Inbox{inboxPending ? ` (${inboxPending})` : ""}
+        </Button>
       </div>
 
       {tab === "following" ? <CommunityFeedPanel loading={feedLoading} items={feedItems} /> : null}
+      {tab === "circles" ? <CommunityCirclesPanel /> : null}
+      {tab === "inbox" ? <CommunityInboxPanel /> : null}
 
       {tab !== "discover" ? null : ownPublic === false ? (
         <SurfacePanel className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
