@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink, Loader2, Search, Users } from "lucide-react";
+import { Loader2, Search, Users } from "lucide-react";
+import ArtistSocialIconLinks from "@/components/ArtistSocialIconLinks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/PageHeader";
@@ -21,16 +22,6 @@ function MemberAvatar({ url, name }) {
       {(name || "?").charAt(0).toUpperCase()}
     </div>
   );
-}
-
-function socialLinks(artist) {
-  const links = [
-    ["Instagram", artist.instagram_url],
-    ["TikTok", artist.tiktok_url],
-    ["YouTube", artist.youtube_url],
-    ["Spotify", artist.spotify_url],
-  ].filter(([, href]) => href && String(href).trim());
-  return links;
 }
 
 export default function Community() {
@@ -160,20 +151,7 @@ export default function Community() {
                       {artist.genre ? (
                         <p className="text-xs text-muted-foreground">{artist.genre}</p>
                       ) : null}
-                      <div className="mt-1 flex flex-wrap gap-2">
-                        {socialLinks(artist).map(([label, href]) => (
-                          <a
-                            key={label}
-                            href={href}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-0.5 text-xs text-primary hover:underline"
-                          >
-                            {label}
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ))}
-                      </div>
+                      <ArtistSocialIconLinks artist={artist} className="mt-2" size="sm" />
                     </li>
                   ))}
                 </ul>
