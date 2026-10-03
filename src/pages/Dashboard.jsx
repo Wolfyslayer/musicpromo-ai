@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Sparkles, BarChart3, CalendarDays, Film, ArrowRight, PlayCircle } from "lucide-react";
+import { Plus, Sparkles, BarChart3, CalendarDays, Film, ArrowRight, PlayCircle, Globe2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import SurfacePanel from "@/components/SurfacePanel";
 import { Button } from "@/components/ui/button";
 import { loadCampaigns } from "@/services/data";
 import { selectCampaignVideos } from "@/services/studioRecords";
@@ -89,6 +91,23 @@ export default function Dashboard() {
       />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <SurfacePanel className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/12 text-primary">
+            <Globe2 className="h-5 w-5" aria-hidden />
+          </div>
+          <div>
+            <p className="font-heading text-base font-semibold">Community</p>
+            <p className="text-sm text-muted-foreground">
+              Discover public artist profiles, follow creators, and explore featured spotlights.
+            </p>
+          </div>
+        </div>
+        <Button className="min-h-11 shrink-0 rounded-full" asChild>
+          <Link to="/community">Open Community</Link>
+        </Button>
+      </SurfacePanel>
 
       {active ? (
         <section>

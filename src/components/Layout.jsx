@@ -22,6 +22,7 @@ import FirstLoginTutorial from "@/components/onboarding/FirstLoginTutorial";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/community", label: "Community", icon: Globe2 },
   { to: "/studio", label: "Studio", icon: Film },
   { to: "/campaigns", label: "Campaigns", icon: ListMusic },
   { to: "/create", label: "Create", icon: Plus },
@@ -30,7 +31,6 @@ const NAV = [
 ];
 
 const SECONDARY = [
-  { to: "/community", label: "Community", icon: Globe2 },
   { to: "/artists", label: "Artists", icon: Users },
   { to: "/releases", label: "Releases", icon: Disc3 },
   { to: "/social", label: "Social", icon: Share2 },

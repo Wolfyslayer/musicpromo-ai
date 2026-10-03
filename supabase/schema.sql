@@ -13,7 +13,18 @@ create table if not exists public.users (
   hide_artists_on_profile boolean not null default false,
   handle text,
   role text default 'artist',
+  community_featured boolean not null default false,
+  last_active_at timestamptz,
   created_at timestamptz default now()
+);
+
+create table if not exists public.community_follows (
+  id uuid primary key default gen_random_uuid(),
+  follower_id uuid not null references auth.users (id) on delete cascade,
+  followed_user_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint community_follows_no_self check (follower_id <> followed_user_id),
+  unique (follower_id, followed_user_id)
 );
 
 create table if not exists public.campaign_days (
@@ -59,11 +70,19 @@ alter table public.campaign_days enable row level security;
 alter table public.prepared_media enable row level security;
 alter table public.social_accounts enable row level security;
 alter table public.analytics_entries enable row level security;
+alter table public.community_follows enable row level security;
 
 create policy "users read own profile" on public.users for select using (id = auth.uid());
 create policy "users read public profiles" on public.users for select using (profile_public = true or id = auth.uid());
 create policy "users insert own profile" on public.users for insert with check (id = auth.uid());
 create policy "users update own profile" on public.users for update using (id = auth.uid());
+
+create policy "follows read own" on public.community_follows
+  for select using (follower_id = auth.uid());
+create policy "follows insert own" on public.community_follows
+  for insert with check (follower_id = auth.uid());
+create policy "follows delete own" on public.community_follows
+  for delete using (follower_id = auth.uid());
 
 create policy "own campaign days" on public.campaign_days
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
