@@ -375,7 +375,8 @@ export default function CreateCampaign() {
                 ? `Campaign ready.${scheduleNote}`
                 : scheduleNote || undefined,
       });
-      navigate(`/campaigns/${campaign.id}/plan`);
+      const releaseId = campaign.release_id || form.releaseId;
+      navigate(releaseId ? `/releases/${releaseId}/launch` : `/campaigns/${campaign.id}/plan`);
     } catch (e) {
       setGenerating(false);
       setStage("");
