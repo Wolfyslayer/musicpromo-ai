@@ -14,9 +14,33 @@ create table if not exists public.users (
   handle text,
   role text default 'artist',
   community_featured boolean not null default false,
+  featured_release_id uuid,
+  show_active_campaign_badge boolean not null default false,
+  allow_public_contact boolean not null default false,
+  community_verified_at timestamptz,
   last_active_at timestamptz,
   created_at timestamptz default now()
 );
+
+create table if not exists public.community_reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references auth.users (id) on delete cascade,
+  reported_user_id uuid not null references auth.users (id) on delete cascade,
+  reason text not null,
+  details text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists community_reports_reported_idx
+  on public.community_reports (reported_user_id);
+
+alter table public.community_reports enable row level security;
+
+create policy "reports insert own" on public.community_reports
+  for insert with check (reporter_id = auth.uid());
+
+create policy "reports read own" on public.community_reports
+  for select using (reporter_id = auth.uid());
 
 create table if not exists public.community_follows (
   id uuid primary key default gen_random_uuid(),

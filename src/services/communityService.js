@@ -21,3 +21,21 @@ export async function toggleCommunityFollow(followedUserId) {
   if (!body?.ok) throw new Error(body?.error || "Could not update follow.");
   return { following: body.following === true, followedUserId: body.followedUserId };
 }
+
+export async function loadCommunityFeed() {
+  const res = await db.functions.invoke("getCommunityFeed", {});
+  const body = unwrap(res);
+  if (body?.error && !body?.ok) throw new Error(body.error || "Could not load feed.");
+  return { items: body.items || [] };
+}
+
+export async function reportCommunityProfile(reportedUserId, reason, details = "") {
+  const res = await db.functions.invoke("reportCommunityProfile", {
+    reportedUserId,
+    reason,
+    details,
+  });
+  const body = unwrap(res);
+  if (!body?.ok) throw new Error(body?.error || "Could not submit report.");
+  return body;
+}

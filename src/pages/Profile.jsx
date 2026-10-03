@@ -1,6 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Camera, Copy, Globe, Loader2, Lock, Pencil, Share2, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Bookmark,
+  Camera,
+  Copy,
+  Globe,
+  Loader2,
+  Lock,
+  Mail,
+  Pencil,
+  Share2,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +22,15 @@ import { useToast } from "@/components/ui/use-toast";
 import PageHeader from "@/components/PageHeader";
 import SurfacePanel from "@/components/SurfacePanel";
 import { useAuth } from "@/lib/AuthContext";
-import { loadArtists } from "@/services/data";
+import ListenEmbed from "@/components/community/ListenEmbed";
+import ProfileBadges from "@/components/community/ProfileBadges";
+import ProfileCompletenessMeter from "@/components/community/ProfileCompletenessMeter";
+import ReportProfileDialog from "@/components/community/ReportProfileDialog";
+import ArtworkImage from "@/components/ArtworkImage";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { loadArtists, loadReleases } from "@/services/data";
+import { computeCompleteness } from "@/services/communityProfileUtils";
+import { loadCommunityMembers, toggleCommunityFollow } from "@/services/communityService";
 import {
   absoluteProfileUrl,
   formatHandleLabel,
@@ -99,6 +119,9 @@ export default function Profile() {
   const [publicView, setPublicView] = useState(null);
   const [artists, setArtists] = useState([]);
   const [socialConnections, setSocialConnections] = useState([]);
+  const [releases, setReleases] = useState([]);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
 
   const [form, setForm] = useState({
     display_name: "",
@@ -106,6 +129,9 @@ export default function Profile() {
     bio: "",
     profile_public: true,
     hide_artists_on_profile: false,
+    featured_release_id: "",
+    show_active_campaign_badge: false,
+    allow_public_contact: false,
   });
 
   useEffect(() => {
@@ -138,14 +164,19 @@ export default function Profile() {
               bio: row?.bio || "",
               profile_public: row?.profile_public !== false,
               hide_artists_on_profile: row?.hide_artists_on_profile === true,
+              featured_release_id: row?.featured_release_id || "",
+              show_active_campaign_badge: row?.show_active_campaign_badge === true,
+              allow_public_contact: row?.allow_public_contact === true,
             });
-            const [artistList, status] = await Promise.all([
+            const [artistList, status, releaseList] = await Promise.all([
               loadArtists(),
               getConnectionStatus().catch(() => null),
+              loadReleases().catch(() => []),
             ]);
             if (!cancelled) {
               setArtists(artistList);
               setSocialConnections(status?.connections || []);
+              setReleases(releaseList || []);
             }
             if (!cancelled && routeSlug && isUuid(routeSlug) && row?.handle) {
               navigate(profilePublicPath(row), { replace: true });
@@ -157,7 +188,17 @@ export default function Profile() {
               navigate("/");
               return;
             }
-            if (!cancelled) setPublicView(res.profile);
+            if (!cancelled) {
+              setPublicView(res.profile);
+              setIsFollowing(false);
+              loadCommunityMembers()
+                .then((payload) => {
+                  if (!cancelled && res.profile?.id) {
+                    setIsFollowing((payload.followingIds || []).includes(res.profile.id));
+                  }
+                })
+                .catch(() => {});
+            }
           }
         } else if (routeSlug) {
           setIsOwn(false);
@@ -194,6 +235,11 @@ export default function Profile() {
     () => ownVisibleArtists.map((a) => enrichArtistWithConnectionUrls(a, socialConnections)),
     [ownVisibleArtists, socialConnections]
   );
+
+  const ownCompleteness = useMemo(() => {
+    if (!profile) return null;
+    return computeCompleteness(profile, artists);
+  }, [profile, artists]);
 
   const save = async () => {
     if (!user?.id) return;
@@ -277,6 +323,23 @@ export default function Profile() {
     }
   };
 
+  const onPublicFollow = async () => {
+    if (!publicView?.id || followBusy) return;
+    setFollowBusy(true);
+    try {
+      const { following } = await toggleCommunityFollow(publicView.id);
+      setIsFollowing(following);
+      toast({
+        title: following ? "Following" : "Unfollowed",
+        description: following ? "Their updates will appear in your Community feed." : undefined,
+      });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Could not update follow", description: e.message });
+    } finally {
+      setFollowBusy(false);
+    }
+  };
+
   if (!isOwn && publicView) {
     return (
       <div className="space-y-6">
@@ -308,6 +371,22 @@ export default function Profile() {
             <Copy className="mr-1.5 h-3.5 w-3.5" />
             Copy link
           </Button>
+          {isAuthenticated ? (
+            <Button
+              type="button"
+              variant={isFollowing ? "secondary" : "outline"}
+              size="sm"
+              className="rounded-full"
+              disabled={followBusy}
+              onClick={onPublicFollow}
+            >
+              <Bookmark className={`mr-1.5 h-3.5 w-3.5 ${isFollowing ? "fill-current" : ""}`} />
+              {isFollowing ? "Following" : "Follow"}
+            </Button>
+          ) : null}
+          {isAuthenticated ? (
+            <ReportProfileDialog reportedUserId={publicView.id} displayName={publicView.displayName} />
+          ) : null}
         </div>
         <PageHeader eyebrow="Community" title={publicView.displayName} description="Public artist profile" />
         <SurfacePanel className="space-y-5">
@@ -318,13 +397,84 @@ export default function Profile() {
               {publicView.handle ? (
                 <p className="text-sm text-muted-foreground">{formatHandleLabel(publicView.handle)}</p>
               ) : null}
+              <ProfileBadges badges={publicView.badges} className="mt-2 justify-center sm:justify-start" />
+              {publicView.completeness ? (
+                <div className="mt-3 max-w-xs">
+                  <ProfileCompletenessMeter completeness={publicView.completeness} compact />
+                </div>
+              ) : null}
               {publicView.bio ? (
                 <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">{publicView.bio}</p>
               ) : null}
+              {publicView.openToContact ? (
+                <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary">
+                  <Mail className="h-3.5 w-3.5" /> Open to connect
+                </p>
+              ) : null}
             </div>
           </div>
+
+          {publicView.featuredRelease ? (
+            <div className="flex gap-3 rounded-xl border border-border/50 bg-muted/15 p-3">
+              <ArtworkImage
+                src={publicView.featuredRelease.artworkUrl}
+                alt={publicView.featuredRelease.title}
+                className="h-16 w-16 shrink-0 rounded-lg"
+                rounded="rounded-lg"
+              />
+              <div>
+                <p className="text-xs font-600 uppercase tracking-wider text-muted-foreground">Featured release</p>
+                <p className="font-600">{publicView.featuredRelease.title}</p>
+              </div>
+            </div>
+          ) : null}
+
+          <ListenEmbed listen={publicView.listen} />
+
           {!publicView.hideArtists && publicView.artists?.length ? (
             <ArtistCards artists={publicView.artists} />
+          ) : null}
+
+          <div className="flex flex-wrap gap-2 border-t border-border/40 pt-4">
+            <Button size="sm" className="rounded-full" asChild>
+              <Link to="/social/connect">Connect on Social Hub</Link>
+            </Button>
+            {publicView.openToContact ? (
+              <Button size="sm" variant="outline" className="rounded-full" asChild>
+                <Link to="/social/compose">Say hello</Link>
+              </Button>
+            ) : null}
+          </div>
+
+          {publicView.similarArtists?.length ? (
+            <div className="space-y-3 border-t border-border/40 pt-4">
+              <h3 className="font-heading text-sm font-600 uppercase tracking-wider text-muted-foreground">
+                Similar artists
+              </h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {publicView.similarArtists.map((m) => (
+                  <Link
+                    key={m.id}
+                    to={profilePublicPath(m)}
+                    className="flex items-center gap-2 rounded-xl border border-border/50 p-2 hover:bg-muted/30"
+                  >
+                    {m.avatarUrl ? (
+                      <img src={m.avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover" />
+                    ) : (
+                      <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                        {(m.displayName || "?").charAt(0)}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-600">{m.displayName}</p>
+                      {m.handle ? (
+                        <p className="truncate text-[10px] text-muted-foreground">{formatHandleLabel(m.handle)}</p>
+                      ) : null}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
           ) : null}
         </SurfacePanel>
       </div>
@@ -361,6 +511,7 @@ export default function Profile() {
         />
 
         <SurfacePanel className="space-y-5">
+          {ownCompleteness ? <ProfileCompletenessMeter completeness={ownCompleteness} /> : null}
           <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:text-left">
             <Avatar url={profile?.avatar_url} name={displayName} />
             <div className="min-w-0 flex-1">
@@ -511,7 +662,54 @@ export default function Profile() {
               onCheckedChange={(c) => setForm((f) => ({ ...f, hide_artists_on_profile: c }))}
             />
           </div>
+          <div className="space-y-1.5">
+            <Label>Featured release</Label>
+            <Select
+              value={form.featured_release_id || "none"}
+              onValueChange={(v) =>
+                setForm((f) => ({ ...f, featured_release_id: v === "none" ? "" : v }))
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {releases.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.title || r.name || "Untitled release"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Pinned at the top of your public profile with listen embeds when links exist.</p>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-600">Active campaign badge</p>
+              <p className="text-xs text-muted-foreground">Show a badge when you have a live or scheduled campaign.</p>
+            </div>
+            <Switch
+              checked={form.show_active_campaign_badge}
+              onCheckedChange={(c) => setForm((f) => ({ ...f, show_active_campaign_badge: c }))}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <Mail className="mt-0.5 h-4 w-4 text-primary" />
+              <div>
+                <p className="text-sm font-600">Open to connect</p>
+                <p className="text-xs text-muted-foreground">Shows collab-friendly status and a Social Hub CTA on your public profile.</p>
+              </div>
+            </div>
+            <Switch
+              checked={form.allow_public_contact}
+              onCheckedChange={(c) => setForm((f) => ({ ...f, allow_public_contact: c }))}
+            />
+          </div>
         </div>
+
+        {ownCompleteness ? <ProfileCompletenessMeter completeness={ownCompleteness} /> : null}
 
         <div className="flex flex-wrap gap-2">
           <Button type="button" className="rounded-full" disabled={saving} onClick={save}>

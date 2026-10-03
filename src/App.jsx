@@ -43,6 +43,7 @@ import {
 import SettingsShell, { SettingsIndexRedirect } from '@/components/settings/SettingsShell';
 import Profile from '@/pages/Profile';
 import Community from '@/pages/Community';
+import CommunityGenre from '@/pages/CommunityGenre';
 import {
   SettingsAccountPage,
   SettingsStudioPage,
@@ -121,6 +122,7 @@ const AuthenticatedApp = () => {
             <Route path="activity" element={<SocialActivityPage />} />
           </Route>
           <Route path="/community" element={<Community />} />
+          <Route path="/community/genre/:slug" element={<CommunityGenre />} />
           <Route path="/artists" element={<Artists />} />
           <Route path="/artists/:id" element={<ArtistEditor />} />
           <Route path="/releases" element={<Releases />} />
