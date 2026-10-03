@@ -15,7 +15,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
 import CommunityFeedPanel from "@/components/community/CommunityFeedPanel";
 import ProfileBadges from "@/components/community/ProfileBadges";
-import { genreToSlug } from "@/services/communityProfileUtils";
+import { COLLAB_INTENT_OPTIONS, collabIntentLabel, genreToSlug } from "@/services/communityProfileUtils";
 import { loadCommunityFeed, loadCommunityMembers, toggleCommunityFollow } from "@/services/communityService";
 import { absoluteProfileUrl, formatHandleLabel, profilePublicPath } from "@/services/profileHandle";
 import { fetchOwnProfile } from "@/services/userProfile";
@@ -46,6 +46,7 @@ export default function Community() {
   const [members, setMembers] = useState([]);
   const [query, setQuery] = useState("");
   const [genreFilter, setGenreFilter] = useState("all");
+  const [intentFilter, setIntentFilter] = useState("all");
   const [linksOnly, setLinksOnly] = useState(false);
   const [sort, setSort] = useState("newest");
   const [followingOnly, setFollowingOnly] = useState(false);
@@ -153,6 +154,7 @@ export default function Community() {
         if (!blob.includes(q)) return false;
       }
       if (genreFilter !== "all" && !(m.genres || []).includes(genreFilter)) return false;
+      if (intentFilter !== "all" && !(m.collabIntents || []).includes(intentFilter)) return false;
       if (linksOnly && !(m.socialLinkCount > 0)) return false;
       if (followingOnly && !followingIds.includes(m.id)) return false;
       return true;
@@ -171,7 +173,7 @@ export default function Community() {
       );
     }
     return list;
-  }, [members, query, genreFilter, linksOnly, followingOnly, followingIds, sort]);
+  }, [members, query, genreFilter, intentFilter, linksOnly, followingOnly, followingIds, sort]);
 
   return (
     <div className="space-y-6">
@@ -257,6 +259,23 @@ export default function Community() {
           </div>
 
           <div className="flex min-w-[10rem] flex-col gap-1.5">
+            <Label className="text-xs text-muted-foreground">Collab intent</Label>
+            <Select value={intentFilter} onValueChange={setIntentFilter}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="Any intent" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any intent</SelectItem>
+                {COLLAB_INTENT_OPTIONS.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex min-w-[10rem] flex-col gap-1.5">
             <Label className="text-xs text-muted-foreground">Genre</Label>
             <Select value={genreFilter} onValueChange={setGenreFilter}>
               <SelectTrigger className="rounded-xl">
@@ -331,6 +350,18 @@ export default function Community() {
                         <p className="truncate text-xs text-muted-foreground">{formatHandleLabel(member.handle)}</p>
                       ) : null}
                       <ProfileBadges badges={member.badges} className="mt-1.5" />
+                      {(member.collabIntents || []).length ? (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {member.collabIntents.slice(0, 2).map((id) => (
+                            <span
+                              key={id}
+                              className="rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-medium text-violet-800 dark:text-violet-200"
+                            >
+                              {collabIntentLabel(id)}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                       {typeof member.completenessScore === "number" ? (
                         <p className="mt-1 text-[10px] text-muted-foreground">
                           Profile strength {member.completenessScore}%

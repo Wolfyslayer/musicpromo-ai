@@ -31,12 +31,14 @@ import Artists from '@/pages/Artists';
 import ArtistEditor from '@/pages/ArtistEditor';
 import Releases from '@/pages/Releases';
 import ReleaseDetail from '@/pages/ReleaseDetail';
+import LaunchBoard from '@/pages/LaunchBoard';
 import ReleaseEditor from '@/pages/ReleaseEditor';
 import ReleaseCalendar from '@/pages/ReleaseCalendar';
 import ReleaseContent from '@/pages/ReleaseContent';
 import SocialShell, { SocialIndexRedirect } from '@/components/social/SocialShell';
 import {
   SocialConnectPage,
+  SocialHealthPage,
   SocialQueuePage,
   SocialActivityPage,
 } from '@/pages/social/SocialSectionPages';
@@ -118,6 +120,7 @@ const AuthenticatedApp = () => {
           <Route path="/social" element={<SocialShell />}>
             <Route index element={<SocialIndexRedirect />} />
             <Route path="connect" element={<SocialConnectPage />} />
+            <Route path="health" element={<SocialHealthPage />} />
             <Route path="queue" element={<SocialQueuePage />} />
             <Route path="activity" element={<SocialActivityPage />} />
           </Route>
@@ -130,6 +133,7 @@ const AuthenticatedApp = () => {
           <Route path="/releases/:id/edit" element={<ReleaseEditor />} />
           <Route path="/releases/:id/calendar" element={<ReleaseCalendar />} />
           <Route path="/releases/:id/content" element={<ReleaseContent />} />
+          <Route path="/releases/:id/launch" element={<LaunchBoard />} />
           <Route path="/releases/:id" element={<ReleaseDetail />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:userId" element={<Profile />} />

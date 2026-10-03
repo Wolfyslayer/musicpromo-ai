@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { db } from "@/api/base44Client";
 import { normalizeHandleInput, validateHandle } from "@/services/profileHandle";
+import { normalizeCollabIntents } from "@/services/communityProfileUtils";
 
 function googleAvatarFromSessionUser(sessionUser) {
   const meta = sessionUser?.user_metadata || {};
@@ -12,7 +13,7 @@ export async function fetchOwnProfile(userId) {
   const { data, error } = await supabase
     .from("users")
     .select(
-      "id, email, full_name, display_name, handle, avatar_url, avatar_override, bio, profile_public, hide_artists_on_profile, role, featured_release_id, show_active_campaign_badge, allow_public_contact"
+      "id, email, full_name, display_name, handle, avatar_url, avatar_override, bio, profile_public, hide_artists_on_profile, role, featured_release_id, show_active_campaign_badge, allow_public_contact, community_collab_intents"
     )
     .eq("id", userId)
     .maybeSingle();
@@ -63,6 +64,9 @@ export async function updateOwnProfile(userId, patch) {
   }
   if (patch.allow_public_contact != null) {
     allowed.allow_public_contact = Boolean(patch.allow_public_contact);
+  }
+  if (patch.community_collab_intents != null) {
+    allowed.community_collab_intents = normalizeCollabIntents(patch.community_collab_intents);
   }
 
   allowed.last_active_at = new Date().toISOString();

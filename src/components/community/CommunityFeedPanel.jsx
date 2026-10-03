@@ -47,7 +47,7 @@ export default function CommunityFeedPanel({ loading, items }) {
       {items.map((item, idx) => {
         const user = item.user;
         const key = `${item.type}-${user?.id}-${item.at}-${idx}`;
-        if (item.type === "campaign_share" && item.campaign) {
+        if ((item.type === "campaign_share" || item.type === "cross_promo") && item.campaign) {
           return (
             <SurfacePanel key={key} className="flex gap-3">
               <Link to={profilePublicPath(user)} className="shrink-0">
@@ -61,7 +61,9 @@ export default function CommunityFeedPanel({ loading, items }) {
                   {user?.handle ? (
                     <span className="text-muted-foreground"> {formatHandleLabel(user.handle)}</span>
                   ) : null}
-                  <span className="text-muted-foreground"> shared a campaign</span>
+                  <span className="text-muted-foreground">
+                    {item.type === "cross_promo" ? " — launch-week cross-promo" : " shared a campaign"}
+                  </span>
                 </p>
                 <div className="flex gap-3 rounded-xl border border-border/50 bg-muted/15 p-3">
                   {item.campaign.artworkUrl ? (

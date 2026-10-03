@@ -29,7 +29,7 @@ import ReportProfileDialog from "@/components/community/ReportProfileDialog";
 import ArtworkImage from "@/components/ArtworkImage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { loadArtists, loadReleases } from "@/services/data";
-import { computeCompleteness } from "@/services/communityProfileUtils";
+import { COLLAB_INTENT_OPTIONS, collabIntentLabel, computeCompleteness } from "@/services/communityProfileUtils";
 import { loadCommunityMembers, toggleCommunityFollow } from "@/services/communityService";
 import {
   absoluteProfileUrl,
@@ -132,6 +132,7 @@ export default function Profile() {
     featured_release_id: "",
     show_active_campaign_badge: false,
     allow_public_contact: false,
+    community_collab_intents: [],
   });
 
   useEffect(() => {
@@ -167,6 +168,9 @@ export default function Profile() {
               featured_release_id: row?.featured_release_id || "",
               show_active_campaign_badge: row?.show_active_campaign_badge === true,
               allow_public_contact: row?.allow_public_contact === true,
+              community_collab_intents: Array.isArray(row?.community_collab_intents)
+                ? row.community_collab_intents
+                : [],
             });
             const [artistList, status, releaseList] = await Promise.all([
               loadArtists(),
@@ -410,6 +414,18 @@ export default function Profile() {
                 <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary">
                   <Mail className="h-3.5 w-3.5" /> Open to connect
                 </p>
+              ) : null}
+              {publicView.collabIntents?.length ? (
+                <div className="mt-2 flex flex-wrap justify-center gap-1 sm:justify-start">
+                  {publicView.collabIntents.map((id) => (
+                    <span
+                      key={id}
+                      className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-800 dark:text-violet-200"
+                    >
+                      {collabIntentLabel(id)}
+                    </span>
+                  ))}
+                </div>
               ) : null}
             </div>
           </div>
@@ -706,6 +722,36 @@ export default function Profile() {
               checked={form.allow_public_contact}
               onCheckedChange={(c) => setForm((f) => ({ ...f, allow_public_contact: c }))}
             />
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-600">Collab intents</p>
+            <p className="text-xs text-muted-foreground">Shown on your public profile and filterable in Community Discover.</p>
+            <div className="flex flex-wrap gap-2">
+              {COLLAB_INTENT_OPTIONS.map((opt) => {
+                const on = form.community_collab_intents.includes(opt.id);
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        community_collab_intents: on
+                          ? f.community_collab_intents.filter((x) => x !== opt.id)
+                          : [...f.community_collab_intents, opt.id],
+                      }))
+                    }
+                    className={`rounded-full border px-3 py-1 text-xs transition ${
+                      on
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border/60 text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

@@ -1,7 +1,12 @@
 import { serveWithCors } from "../_shared/cors.ts";
 import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
 import { secrets } from "../_shared/runtime.ts";
-import { computeBadges, computeCompleteness, genreToSlug } from "../_shared/communityProfile.ts";
+import {
+  computeBadges,
+  computeCompleteness,
+  genreToSlug,
+  normalizeCollabIntents,
+} from "../_shared/communityProfile.ts";
 
 function unpackArtist(row: Record<string, unknown>) {
   const data = row.data && typeof row.data === "object" ? (row.data as Record<string, unknown>) : {};
@@ -69,6 +74,7 @@ function buildMember(
     artists,
     badges,
     completenessScore: completeness.score,
+    collabIntents: normalizeCollabIntents(u.community_collab_intents),
   };
 }
 
@@ -107,7 +113,7 @@ async function handler(req: Request): Promise<Response> {
     const { data: userRows, error: userErr } = await admin
       .from("users")
       .select(
-        "id, display_name, full_name, handle, avatar_url, bio, hide_artists_on_profile, created_at, community_featured, community_verified_at, last_active_at, featured_release_id, show_active_campaign_badge, profile_public"
+        "id, display_name, full_name, handle, avatar_url, bio, hide_artists_on_profile, created_at, community_featured, community_verified_at, last_active_at, featured_release_id, show_active_campaign_badge, profile_public, community_collab_intents"
       )
       .eq("profile_public", true)
       .order("created_at", { ascending: false })

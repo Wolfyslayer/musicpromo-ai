@@ -1,5 +1,6 @@
 import { db } from '@/api/base44Client';
 import { normalizeArtistRow } from "@/services/artistSocial";
+import { loadPosts } from "@/services/socialService";
 
 /**
  * Data-access helpers. Pages keep importing these joins. The `db` client
@@ -286,4 +287,115 @@ export async function loadReleaseContent(releaseId) {
 
 export async function loadAnalytics() {
   return notDemo(await db.entities.AnalyticsEntry.list("-date", L));
+}
+
+/**
+ * Release-centric launch timeline: campaign days, social posts, and Community flags.
+ */
+export async function loadLaunchBoard(releaseId) {
+  const { release, artist, campaigns, entries } = await loadReleaseCalendar(releaseId);
+  const postsByCampaign = {};
+  await Promise.all(
+    campaigns.map(async (c) => {
+      try {
+        const res = await loadPosts({ campaignId: c.id });
+        postsByCampaign[c.id] = res?.posts || [];
+      } catch {
+        postsByCampaign[c.id] = [];
+      }
+    })
+  );
+
+  const timeline = [];
+  if (release?.release_date) {
+    timeline.push({
+      kind: "release_date",
+      date: release.release_date,
+      title: release.title || "Release day",
+    });
+  }
+
+  for (const c of campaigns) {
+    timeline.push({
+      kind: "campaign_meta",
+      date: c.start_date || c.end_date || release?.release_date,
+      campaign: c,
+      communityShare: c.share_on_community === true,
+      crossPromo: c.launch_week_cross_promo === true,
+    });
+  }
+
+  for (const entry of entries) {
+    const campaignId = entry.campaign_id || entry.campaign?.id;
+    const posts = (postsByCampaign[campaignId] || []).filter(
+      (p) => p.campaignDayId === entry.id || p.campaign_day_id === entry.id
+    );
+    timeline.push({
+      kind: "day",
+      date: entry.date,
+      day: entry,
+      campaign: entry.campaign,
+      posts,
+    });
+  }
+
+  timeline.sort(
+    (a, b) =>
+      String(a.date || "").localeCompare(String(b.date || "")) ||
+      (a.kind === "release_date" ? -1 : 0)
+  );
+
+  const issues = [];
+  for (const entry of entries) {
+    if (!String(entry.caption || "").trim()) {
+      issues.push({
+        type: "missing_caption",
+        dayId: entry.id,
+        date: entry.date,
+        campaignId: entry.campaign_id,
+        label: `Day ${entry.day_number || "?"}`,
+      });
+    }
+    if (entry.publish_error) {
+      issues.push({
+        type: "publish_error",
+        dayId: entry.id,
+        date: entry.date,
+        campaignId: entry.campaign_id,
+        message: String(entry.publish_error),
+      });
+    }
+  }
+
+  return {
+    release,
+    artist,
+    campaigns,
+    entries,
+    postsByCampaign,
+    timeline,
+    issues,
+  };
+}
+
+/** Campaign days and active rollouts with publish problems (Social command center). */
+export async function loadSocialHealthSnapshot() {
+  const [campaigns, days] = await Promise.all([
+    loadCampaigns(),
+    db.entities.CampaignDay.list("-updated_date", L),
+  ]);
+  const activeCampaigns = campaigns.filter((c) =>
+    ["active", "scheduled", "preparing"].includes(String(c.status || ""))
+  );
+  const dayIssues = (days || []).filter(
+    (d) => d.publish_error || String(d.status || "") === "failed"
+  );
+  const missingSchedule = (days || []).filter(
+    (d) => String(d.status || "") !== "complete" && !d.scheduled_at && d.date
+  );
+  return {
+    activeCampaigns,
+    dayIssues,
+    missingSchedule: missingSchedule.slice(0, 20),
+  };
 }

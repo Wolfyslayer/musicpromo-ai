@@ -1,5 +1,24 @@
 /** Client-side mirrors of supabase/functions/_shared/communityProfile.ts (keep in sync). */
 
+export const COLLAB_INTENT_OPTIONS = [
+  { id: "feature", label: "Looking for feature" },
+  { id: "remix", label: "Open to remix" },
+  { id: "visuals", label: "Need visuals" },
+  { id: "promo_swap", label: "Promo swap" },
+  { id: "playlist", label: "Playlist pitches" },
+  { id: "live", label: "Live / shows" },
+];
+
+export function normalizeCollabIntents(raw) {
+  const allowed = new Set(COLLAB_INTENT_OPTIONS.map((o) => o.id));
+  const list = Array.isArray(raw) ? raw : [];
+  return [...new Set(list.map((x) => String(x || "").trim()).filter((id) => allowed.has(id)))];
+}
+
+export function collabIntentLabel(id) {
+  return COLLAB_INTENT_OPTIONS.find((o) => o.id === id)?.label || id;
+}
+
 export function genreToSlug(genre) {
   return String(genre || "")
     .trim()

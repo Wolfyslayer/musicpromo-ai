@@ -2,7 +2,7 @@ import { db } from "@/api/base44Client";
 
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Pencil, Music2, ListMusic, Sparkles, Film, Plus, Link2, CalendarDays, Share2 } from "lucide-react";
+import { ArrowLeft, Pencil, Music2, ListMusic, Sparkles, Film, Plus, Link2, CalendarDays, Share2, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
@@ -94,12 +94,16 @@ export default function ReleaseDetail() {
               >
                 <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
               </Button>
+              <Button size="sm" className="rounded-full" onClick={() => navigate(`/releases/${id}/launch`)}>
+                <Rocket className="mr-1.5 h-3.5 w-3.5" /> Launch board
+              </Button>
               <Button
+                variant="outline"
                 size="sm"
                 className="rounded-full"
                 onClick={() => navigate(`/releases/${id}/calendar`)}
               >
-                <CalendarDays className="mr-1.5 h-3.5 w-3.5" /> View Campaign Calendar
+                <CalendarDays className="mr-1.5 h-3.5 w-3.5" /> Calendar
               </Button>
               <Button
                 variant="outline"
