@@ -17,17 +17,12 @@ import {
   YOUTUBE_OAUTH_REDIRECT_URI,
 } from "../../shared/youtubeOAuth.ts";
 import {
-  buildFacebookAuthorizeUrl,
-  FACEBOOK_CONNECT_SCOPES,
-  FACEBOOK_OAUTH_REDIRECT_URI,
-} from "../../shared/facebookOAuth.ts";
-import {
   buildXAuthorizeUrl,
   X_CONNECT_SCOPES,
   X_OAUTH_REDIRECT_URI,
 } from "../../shared/xOAuth.ts";
 
-const SUPPORTED = new Set(["instagram", "tiktok", "youtube", "facebook", "x"]);
+const SUPPORTED = new Set(["instagram", "tiktok", "youtube", "x"]);
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 const PROVIDER_ALIASES: Record<string, string> = {
@@ -39,8 +34,6 @@ const PROVIDER_ALIASES: Record<string, string> = {
   youtube: "youtube",
   yt: "youtube",
   google: "youtube",
-  facebook: "facebook",
-  fb: "facebook",
   x: "x",
   twitter: "x",
 };
@@ -169,7 +162,7 @@ export default async function (req: Request): Promise<Response> {
     if (!provider) {
       return Response.json(
         {
-          error: "provider is required (instagram, tiktok, youtube, facebook, or x).",
+          error: "provider is required (instagram, tiktok, youtube, or x).",
           code: "VALIDATION",
           supported: [...SUPPORTED],
           bodyKeys: Object.keys(body || {}),
@@ -304,31 +297,6 @@ export default async function (req: Request): Promise<Response> {
         redirectUri: YOUTUBE_OAUTH_REDIRECT_URI,
         forceConsent: forceReauth,
       });
-    } else if (provider === "facebook") {
-      const clientId = secretValue("FACEBOOK_CLIENT_ID");
-      const clientSecret = secretValue("FACEBOOK_CLIENT_SECRET");
-      if (!clientId || !clientSecret) {
-        return Response.json(
-          {
-            error: "Facebook Pages are not configured (FACEBOOK_CLIENT_ID / FACEBOOK_CLIENT_SECRET).",
-            code: "not_configured",
-            missing: {
-              FACEBOOK_CLIENT_ID: !hasSecret("FACEBOOK_CLIENT_ID"),
-              FACEBOOK_CLIENT_SECRET: !hasSecret("FACEBOOK_CLIENT_SECRET"),
-            },
-          },
-          { status: 503 }
-        );
-      }
-      scopes = [...FACEBOOK_CONNECT_SCOPES];
-      authorizationUrl = buildFacebookAuthorizeUrl({
-        clientId,
-        redirectUri: FACEBOOK_OAUTH_REDIRECT_URI,
-        state,
-        scopes,
-        forceReauth,
-        includePublishScopes: forceReauth,
-      });
     } else if (provider === "x") {
       const clientId = secretValue("X_CLIENT_ID", "TWITTER_CLIENT_ID", "X_API_KEY");
       const clientSecret = secretValue("X_CLIENT_SECRET", "TWITTER_CLIENT_SECRET", "X_API_SECRET");
@@ -371,9 +339,7 @@ export default async function (req: Request): Promise<Response> {
           ? META_OAUTH_REDIRECT_URI
           : provider === "tiktok"
             ? TIKTOK_OAUTH_REDIRECT_URI
-            : provider === "facebook"
-              ? FACEBOOK_OAUTH_REDIRECT_URI
-              : provider === "x"
+            : provider === "x"
                 ? X_OAUTH_REDIRECT_URI
                 : YOUTUBE_OAUTH_REDIRECT_URI,
       forceReauth,

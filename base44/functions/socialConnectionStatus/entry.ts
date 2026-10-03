@@ -9,7 +9,6 @@ import {
   fetchTikTokProfile,
 } from "../../shared/tiktokOAuth.ts";
 import { YOUTUBE_OAUTH_REDIRECT_URI } from "../../shared/youtubeOAuth.ts";
-import { hasFacebookPublishScope } from "../../shared/facebookOAuth.ts";
 import { hasXPublishScope } from "../../shared/xOAuth.ts";
 import { decryptCredential } from "../../shared/socialCrypto.ts";
 
@@ -118,8 +117,6 @@ export default async function (req: Request): Promise<Response> {
       } else if (r.provider === "youtube") {
         const scopes = String(r.scopes || "");
         canPublish = /youtube\.upload|youtube\b/.test(scopes);
-      } else if (r.provider === "facebook") {
-        canPublish = hasFacebookPublishScope(r.scopes);
       } else if (r.provider === "x") {
         canPublish = hasXPublishScope(r.scopes);
       }
@@ -138,7 +135,6 @@ export default async function (req: Request): Promise<Response> {
           (r.provider === "instagram" ||
             r.provider === "tiktok" ||
             r.provider === "youtube" ||
-            r.provider === "facebook" ||
             r.provider === "x") &&
           !canPublish,
       };
@@ -163,9 +159,6 @@ export default async function (req: Request): Promise<Response> {
           sharedReady &&
             hasSecret("GOOGLE_CLIENT_ID", "YOUTUBE_CLIENT_ID") &&
             hasSecret("GOOGLE_CLIENT_SECRET", "YOUTUBE_CLIENT_SECRET")
-        ),
-        facebook: Boolean(
-          sharedReady && hasSecret("FACEBOOK_CLIENT_ID") && hasSecret("FACEBOOK_CLIENT_SECRET")
         ),
         x: Boolean(
           sharedReady &&

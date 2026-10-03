@@ -39,10 +39,6 @@ const ERROR_MESSAGES = {
   encrypt_failed:
     "Could not store credentials. SOCIAL_TOKEN_ENCRYPTION_KEY must be 32 bytes as base64.",
   account_save_failed: "Login worked, but saving the connection failed. Try Connect again.",
-  no_facebook_pages:
-    "No Facebook Page was returned. Create a Page at facebook.com/pages, ensure you are a Page admin, and on the Meta consent screen enable access to your Page(s). Personal profiles alone cannot connect.",
-  token_exchange_failed:
-    "Facebook rejected the login. Confirm FACEBOOK_CLIENT_ID/SECRET, add the meta-oauth-callback redirect URI to your Facebook app (not the Instagram app), and enable Facebook Login.",
 };
 
 /** Platforms with OAuth implemented in connectSocialProvider — keep in sync via providers.js */
@@ -158,9 +154,7 @@ export function SocialHubProvider({ children }) {
           ? "YouTube"
           : ok === "instagram"
             ? "Instagram"
-            : ok === "facebook"
-              ? "Facebook Page"
-              : ok === "x"
+            : ok === "x"
                 ? "X"
                 : ok || "Account";
 

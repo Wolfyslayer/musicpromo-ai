@@ -239,7 +239,7 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Use <span className="text-foreground">Schedule auto-publish</span> to queue Instagram, TikTok, and YouTube.
+        Use <span className="text-foreground">Schedule auto-publish</span> to queue Instagram, TikTok, YouTube, and X.
         The background worker runs hourly (:38 UTC) and publishes due posts without manual action.
       </p>
       {campaign?.release_id && (
