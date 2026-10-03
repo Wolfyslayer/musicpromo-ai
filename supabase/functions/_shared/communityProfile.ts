@@ -1,5 +1,20 @@
 /** Badges, completeness, genre helpers for Community profiles. */
 
+export const COLLAB_INTENT_OPTIONS = [
+  { id: "feature", label: "Looking for feature" },
+  { id: "remix", label: "Open to remix" },
+  { id: "visuals", label: "Need visuals" },
+  { id: "promo_swap", label: "Promo swap" },
+  { id: "playlist", label: "Playlist pitches" },
+  { id: "live", label: "Live / shows" },
+] as const;
+
+export function normalizeCollabIntents(raw: unknown): string[] {
+  const allowed = new Set(COLLAB_INTENT_OPTIONS.map((o) => o.id));
+  const list = Array.isArray(raw) ? raw : [];
+  return [...new Set(list.map((x) => String(x || "").trim()).filter((id) => allowed.has(id)))];
+}
+
 export type CommunityBadge = {
   id: string;
   label: string;

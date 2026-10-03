@@ -11,6 +11,7 @@ import SurfacePanel from "@/components/SurfacePanel";
 export default function CampaignCommunityShare({ campaign, onUpdated }) {
   const { toast } = useToast();
   const [shareOn, setShareOn] = useState(campaign?.share_on_community === true);
+  const [crossPromo, setCrossPromo] = useState(campaign?.launch_week_cross_promo === true);
   const [teaser, setTeaser] = useState(String(campaign?.community_teaser || campaign?.summary || "").slice(0, 280));
   const [saving, setSaving] = useState(false);
 
@@ -21,6 +22,7 @@ export default function CampaignCommunityShare({ campaign, onUpdated }) {
     try {
       await db.entities.Campaign.update(campaign.id, {
         share_on_community: shareOn,
+        launch_week_cross_promo: crossPromo,
         community_teaser: teaser.trim(),
       });
       toast({ title: "Community settings saved" });
@@ -48,6 +50,17 @@ export default function CampaignCommunityShare({ campaign, onUpdated }) {
           Visible in Community feed
         </Label>
         <Switch id="share-community" checked={shareOn} onCheckedChange={setShareOn} />
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <Label htmlFor="cross-promo" className="text-sm font-normal">
+            Launch-week cross-promo
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Opt in so followers see you are open to mutual promo during launch week.
+          </p>
+        </div>
+        <Switch id="cross-promo" checked={crossPromo} onCheckedChange={setCrossPromo} />
       </div>
       <div className="space-y-1.5">
         <Label>Teaser (optional)</Label>

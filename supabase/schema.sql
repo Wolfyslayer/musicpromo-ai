@@ -18,6 +18,7 @@ create table if not exists public.users (
   show_active_campaign_badge boolean not null default false,
   allow_public_contact boolean not null default false,
   community_verified_at timestamptz,
+  community_collab_intents text[] not null default '{}',
   last_active_at timestamptz,
   created_at timestamptz default now()
 );

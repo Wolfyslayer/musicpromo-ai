@@ -5,6 +5,7 @@ import {
   computeBadges,
   computeCompleteness,
   genreToSlug,
+  normalizeCollabIntents,
   pickListenSource,
 } from "../_shared/communityProfile.ts";
 
@@ -42,7 +43,7 @@ async function handler(req: Request): Promise<Response> {
     let userQuery = admin
       .from("users")
       .select(
-        "id, display_name, full_name, handle, avatar_url, bio, profile_public, hide_artists_on_profile, featured_release_id, show_active_campaign_badge, allow_public_contact, community_featured, community_verified_at, created_at"
+        "id, display_name, full_name, handle, avatar_url, bio, profile_public, hide_artists_on_profile, featured_release_id, show_active_campaign_badge, allow_public_contact, community_featured, community_verified_at, community_collab_intents, created_at"
       );
 
     if (UUID_RE.test(profileKey)) {
@@ -239,6 +240,7 @@ async function handler(req: Request): Promise<Response> {
         listen,
         genreSlugs,
         openToContact: userRow.allow_public_contact === true,
+        collabIntents: normalizeCollabIntents(userRow.community_collab_intents),
         similarArtists,
       },
     });

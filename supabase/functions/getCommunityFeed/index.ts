@@ -52,12 +52,29 @@ async function handler(req: Request): Promise<Response> {
 
     for (const row of campaignRows || []) {
       const c = unpackCampaign(row as Record<string, unknown>);
-      if (c.share_on_community !== true) continue;
       const uid = String(row.user_id || "");
       const author = userMap.get(uid);
       if (!author) continue;
       const status = String(c.status || "");
       if (!["active", "scheduled", "preparing"].includes(status)) continue;
+
+      if (c.launch_week_cross_promo === true) {
+        items.push({
+          type: "cross_promo",
+          at: row.updated_at || row.created_at,
+          user: author,
+          campaign: {
+            id: c.id,
+            status,
+            title: c.name || c.title || "Campaign",
+            teaser: c.community_teaser || c.summary || "",
+            artworkUrl: c.artwork_url || c.cover_url || null,
+          },
+          message: "Open to launch-week cross-promo",
+        });
+      }
+
+      if (c.share_on_community !== true) continue;
       items.push({
         type: "campaign_share",
         at: row.updated_at || row.created_at,
