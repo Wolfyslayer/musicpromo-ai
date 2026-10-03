@@ -28,3 +28,6 @@ verify_jwt = false
 
 [functions.getPublicProfile]
 verify_jwt = false
+
+[functions.sendLaunchDigest]
+verify_jwt = false

@@ -13,7 +13,7 @@ export async function fetchOwnProfile(userId) {
   const { data, error } = await supabase
     .from("users")
     .select(
-      "id, email, full_name, display_name, handle, avatar_url, avatar_override, bio, profile_public, hide_artists_on_profile, role, featured_release_id, show_active_campaign_badge, allow_public_contact, community_collab_intents"
+      "id, email, full_name, display_name, handle, avatar_url, avatar_override, bio, profile_public, hide_artists_on_profile, role, featured_release_id, show_active_campaign_badge, allow_public_contact, community_collab_intents, launch_digest_enabled"
     )
     .eq("id", userId)
     .maybeSingle();
@@ -67,6 +67,9 @@ export async function updateOwnProfile(userId, patch) {
   }
   if (patch.community_collab_intents != null) {
     allowed.community_collab_intents = normalizeCollabIntents(patch.community_collab_intents);
+  }
+  if (patch.launch_digest_enabled != null) {
+    allowed.launch_digest_enabled = Boolean(patch.launch_digest_enabled);
   }
 
   allowed.last_active_at = new Date().toISOString();

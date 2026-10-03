@@ -19,6 +19,8 @@ create table if not exists public.users (
   allow_public_contact boolean not null default false,
   community_verified_at timestamptz,
   community_collab_intents text[] not null default '{}',
+  launch_digest_enabled boolean not null default true,
+  launch_digest_last_sent_at timestamptz,
   last_active_at timestamptz,
   created_at timestamptz default now()
 );
@@ -34,6 +36,36 @@ create table if not exists public.community_reports (
 
 create index if not exists community_reports_reported_idx
   on public.community_reports (reported_user_id);
+
+create table if not exists public.community_promo_requests (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid not null references auth.users (id) on delete cascade,
+  target_user_id uuid not null references auth.users (id) on delete cascade,
+  message text not null,
+  campaign_id uuid,
+  status text not null default 'pending'
+    check (status in ('pending', 'accepted', 'declined', 'cancelled')),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  constraint community_promo_no_self check (requester_id <> target_user_id)
+);
+
+create table if not exists public.community_circles (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users (id) on delete cascade,
+  name text not null,
+  invite_code text not null unique,
+  max_members int not null default 20,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.community_circle_members (
+  circle_id uuid not null references public.community_circles (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  role text not null default 'member' check (role in ('owner', 'member')),
+  joined_at timestamptz not null default now(),
+  primary key (circle_id, user_id)
+);
 
 alter table public.community_reports enable row level security;
 

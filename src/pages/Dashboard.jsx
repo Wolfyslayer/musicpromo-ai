@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Sparkles, BarChart3, CalendarDays, Film, ArrowRight, PlayCircle, Globe2, Rocket, Activity } from "lucide-react";
 import LaunchBoardSummary from "@/components/launch/LaunchBoardSummary";
+import LaunchDigestPanel from "@/components/launch/LaunchDigestPanel";
 import { Link } from "react-router-dom";
 import SurfacePanel from "@/components/SurfacePanel";
 import { Button } from "@/components/ui/button";
@@ -118,16 +119,17 @@ export default function Dashboard() {
       </SurfacePanel>
 
       {active && launchReleaseId ? (
-        <section>
+        <section className="space-y-4">
           <SectionTitle>Launch board</SectionTitle>
           <LaunchBoardSummary
             campaign={active}
             releaseId={launchReleaseId}
             readyVideosCount={readyVideos.length}
           />
+          <LaunchDigestPanel />
         </section>
       ) : active ? (
-        <section>
+        <section className="space-y-4">
           <SectionTitle>Active Campaign</SectionTitle>
           <button
             onClick={() => navigate(`/campaigns/${active.id}/plan`)}
@@ -151,6 +153,7 @@ export default function Dashboard() {
               <ArrowRight className="hidden h-5 w-5 shrink-0 text-muted-foreground transition group-hover:translate-x-1 sm:block" />
             </div>
           </button>
+          <LaunchDigestPanel />
         </section>
       ) : (
         !data && <div className="h-40 animate-shimmer rounded-2xl" />

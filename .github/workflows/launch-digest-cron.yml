@@ -1,0 +1,26 @@
+# Optional weekly launch digest emails via sendLaunchDigest edge function.
+# Secrets: LAUNCH_DIGEST_CRON_SECRET (repo), RESEND_API_KEY + LAUNCH_DIGEST_FROM_EMAIL (Supabase).
+
+name: Launch digest (weekly)
+
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger sendLaunchDigest
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          LAUNCH_DIGEST_CRON_SECRET: ${{ secrets.LAUNCH_DIGEST_CRON_SECRET }}
+        run: |
+          if [ -z "$SUPABASE_PROJECT_REF" ] || [ -z "$LAUNCH_DIGEST_CRON_SECRET" ]; then
+            echo "Skipping — set SUPABASE_PROJECT_REF and LAUNCH_DIGEST_CRON_SECRET to enable."
+            exit 0
+          fi
+          curl -sS -X POST \
+            -H "x-launch-digest-secret: $LAUNCH_DIGEST_CRON_SECRET" \
+            "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/sendLaunchDigest"
