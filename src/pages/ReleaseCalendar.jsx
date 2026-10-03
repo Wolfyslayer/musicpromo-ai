@@ -107,6 +107,7 @@ export default function ReleaseCalendar() {
         campaignId: entry.campaign_id,
         campaignDayId: entry.id,
         releaseId: id,
+        platform: entry.platform,
       })
     );
   };

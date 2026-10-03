@@ -106,6 +106,7 @@ export default function CampaignDayContentCard({
                 buildComposePath({
                   campaignId,
                   campaignDayId: day.id,
+                  platform: day.platform,
                 })
               )
             }

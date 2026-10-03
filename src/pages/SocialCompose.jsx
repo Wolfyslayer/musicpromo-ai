@@ -26,14 +26,15 @@ import {
   INSTAGRAM_CAPTION_MAX,
   looksLikeJpegUrl,
   looksLikePngOrWebpUrl,
-  getInstagramPublishBlocker,
   getMediaPreparationHint,
+  getPublishBlockerForProvider,
   validateDraftFields,
 } from "@/services/social/publishValidation";
+import { primaryProviderForDayPlatform } from "@/services/social/dayPlatform";
+import { SOCIAL_PROVIDERS } from "@/services/socialService";
 
 /**
- * Compose / publish Instagram SocialPost from campaign day context.
- * Save Draft uses minimal validation; Publish uses Instagram media rules.
+ * Compose / publish a SocialPost for the campaign day's platform.
  */
 export default function SocialCompose() {
   const navigate = useNavigate();
@@ -44,6 +45,7 @@ export default function SocialCompose() {
   const campaignIdParam = params.get("campaign") || "";
   const releaseIdParam = params.get("release") || "";
   const postIdParam = params.get("post") || "";
+  const providerParam = (params.get("provider") || "").toLowerCase();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,7 +53,8 @@ export default function SocialCompose() {
   const [publishPhase, setPublishPhase] = useState(""); // "", preparing, publishing
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const [instagram, setInstagram] = useState(null);
+  const [providerId, setProviderId] = useState(providerParam || "instagram");
+  const [connection, setConnection] = useState(null);
   const [day, setDay] = useState(null);
   const [campaign, setCampaign] = useState(null);
   const [release, setRelease] = useState(null);
@@ -82,30 +85,35 @@ export default function SocialCompose() {
     video.render_output_url &&
     /^https:\/\//i.test(video.render_output_url);
 
-  const publishBlocker = getInstagramPublishBlocker({
-    instagram,
+  const providerMeta = SOCIAL_PROVIDERS.find((p) => p.id === providerId) || SOCIAL_PROVIDERS[0];
+  const providerLabel = providerMeta?.name || providerId;
+
+  const publishBlocker = getPublishBlockerForProvider(providerId, {
+    connection,
     post,
     mediaUrl,
     mediaType,
     videoReady: Boolean(videoReady),
   });
-  const preparationHint = getMediaPreparationHint(mediaUrl, mediaType);
+  const preparationHint =
+    providerId === "instagram" ? getMediaPreparationHint(mediaUrl, mediaType) : null;
 
   const bootstrap = useCallback(async () => {
     setLoading(true);
     try {
       const status = await getConnectionStatus();
-      const ig = (status?.connections || []).find((c) => c.provider === "instagram" && c.status === "connected");
-      setInstagram(ig || null);
 
+      let loadedPost = null;
       if (postIdParam) {
         const res = await loadPost(postIdParam);
         const p = res?.post;
         if (p) {
+          loadedPost = p;
           setPost(p);
           setCaption(p.caption || "");
           setMediaUrl(p.mediaUrl || "");
           setMediaType(p.mediaType || "IMAGE");
+          if (p.provider) setProviderId(String(p.provider).toLowerCase());
         }
       }
 
@@ -140,18 +148,40 @@ export default function SocialCompose() {
         setGenerated((content || []).filter((c) => c.type === "caption" || !c.type));
       }
 
+      let vp = null;
       if (dayRow?.video_project_id) {
-        const vp = await db.entities.VideoProject.get(dayRow.video_project_id).catch(() => null);
+        vp = await db.entities.VideoProject.get(dayRow.video_project_id).catch(() => null);
         setVideo(vp);
       }
+
+      const resolvedProvider =
+        (loadedPost?.provider && String(loadedPost.provider).toLowerCase()) ||
+        providerParam ||
+        primaryProviderForDayPlatform(dayRow?.platform) ||
+        "instagram";
+      setProviderId(resolvedProvider);
+
+      const conn =
+        (status?.connections || []).find(
+          (c) => c.provider === resolvedProvider && c.status === "connected"
+        ) || null;
+      setConnection(conn);
+
+      const vpReady =
+        vp && vp.rendering_status === "complete" && vp.render_output_url && /^https:\/\//i.test(vp.render_output_url);
 
       if (!postIdParam) {
         const parts = [dayRow?.caption, dayRow?.hashtags, dayRow?.cta].filter(Boolean);
         setCaption(parts.join("\n\n").slice(0, INSTAGRAM_CAPTION_MAX));
         setCaptionSource("day");
-        const art = releaseRow?.artwork_url || songRow?.artwork_url || "";
-        setMediaUrl(art);
-        setMediaType("IMAGE");
+        if ((resolvedProvider === "tiktok" || resolvedProvider === "youtube") && vpReady) {
+          setMediaUrl(String(vp.render_output_url));
+          setMediaType("REELS");
+        } else {
+          const art = releaseRow?.artwork_url || songRow?.artwork_url || "";
+          setMediaUrl(art);
+          setMediaType("IMAGE");
+        }
       }
     } catch (e) {
       toast({
@@ -162,7 +192,7 @@ export default function SocialCompose() {
     } finally {
       setLoading(false);
     }
-  }, [campaignIdParam, dayId, postIdParam, releaseIdParam, toast]);
+  }, [campaignIdParam, dayId, postIdParam, providerParam, releaseIdParam, toast]);
 
   useEffect(() => {
     bootstrap();
@@ -197,8 +227,8 @@ export default function SocialCompose() {
     setSaving(true);
     try {
       const payload = {
-        provider: "instagram",
-        socialAccountId: instagram?.id || "",
+        provider: providerId,
+        socialAccountId: connection?.id || "",
         campaignId: campaign?.id || campaignIdParam || "",
         campaignDayId: day?.id || dayId || "",
         releaseId: release?.id || releaseIdParam || "",
@@ -221,7 +251,10 @@ export default function SocialCompose() {
         return;
       }
       setPost(res.post);
-      toast({ title: "Draft saved", description: "You can keep editing. Publish when media and Instagram are ready." });
+      toast({
+        title: "Draft saved",
+        description: `You can keep editing. Publish when media and ${providerLabel} are ready.`,
+      });
       if (res.post?.id && !postIdParam) {
         navigate(`/social/compose?post=${res.post.id}`, { replace: true });
       }
@@ -237,8 +270,8 @@ export default function SocialCompose() {
   };
 
   const requestPublish = () => {
-    const blocker = getInstagramPublishBlocker({
-      instagram,
+    const blocker = getPublishBlockerForProvider(providerId, {
+      connection,
       post,
       mediaUrl,
       mediaType,
@@ -269,7 +302,7 @@ export default function SocialCompose() {
         caption,
         mediaUrl: mediaUrl || "",
         mediaType,
-        socialAccountId: instagram?.id || "",
+        socialAccountId: connection?.id || "",
       });
       if (updateRes?.error) {
         toast({ variant: "destructive", title: "Could not update draft", description: updateRes.error });
@@ -292,10 +325,10 @@ export default function SocialCompose() {
       }
       if (res?.post) setPost(res.post);
       toast({
-        title: "Published to Instagram",
+        title: `Published to ${providerLabel}`,
         description: res?.post?.externalPermalink
           ? "Open the permalink from Social Hub to view the post."
-          : "Your Instagram post was published.",
+          : `Your ${providerLabel} post was published.`,
       });
       navigate("/social");
     } catch (e) {
@@ -316,9 +349,8 @@ export default function SocialCompose() {
   };
 
   const reconnect = async () => {
-    console.log("Instagram Auth Triggered");
     try {
-      const res = await startOAuth("instagram", { forceReauth: true });
+      const res = await startOAuth(providerId, { forceReauth: true });
       if (res?.authorizationUrl) {
         window.location.assign(res.authorizationUrl);
         return;
@@ -326,25 +358,25 @@ export default function SocialCompose() {
       const error = {
         success: false,
         errorType: res?.errorType || res?.code || "MISSING_AUTHORIZATION_URL",
-        message: res?.error || res?.message || "Could not start Instagram reconnect",
+        message: res?.error || res?.message || `Could not start ${providerLabel} reconnect`,
         stack: res?.stack || null,
         full: res,
       };
       console.error("--- INSTAGRAM DEBUG ERROR ---");
       console.error("Error Message:", error.message || error);
       console.error("Full Error Object:", JSON.stringify(error, null, 2));
-      toast({ variant: "destructive", title: "Could not start Instagram reconnect", description: error.message });
+      toast({
+        variant: "destructive",
+        title: `Could not start ${providerLabel} reconnect`,
+        description: error.message,
+      });
     } catch (e) {
-      console.error("--- INSTAGRAM DEBUG ERROR ---");
-      console.error("Error Message:", e?.message || e);
-      try {
-        console.error("Full Error Object:", JSON.stringify(e, Object.getOwnPropertyNames(e || {}), 2));
-      } catch {
-        console.error("Full Error Object:", e);
-      }
       toast({ variant: "destructive", title: "Reconnect failed", description: e?.message });
     }
   };
+
+  const expectedProvider = day ? primaryProviderForDayPlatform(day.platform) : providerId;
+  const providerMismatch = post?.provider && expectedProvider && post.provider !== expectedProvider;
 
   if (loading) return <div className="h-64 animate-shimmer rounded-2xl" />;
 
@@ -359,35 +391,51 @@ export default function SocialCompose() {
       </button>
 
       <PageHeader
-        eyebrow="Instagram"
+        eyebrow={providerLabel}
         title="Create post"
-        description="Save drafts anytime. JPEG and Instagram publish rules apply only when you publish."
+        description={
+          providerId === "instagram"
+            ? "Save drafts anytime. JPEG and Instagram publish rules apply only when you publish."
+            : `Save drafts anytime. ${providerLabel} video and connection rules apply when you publish.`
+        }
       />
 
-      {!instagram ? (
+      {providerMismatch ? (
+        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+          This draft targets <strong>{post.provider}</strong> but this campaign day is planned for{" "}
+          <strong>{day?.platform || expectedProvider}</strong>. Save a new draft after opening Post now from the plan
+          tab.
+        </div>
+      ) : null}
+
+      {!connection ? (
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm">
-          Instagram is not connected yet — you can still save a draft.{" "}
+          {providerLabel} is not connected yet — you can still save a draft.{" "}
           <Link to="/social" className="text-primary underline">
             Connect in Social Hub
           </Link>{" "}
           before publishing.
         </div>
-      ) : instagram.needsPublishReauth || instagram.canPublish === false ? (
+      ) : connection.needsPublishReauth || connection.canPublish === false ? (
         <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
           <p className="font-600">Reconnect required for publishing</p>
-          <p className="mt-1 text-muted-foreground">
-            Instagram currently granted:{" "}
-            <code className="text-xs">{instagram.scopes || "none"}</code>. Reconnect via Facebook Login and approve{" "}
-            <code className="text-xs">instagram_content_publish</code> plus Page permissions. Your Instagram
-            Professional account must be linked to a Facebook Page.
-          </p>
+          {providerId === "instagram" ? (
+            <p className="mt-1 text-muted-foreground">
+              Instagram currently granted:{" "}
+              <code className="text-xs">{connection.scopes || "none"}</code>. Reconnect via Facebook Login and approve{" "}
+              <code className="text-xs">instagram_content_publish</code> plus Page permissions.
+            </p>
+          ) : (
+            <p className="mt-1 text-muted-foreground">Reconnect {providerLabel} with publish permissions.</p>
+          )}
           <Button className="mt-3 rounded-full" size="sm" onClick={reconnect}>
-            Reconnect Instagram
+            Reconnect {providerLabel}
           </Button>
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Publishing as <span className="font-600 text-foreground">@{instagram.username || "instagram"}</span>
+          Publishing to{" "}
+          <span className="font-600 text-foreground">@{connection.username || providerLabel.toLowerCase()}</span>
         </p>
       )}
 
@@ -450,7 +498,7 @@ export default function SocialCompose() {
           }}
           rows={8}
           className="rounded-xl"
-          placeholder="Write your Instagram caption…"
+          placeholder={`Write your ${providerLabel} caption…`}
         />
       </section>
 
@@ -525,7 +573,8 @@ export default function SocialCompose() {
           caption={caption}
           mediaUrl={mediaType === "REELS" ? mediaUrl : ""}
           artworkUrl={mediaUrl || release?.artwork_url || song?.artwork_url || ""}
-          username={instagram?.username || ""}
+          username={connection?.username || ""}
+          defaultPlatform={providerId}
         />
       </aside>
       </div>
@@ -540,7 +589,7 @@ export default function SocialCompose() {
       {post?.status === POST_STATUS.FAILED && (
         <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
           <p className="font-600">Last publish failed</p>
-          <p className="mt-1">{post.errorMessage || "Instagram publishing failed. Try again."}</p>
+          <p className="mt-1">{post.errorMessage || `${providerLabel} publishing failed. Try again.`}</p>
           {post.errorCode && <p className="mt-1 text-xs text-muted-foreground">Code: {post.errorCode}</p>}
         </div>
       )}
@@ -550,7 +599,7 @@ export default function SocialCompose() {
           <p className="font-600">Already published</p>
           {post.externalPermalink ? (
             <a href={post.externalPermalink} target="_blank" rel="noreferrer" className="mt-1 text-primary underline">
-              View on Instagram
+              View on {providerLabel}
             </a>
           ) : (
             <p className="mt-1 text-muted-foreground">Post ID: {post.externalPostId}</p>
@@ -572,21 +621,21 @@ export default function SocialCompose() {
           {publishing
             ? publishPhase === "preparing"
               ? "Preparing image…"
-              : "Publishing to Instagram…"
+              : `Publishing to ${providerLabel}…`
             : post?.status === POST_STATUS.FAILED
               ? "Retry Publish"
-              : "Publish to Instagram"}
+              : `Publish to ${providerLabel}`}
         </Button>
       </div>
 
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="Publish to Instagram now?"
+        title={`Publish to ${providerLabel} now?`}
         description={
           <span className="space-y-2 block text-sm">
             <span className="block">
-              <strong>Account:</strong> @{instagram?.username || "instagram"}
+              <strong>Account:</strong> @{connection?.username || providerLabel.toLowerCase()}
             </span>
             <span className="block line-clamp-4">
               <strong>Caption:</strong> {caption || "(empty)"}

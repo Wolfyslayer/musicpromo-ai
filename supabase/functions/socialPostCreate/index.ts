@@ -2,6 +2,7 @@ import { serveWithCors } from "../_shared/cors.ts";
 import { createClientFromRequest } from "../_shared/runtime.ts";
 import { INSTAGRAM_CAPTION_MAX } from "../_shared/instagramPublishing.ts";
 import { recordOwnedByUser } from "../_shared/ownership.ts";
+import { mapDayPlatformToProviders } from "../_shared/socialPublishCore.ts";
 
 function buildSuggestedCaption(day: Record<string, unknown> | null): string {
   if (!day) return "";
@@ -50,29 +51,6 @@ async function handler (req: Request): Promise<Response> {
     }
 
     const body = await req.json().catch(() => ({}));
-    const provider = String(body?.provider || "instagram").toLowerCase();
-    if (provider !== "instagram") {
-      return Response.json({ error: "Only Instagram publishing is available in this phase." }, { status: 400 });
-    }
-
-    // Optional for drafts: attach a connected account when available.
-    // Publish permission / media readiness are NOT required to save a draft.
-    let socialAccountId = "";
-    const accounts = await base44.asServiceRole.entities.SocialAccount.filter(
-      { user_id: user.id, provider: "instagram", status: "connected" },
-      "-connected_at",
-      10
-    );
-    const requestedId = body?.socialAccountId ? String(body.socialAccountId) : "";
-    if (requestedId) {
-      const match = (accounts || []).find((a) => a.id === requestedId);
-      if (!match) {
-        return Response.json({ error: "Social account not found.", code: "VALIDATION" }, { status: 400 });
-      }
-      socialAccountId = match.id;
-    } else if ((accounts || []).length) {
-      socialAccountId = accounts[0].id;
-    }
 
     let campaignId = body?.campaignId ? String(body.campaignId) : "";
     let campaignDayId = body?.campaignDayId ? String(body.campaignDayId) : "";
@@ -97,6 +75,32 @@ async function handler (req: Request): Promise<Response> {
         if (!caption) caption = buildSuggestedCaption(day);
         if (!videoProjectId && day.video_project_id) videoProjectId = String(day.video_project_id);
       }
+    }
+
+    let provider = String(body?.provider || "").toLowerCase();
+    if (!provider && day?.platform) {
+      provider = mapDayPlatformToProviders(String(day.platform))[0] || "instagram";
+    }
+    if (!provider) provider = "instagram";
+    if (!["instagram", "tiktok", "youtube", "x"].includes(provider)) {
+      return Response.json({ error: "Unsupported provider.", code: "VALIDATION" }, { status: 400 });
+    }
+
+    let socialAccountId = "";
+    const accounts = await base44.asServiceRole.entities.SocialAccount.filter(
+      { user_id: user.id, provider, status: "connected" },
+      "-connected_at",
+      10
+    );
+    const requestedId = body?.socialAccountId ? String(body.socialAccountId) : "";
+    if (requestedId) {
+      const match = (accounts || []).find((a) => a.id === requestedId);
+      if (!match) {
+        return Response.json({ error: "Social account not found.", code: "VALIDATION" }, { status: 400 });
+      }
+      socialAccountId = match.id;
+    } else if ((accounts || []).length) {
+      socialAccountId = accounts[0].id;
     }
 
     if (campaignId) {
@@ -177,8 +181,8 @@ async function handler (req: Request): Promise<Response> {
       campaign_day_id: campaignDayId || "",
       release_id: releaseId || "",
       social_account_id: socialAccountId || "",
-      provider: "instagram",
-      platform: "instagram",
+      provider,
+      platform: provider,
       content_type: contentType || "",
       caption: caption || "",
       media_url: mediaUrl || "",
