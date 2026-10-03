@@ -24,6 +24,8 @@ async function handler(req: Request): Promise<Response> {
     const uid = String(user.id);
     const admin = serviceClient();
 
+    await admin.from("community_follows").delete().eq("follower_id", uid);
+    await admin.from("community_follows").delete().eq("followed_user_id", uid);
     await admin.from("social_accounts").delete().eq("user_id", uid);
     await admin.from("campaign_days").delete().eq("user_id", uid);
     await admin.from("prepared_media").delete().eq("user_id", uid);

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Copy, Link2, Loader2, Search, Users } from "lucide-react";
+import { Bookmark, Copy, Link2, Loader2, Search, Users } from "lucide-react";
+import CommunitySpotlightRow from "@/components/community/CommunitySpotlightRow";
 import ArtistSocialIconLinks from "@/components/ArtistSocialIconLinks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import SurfacePanel from "@/components/SurfacePanel";
 import EmptyState from "@/components/EmptyState";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
-import { loadCommunityMembers } from "@/services/communityService";
+import { loadCommunityMembers, toggleCommunityFollow } from "@/services/communityService";
 import { absoluteProfileUrl, formatHandleLabel, profilePublicPath } from "@/services/profileHandle";
 import { fetchOwnProfile } from "@/services/userProfile";
 
@@ -44,6 +45,10 @@ export default function Community() {
   const [genreFilter, setGenreFilter] = useState("all");
   const [linksOnly, setLinksOnly] = useState(false);
   const [sort, setSort] = useState("newest");
+  const [followingOnly, setFollowingOnly] = useState(false);
+  const [spotlight, setSpotlight] = useState({ featured: [], recentlyActive: [] });
+  const [followingIds, setFollowingIds] = useState([]);
+  const [followBusyId, setFollowBusyId] = useState(null);
   const [ownPublic, setOwnPublic] = useState(null);
 
   useEffect(() => {
@@ -51,12 +56,14 @@ export default function Community() {
     (async () => {
       setLoading(true);
       try {
-        const [list, own] = await Promise.all([
+        const [payload, own] = await Promise.all([
           loadCommunityMembers(),
           user?.id ? fetchOwnProfile(user.id).catch(() => null) : null,
         ]);
         if (!cancelled) {
-          setMembers(list);
+          setMembers(payload.members || []);
+          setFollowingIds(payload.followingIds || []);
+          setSpotlight(payload.spotlight || { featured: [], recentlyActive: [] });
           setOwnPublic(own?.profile_public !== false);
         }
       } catch (e) {
@@ -72,6 +79,33 @@ export default function Community() {
       cancelled = true;
     };
   }, [user?.id, toast]);
+
+  const onToggleFollow = async (member) => {
+    if (!member?.id || member.isSelf || followBusyId) return;
+    setFollowBusyId(member.id);
+    try {
+      const { following } = await toggleCommunityFollow(member.id);
+      setFollowingIds((prev) => {
+        const set = new Set(prev);
+        if (following) set.add(member.id);
+        else set.delete(member.id);
+        return [...set];
+      });
+      setMembers((prev) =>
+        prev.map((m) => (m.id === member.id ? { ...m, isFollowing: following } : m))
+      );
+      toast({
+        title: following ? "Following" : "Removed bookmark",
+        description: following
+          ? `${member.displayName} will appear in your Following filter.`
+          : `${member.displayName} was removed from your list.`,
+      });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Could not update follow", description: e.message });
+    } finally {
+      setFollowBusyId(null);
+    }
+  };
 
   const genreOptions = useMemo(() => {
     const set = new Set();
@@ -92,6 +126,7 @@ export default function Community() {
       }
       if (genreFilter !== "all" && !(m.genres || []).includes(genreFilter)) return false;
       if (linksOnly && !(m.socialLinkCount > 0)) return false;
+      if (followingOnly && !followingIds.includes(m.id)) return false;
       return true;
     });
 
@@ -108,7 +143,7 @@ export default function Community() {
       );
     }
     return list;
-  }, [members, query, genreFilter, linksOnly, sort]);
+  }, [members, query, genreFilter, linksOnly, followingOnly, followingIds, sort]);
 
   return (
     <div className="space-y-6">
@@ -128,6 +163,8 @@ export default function Community() {
           </Button>
         </SurfacePanel>
       ) : null}
+
+      {!loading ? <CommunitySpotlightRow spotlight={spotlight} /> : null}
 
       <SurfacePanel className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -184,11 +221,19 @@ export default function Community() {
             </Select>
           </div>
 
-          <div className="flex items-center gap-2 pt-5 sm:pt-0">
-            <Switch id="links-only" checked={linksOnly} onCheckedChange={setLinksOnly} />
-            <Label htmlFor="links-only" className="cursor-pointer text-sm font-normal">
-              Has social links
-            </Label>
+          <div className="flex flex-wrap items-center gap-4 pt-5 sm:pt-0">
+            <div className="flex items-center gap-2">
+              <Switch id="links-only" checked={linksOnly} onCheckedChange={setLinksOnly} />
+              <Label htmlFor="links-only" className="cursor-pointer text-sm font-normal">
+                Has social links
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch id="following-only" checked={followingOnly} onCheckedChange={setFollowingOnly} />
+              <Label htmlFor="following-only" className="cursor-pointer text-sm font-normal">
+                Following ({followingIds.length})
+              </Label>
+            </div>
           </div>
         </div>
       </SurfacePanel>
@@ -248,6 +293,25 @@ export default function Community() {
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-col gap-1">
+                      {!member.isSelf ? (
+                        <Button
+                          type="button"
+                          variant={member.isFollowing || followingIds.includes(member.id) ? "secondary" : "ghost"}
+                          size="sm"
+                          className="h-8 rounded-full px-2"
+                          disabled={followBusyId === member.id}
+                          onClick={() => onToggleFollow(member)}
+                          aria-label={
+                            member.isFollowing || followingIds.includes(member.id)
+                              ? "Unfollow artist"
+                              : "Follow artist"
+                          }
+                        >
+                          <Bookmark
+                            className={`h-3.5 w-3.5 ${member.isFollowing || followingIds.includes(member.id) ? "fill-current" : ""}`}
+                          />
+                        </Button>
+                      ) : null}
                       <Button variant="ghost" size="sm" className="h-8 rounded-full px-2" asChild>
                         <Link to={member.isSelf ? "/profile" : profilePublicPath(member)}>View</Link>
                       </Button>

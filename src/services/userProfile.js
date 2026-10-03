@@ -56,6 +56,8 @@ export async function updateOwnProfile(userId, patch) {
     allowed.handle = normalized || null;
   }
 
+  allowed.last_active_at = new Date().toISOString();
+
   const { data, error } = await supabase.from("users").update(allowed).eq("id", userId).select().maybeSingle();
   if (error) {
     if (error.code === "23505") {

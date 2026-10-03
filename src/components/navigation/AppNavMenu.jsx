@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Menu } from "lucide-react";
+import { Globe2, Menu } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -89,6 +89,23 @@ export default function AppNavMenu({
           ) : null}
         </SheetHeader>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
+          <SheetClose asChild>
+            <Link
+              to="/community"
+              className={cn(
+                "mb-2 flex min-h-12 flex-col justify-center rounded-2xl border border-primary/25 bg-primary/10 px-3 py-2.5 transition hover:bg-primary/15",
+                isActive("/community") && "ring-1 ring-primary/30"
+              )}
+            >
+              <span className="flex items-center gap-2 font-heading text-sm font-semibold text-foreground">
+                <Globe2 className="h-4 w-4 text-primary" aria-hidden />
+                Discover Community
+              </span>
+              <span className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                Follow artists, browse spotlights, and open public profiles.
+              </span>
+            </Link>
+          </SheetClose>
           {primary.map((item) => {
             const Icon = item.icon;
             return (
