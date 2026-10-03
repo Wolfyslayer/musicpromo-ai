@@ -24,8 +24,9 @@ import { db } from "@/api/base44Client";
 import { aiService } from "@/services/aiService";
 import { platformColor } from "@/services/constants";
 import { fmtDate } from "@/services/format";
-import { buildComposePath, loadPosts, scheduleCampaignDay } from "@/services/socialService";
+import { buildComposePath, kickCampaignWorker, loadPosts, scheduleCampaignDay } from "@/services/socialService";
 import { useCountdown } from "@/hooks/useCountdown";
+import { useOverdueAutoPublish } from "@/hooks/useOverdueAutoPublish";
 import CopyButton from "@/components/CopyButton";
 import CreateVideoButton from "@/components/video/CreateVideoButton";
 import StatusBadge from "@/components/StatusBadge";
@@ -41,12 +42,40 @@ const DAY_STATUSES = [
   { id: "skipped", label: "Skipped", color: "#f59e0b" },
 ];
 
-function DayScheduleMeta({ day, posts }) {
+function DayScheduleMeta({ day, posts, onRefresh }) {
   const countdown = useCountdown(day.scheduled_at);
+  const anyScheduled = posts.some((p) => p.status === "scheduled") || day.status === "scheduled";
+  useOverdueAutoPublish(day.scheduled_at, anyScheduled && day.status !== "posted");
+  const [nudging, setNudging] = useState(false);
+  const { toast } = useToast();
   const live = posts.find((p) => p.status === "published" && p.externalPermalink);
   const anyPublishing = posts.some((p) => p.status === "publishing") || day.status === "processing";
-  const anyScheduled = posts.some((p) => p.status === "scheduled") || day.status === "scheduled";
   const anyFailed = posts.some((p) => p.status === "failed") || day.status === "failed";
+
+  const runPublishNow = async () => {
+    setNudging(true);
+    try {
+      const res = await kickCampaignWorker({ skipVideo: true, skipStats: true, batchLimit: 15 });
+      const published = res?.worker?.published ?? 0;
+      const reason = res?.worker?.publish?.reason;
+      if (published > 0) {
+        toast({ title: "Publishing started", description: `${published} post(s) processed.` });
+      } else if (reason) {
+        toast({
+          variant: "destructive",
+          title: "Auto-publish not configured",
+          description: String(reason),
+        });
+      } else {
+        toast({ title: "Worker ran", description: "Checking queue — refresh in a moment." });
+      }
+      onRefresh?.();
+    } catch (e) {
+      toast({ variant: "destructive", title: "Could not run worker", description: e.message });
+    } finally {
+      setNudging(false);
+    }
+  };
 
   if (live || day.status === "posted") {
     return (
@@ -99,6 +128,19 @@ function DayScheduleMeta({ day, posts }) {
           <Clock className="h-3 w-3" />
           {countdown.label || new Date(day.scheduled_at).toLocaleString()}
         </span>
+        {countdown.overdue ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 rounded-full px-2.5 text-[11px]"
+            disabled={nudging}
+            onClick={runPublishNow}
+          >
+            {nudging ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+            Publish now
+          </Button>
+        ) : null}
       </div>
     );
   }
@@ -242,7 +284,7 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
       {campaign?.id ? <CampaignPlanInsights campaignId={campaign.id} /> : null}
       <p className="text-xs text-muted-foreground">
         Use <span className="text-foreground">Schedule auto-publish</span> to queue Instagram, TikTok, YouTube, and X.
-        The background worker runs hourly (:38 UTC) and publishes due posts without manual action.
+        Due posts publish automatically every few minutes (or tap Publish now when overdue).
       </p>
       {campaign?.release_id && (
         <div className="flex flex-wrap justify-end gap-2">
@@ -295,7 +337,7 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
                     </span>
                     <span className="text-xs text-muted-foreground">{day.content_type}</span>
                   </div>
-                  <DayScheduleMeta day={day} posts={dayPosts} />
+                  <DayScheduleMeta day={day} posts={dayPosts} onRefresh={onRefresh} />
                 </div>
               </div>
               <Select value={sm.id} onValueChange={(v) => setStatus(day, v)}>

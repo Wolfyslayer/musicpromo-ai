@@ -29,9 +29,11 @@ async function handler(req: Request): Promise<Response> {
     }
 
     const summary = await res.json().catch(() => ({}));
+    const publishOk = summary?.publish?.skipped !== true && summary?.ok !== false;
     return Response.json({
-      ok: res.ok,
+      ok: res.ok && publishOk,
       worker: summary,
+      publishBlocked: summary?.publish?.reason || null,
     });
   } catch (error) {
     console.error("[kickCampaignWorker]", (error as Error)?.message || error);
