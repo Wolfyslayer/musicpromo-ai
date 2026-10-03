@@ -162,7 +162,7 @@ async function runDailyStatsSync(params: {
  *
  * Errors in video/stats paths never abort publish processing.
  */
-async function handler (req: Request): Promise<Response> {
+export async function handleCampaignWorkerRequest(req: Request): Promise<Response> {
   const startedAt = Date.now();
   const base44 = createClientFromRequest(req);
 
@@ -174,6 +174,7 @@ async function handler (req: Request): Promise<Response> {
       Math.max(1, Number(args.batchLimit) || DEFAULT_BATCH)
     );
     const forceStats = args.forceStats === true || args.runStats === true;
+    const skipStats = args.skipStats === true;
     const skipPublish = args.skipPublish === true;
     const skipVideo = args.skipVideo === true;
 
@@ -202,7 +203,7 @@ async function handler (req: Request): Promise<Response> {
 
     // --- Daily stats (isolated) ---
     let statsSummary: Record<string, unknown> | null = null;
-    if (encryptionKey && (await shouldRunDailyStats(base44, forceStats))) {
+    if (!skipStats && encryptionKey && (await shouldRunDailyStats(base44, forceStats))) {
       try {
         statsSummary = await runDailyStatsSync({ base44, encryptionKey });
       } catch (err) {
@@ -223,9 +224,18 @@ async function handler (req: Request): Promise<Response> {
     }
 
     if (!encryptionKey) {
-      // Still return video/stats progress even if publish secrets missing.
+      const dueDays =
+        (await base44.asServiceRole.entities.CampaignDay.filter({ status: "scheduled" }, "scheduled_at", 80)) ||
+        [];
+      for (const day of dueDays) {
+        if (!isDue(day.scheduled_at || resolveScheduledAt(day), nowMs)) continue;
+        await base44.asServiceRole.entities.CampaignDay.update(day.id, {
+          publish_error:
+            "Auto-publish is not configured on the server (SOCIAL_TOKEN_ENCRYPTION_KEY). Add the secret and retry.",
+        });
+      }
       return Response.json({
-        ok: true,
+        ok: false,
         ranAt: nowIso,
         durationMs: Date.now() - startedAt,
         video: videoSummary,
@@ -354,12 +364,17 @@ async function handler (req: Request): Promise<Response> {
         createdAny = true;
       }
 
-      if (createdAny) {
+      const hasDuePosts = existing.some(
+        (p: Record<string, unknown>) =>
+          String(p.status) === "scheduled" && isDue(p.scheduled_at as string, nowMs)
+      );
+
+      if (createdAny || hasDuePosts) {
         await base44.asServiceRole.entities.CampaignDay.update(day.id, {
           status: "processing",
           publish_error: "",
         });
-        dayMaterialized.push({ dayId: day.id, providers });
+        if (createdAny) dayMaterialized.push({ dayId: day.id, providers });
       } else if (!existing.length) {
         await base44.asServiceRole.entities.CampaignDay.update(day.id, {
           status: "failed",
@@ -471,4 +486,4 @@ async function handler (req: Request): Promise<Response> {
 }
 
 
-Deno.serve(handler);
+Deno.serve(handleCampaignWorkerRequest);

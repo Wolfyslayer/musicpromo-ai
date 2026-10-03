@@ -70,18 +70,47 @@ function matches(row: Record<string, unknown>, query: Record<string, unknown>) {
   return Object.entries(query || {}).every(([key, value]) => row?.[key] === value);
 }
 
+function sortEntityRows(rows: Record<string, unknown>[], sort?: string) {
+  if (!sort) return rows;
+  const desc = String(sort).startsWith("-");
+  const key = desc ? String(sort).slice(1) : String(sort);
+  const field = key === "created_date" ? "created_date" : key;
+  return [...rows].sort((a, b) => {
+    const av = a?.[field] ?? "";
+    const bv = b?.[field] ?? "";
+    if (av < bv) return desc ? 1 : -1;
+    if (av > bv) return desc ? -1 : 1;
+    return 0;
+  });
+}
+
 function entityApi(supabase: SupabaseClient, name: string) {
   const spec = SPECS[name];
   if (!spec) {
     throw new Error(`No Supabase table is mapped for ${name}.`);
   }
 
-  async function rows() {
-    let query = supabase.from(spec.table).select("*").limit(1000);
-    if (spec.kind) query = query.eq("kind", spec.kind);
-    const { data, error } = await query;
+  async function rows(query: Record<string, unknown> = {}, rowLimit = 2500) {
+    let q = supabase.from(spec.table).select("*").limit(rowLimit);
+    if (spec.kind) q = q.eq("kind", spec.kind);
+    for (const [key, value] of Object.entries(query || {})) {
+      if (value === undefined || value === null) continue;
+      if (key === "user_id") {
+        q = q.eq("user_id", value);
+      } else if (key === "campaign_id") {
+        q = q.eq("campaign_id", value);
+      } else if (spec.table === "social_accounts" && key === "provider") {
+        q = q.eq("platform", value);
+      } else if (spec.table === "social_accounts" && key === "status") {
+        q = q.eq("data->>status", String(value));
+      } else {
+        q = q.eq(`data->>${key}`, String(value));
+      }
+    }
+    const { data, error } = await q;
     if (error) throw new Error(error.message);
-    return (data || []).map((row) => hydrate(row) as Record<string, unknown>);
+    const hydrated = (data || []).map((row) => hydrate(row) as Record<string, unknown>);
+    return hydrated.filter((row) => matches(row, query));
   }
 
   return {
@@ -91,8 +120,11 @@ function entityApi(supabase: SupabaseClient, name: string) {
       if (!data || (spec.kind && data.kind !== spec.kind)) throw new Error(`${name} not found`);
       return hydrate(data);
     },
-    async filter(query: Record<string, unknown>) {
-      return (await rows()).filter((row) => matches(row, query));
+    async filter(query: Record<string, unknown>, sort?: string, limit?: number) {
+      let list = await rows(query || {});
+      list = sortEntityRows(list, sort);
+      if (typeof limit === "number") list = list.slice(0, limit);
+      return list;
     },
     async create(payload: Record<string, unknown> = {}) {
       const id = String(payload.id || crypto.randomUUID());
