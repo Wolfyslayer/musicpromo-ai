@@ -1,5 +1,5 @@
-import { Share2 } from "lucide-react";
-import { useState } from "react";
+import { Share2, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,13 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CAMPAIGN_DURATIONS, VIDEO_TEMPLATES_LIST } from "@/services/constants";
 import { useSettingsOutlet } from "@/components/settings/SettingsShell";
+import { useWorkspace } from "@/lib/workspaceContext";
+import {
+  createWorkspaceStudio,
+  inviteWorkspaceStudioMember,
+  listWorkspaceStudios,
+  removeWorkspaceStudioMember,
+} from "@/services/workspaceService";
 
 export function SettingsAccountPage() {
   const { user, logout } = useAuth();
@@ -127,6 +134,210 @@ export function SettingsAccountPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+export function SettingsTeamPage() {
+  const { toast } = useToast();
+  const { managedOwnerId, setManagedWorkspace, clearManagedWorkspace } = useWorkspace();
+  const [loading, setLoading] = useState(true);
+  const [studios, setStudios] = useState([]);
+  const [memberships, setMemberships] = useState([]);
+  const [newStudioName, setNewStudioName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState({});
+  const [busy, setBusy] = useState(null);
+
+  const reload = async () => {
+    setLoading(true);
+    try {
+      const data = await listWorkspaceStudios();
+      setStudios(data.studios);
+      setMemberships(data.memberships);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Team load failed", description: e.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    reload();
+  }, []);
+
+  const ownedStudios = studios.filter((s) => memberships.some((m) => m.studioId === s.id && m.isOwnStudio));
+  const managedOptions = memberships.filter((m) => !m.isOwnStudio);
+
+  const runCreate = async () => {
+    const name = newStudioName.trim();
+    if (name.length < 2) return;
+    setCreating(true);
+    try {
+      await createWorkspaceStudio(name);
+      setNewStudioName("");
+      toast({ title: "Studio created" });
+      await reload();
+    } catch (e) {
+      toast({ variant: "destructive", title: "Could not create studio", description: e.message });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const runInvite = async (studioId) => {
+    const email = String(inviteEmail[studioId] || "").trim();
+    if (!email) return;
+    setBusy(`invite-${studioId}`);
+    try {
+      await inviteWorkspaceStudioMember(studioId, email);
+      setInviteEmail((p) => ({ ...p, [studioId]: "" }));
+      toast({ title: "Manager invited" });
+      await reload();
+    } catch (e) {
+      toast({ variant: "destructive", title: "Invite failed", description: e.message });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runRemove = async (studioId, memberUserId) => {
+    setBusy(`remove-${memberUserId}`);
+    try {
+      await removeWorkspaceStudioMember(studioId, memberUserId);
+      toast({ title: "Member removed" });
+      await reload();
+    } catch (e) {
+      toast({ variant: "destructive", title: "Remove failed", description: e.message });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const switchWorkspace = async (ownerUserId, label) => {
+    try {
+      if (!ownerUserId) {
+        clearManagedWorkspace();
+        toast({ title: "Back to your workspace" });
+      } else {
+        await setManagedWorkspace(ownerUserId, label);
+        toast({ title: "Workspace switched", description: label });
+      }
+      window.location.assign("/");
+    } catch (e) {
+      toast({ variant: "destructive", title: "Switch failed", description: e.message });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-7 w-7 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card title="Switch workspace">
+        <p className="text-sm text-muted-foreground">
+          Managers can open an artist&apos;s campaigns, releases, and analytics. Owners invite by email (account must
+          exist).
+        </p>
+        <div className="flex flex-wrap gap-2 pt-2">
+          <Button
+            type="button"
+            variant={!managedOwnerId ? "default" : "outline"}
+            className="rounded-full"
+            onClick={() => switchWorkspace(null, "")}
+          >
+            My workspace
+          </Button>
+          {managedOptions.map((m) => (
+            <Button
+              key={m.studioId}
+              type="button"
+              variant={managedOwnerId === m.ownerId ? "default" : "outline"}
+              className="rounded-full"
+              onClick={() => switchWorkspace(m.ownerId, m.ownerLabel || m.studioName)}
+            >
+              {m.ownerLabel || m.studioName}
+            </Button>
+          ))}
+        </div>
+      </Card>
+
+      <Card title="Create studio team">
+        <p className="text-sm text-muted-foreground">Name your roster (up to 3 owned studios, 10 members each).</p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="flex-1 space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Studio name</Label>
+            <Input
+              value={newStudioName}
+              onChange={(e) => setNewStudioName(e.target.value)}
+              placeholder="Night Shift Collective"
+              className="rounded-xl"
+            />
+          </div>
+          <Button type="button" className="rounded-full" disabled={creating} onClick={runCreate}>
+            {creating ? "Creating…" : "Create studio"}
+          </Button>
+        </div>
+      </Card>
+
+      {ownedStudios.map((studio) => (
+        <Card key={studio.id} title={studio.name}>
+          <p className="text-xs text-muted-foreground">Managers can edit campaigns and schedule posts for you.</p>
+          <ul className="divide-y divide-border/50 rounded-xl border border-border/50 text-sm">
+            {(studio.members || []).map((member) => (
+              <li key={member.userId} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                <span>
+                  {member.displayName}
+                  {member.email ? ` · ${member.email}` : ""}
+                  <span className="ml-2 text-xs capitalize text-muted-foreground">{member.role}</span>
+                </span>
+                {member.role === "manager" ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full"
+                    disabled={busy === `remove-${member.userId}`}
+                    onClick={() => runRemove(studio.id, member.userId)}
+                  >
+                    Remove
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-col gap-2 pt-3 sm:flex-row sm:items-end">
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Invite manager (email)</Label>
+              <Input
+                type="email"
+                value={inviteEmail[studio.id] || ""}
+                onChange={(e) => setInviteEmail((p) => ({ ...p, [studio.id]: e.target.value }))}
+                placeholder="manager@label.com"
+                className="rounded-xl"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full"
+              disabled={busy === `invite-${studio.id}`}
+              onClick={() => runInvite(studio.id)}
+            >
+              Send invite
+            </Button>
+          </div>
+        </Card>
+      ))}
+
+      {!ownedStudios.length && !managedOptions.length ? (
+        <p className="text-sm text-muted-foreground">Create a studio to invite managers, or ask an artist to invite you.</p>
+      ) : null}
     </div>
   );
 }

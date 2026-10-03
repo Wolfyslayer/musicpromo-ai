@@ -4,6 +4,7 @@ import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { WorkspaceProvider } from '@/lib/workspaceContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -50,6 +51,7 @@ import {
   SettingsAccountPage,
   SettingsStudioPage,
   SettingsPreferencesPage,
+  SettingsTeamPage,
 } from '@/pages/settings/SettingsSectionPages';
 import SocialCompose from '@/pages/SocialCompose';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
@@ -140,6 +142,7 @@ const AuthenticatedApp = () => {
           <Route path="/settings" element={<SettingsShell />}>
             <Route index element={<SettingsIndexRedirect />} />
             <Route path="account" element={<SettingsAccountPage />} />
+            <Route path="team" element={<SettingsTeamPage />} />
             <Route path="studio" element={<SettingsStudioPage />} />
             <Route path="preferences" element={<SettingsPreferencesPage />} />
           </Route>
@@ -157,13 +160,15 @@ const routerBasename =
 function App() {
   return (
     <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <Router basename={routerBasename}>
-          <ScrollToTop />
-          <AuthenticatedApp />
-        </Router>
-        <Toaster />
-      </QueryClientProvider>
+      <WorkspaceProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <Router basename={routerBasename}>
+            <ScrollToTop />
+            <AuthenticatedApp />
+          </Router>
+          <Toaster />
+        </QueryClientProvider>
+      </WorkspaceProvider>
     </AuthProvider>
   )
 }

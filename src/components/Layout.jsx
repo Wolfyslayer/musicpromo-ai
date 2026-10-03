@@ -19,6 +19,7 @@ import { useToast } from "@/components/ui/use-toast";
 import Logo from "./Logo";
 import AppNavMenu from "./navigation/AppNavMenu";
 import FirstLoginTutorial from "@/components/onboarding/FirstLoginTutorial";
+import WorkspaceBanner from "@/components/workspace/WorkspaceBanner";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -165,6 +166,8 @@ export default function Layout() {
             </button>
           </div>
         ) : null}
+
+        {isAuthenticated ? <WorkspaceBanner /> : null}
 
         <main className={cn("app-gradient min-h-0 flex-1", isStudio ? "overflow-hidden" : "overflow-y-auto")}>
           {isStudio ? (
