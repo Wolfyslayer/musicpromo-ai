@@ -61,8 +61,6 @@ export function SocialHubProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [connectingId, setConnectingId] = useState(null);
   const [disconnectingId, setDisconnectingId] = useState(null);
-  /** When mobile browsers block programmatic redirects (e.g. Brave), user taps this URL. */
-  const [pendingOAuthRedirect, setPendingOAuthRedirect] = useState(null);
   const [socialArtistId, setSocialArtistIdState] = useState(() => getSocialArtistId());
   const [artists, setArtists] = useState([]);
 
@@ -206,8 +204,6 @@ export function SocialHubProvider({ children }) {
     setParams(next, { replace: true });
   }, [params, setParams, toast, reload]);
 
-  const clearPendingOAuthRedirect = useCallback(() => setPendingOAuthRedirect(null), []);
-
   const beginConnect = async (providerIdOrObj) => {
     const providerId = String(
       typeof providerIdOrObj === "string" ? providerIdOrObj : providerIdOrObj?.id || ""
@@ -225,7 +221,6 @@ export function SocialHubProvider({ children }) {
       });
       return;
     }
-    setPendingOAuthRedirect(null);
     setConnectingId(providerId);
     try {
       const forceReauth =
@@ -233,23 +228,10 @@ export function SocialHubProvider({ children }) {
       const res = await startOAuth(providerId, { forceReauth, artistId: socialArtistId });
       const authUrl = res?.authorizationUrl ? String(res.authorizationUrl).trim() : "";
       if (authUrl) {
-        const label = provider?.name || providerId;
-        setPendingOAuthRedirect({
-          url: authUrl,
-          providerId,
-          label,
-        });
-        // Same-tab navigation; some mobile browsers block this after async fetch.
-        window.location.href = authUrl;
-        window.setTimeout(() => {
-          toast({
-            title: `Continue to ${label}`,
-            description:
-              "If Meta login did not open, tap Continue below. On Brave, allow facebook.com or turn off Shields for this site.",
-          });
-        }, 700);
+        window.location.assign(authUrl);
         return;
       }
+      console.error("[social] OAuth start failed", { providerId, res });
       const missing = res?.missing && typeof res.missing === "object" ? res.missing : null;
       const missingLabels = missing
         ? Object.entries(missing)
@@ -322,8 +304,6 @@ export function SocialHubProvider({ children }) {
       loading,
       connectingId,
       disconnectingId,
-      pendingOAuthRedirect,
-      clearPendingOAuthRedirect,
       reload,
       artists,
       socialArtistId,
@@ -341,8 +321,6 @@ export function SocialHubProvider({ children }) {
       loading,
       connectingId,
       disconnectingId,
-      pendingOAuthRedirect,
-      clearPendingOAuthRedirect,
       reload,
       ig,
       anyConnected,
