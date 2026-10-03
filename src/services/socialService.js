@@ -36,7 +36,7 @@ function unwrapInvokeResult(res) {
       payload = inner;
     }
   }
-  return normalizeOAuthStartResult(payload);
+  return payload;
 }
 
 /** Normalize connectSocialProvider responses from gateways / older deploys. */
@@ -153,7 +153,8 @@ export async function startOAuth(provider, { forceReauth = false, artistId = "" 
     const googleClientId = getGoogleClientId();
     if (googleClientId) payload.googleClientId = googleClientId;
   }
-  return invoke("connectSocialProvider", payload);
+  const res = await invoke("connectSocialProvider", payload);
+  return normalizeOAuthStartResult(res);
 }
 
 export async function disconnectSocial(provider, accountId) {
