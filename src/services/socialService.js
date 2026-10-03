@@ -9,6 +9,7 @@ import { getSessionAccessToken } from "@/lib/app-params";
 import { SOCIAL_PROVIDERS, getSocialProviderConfig } from "@/services/social/providers";
 import { CONNECTION_STATUS, CONNECTION_STATUS_META } from "@/services/social/provider";
 import { connectionForProvider } from "@/services/socialArtistScope";
+import { primaryProviderForDayPlatform } from "@/services/social/dayPlatform";
 
 export const OAUTH_PROVIDERS = new Set(["instagram", "tiktok", "youtube", "x"]);
 
@@ -329,11 +330,13 @@ export const POST_STATUS = {
   FAILED: "failed",
 };
 
-export function buildComposePath({ campaignId, campaignDayId, releaseId } = {}) {
+export function buildComposePath({ campaignId, campaignDayId, releaseId, platform, provider } = {}) {
   const q = new URLSearchParams();
   if (campaignId) q.set("campaign", campaignId);
   if (campaignDayId) q.set("day", campaignDayId);
   if (releaseId) q.set("release", releaseId);
+  const resolvedProvider = provider || (platform ? primaryProviderForDayPlatform(platform) : "");
+  if (resolvedProvider) q.set("provider", String(resolvedProvider).toLowerCase());
   const qs = q.toString();
   return qs ? `/social/compose?${qs}` : `/social/compose`;
 }

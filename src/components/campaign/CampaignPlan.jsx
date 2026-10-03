@@ -24,7 +24,14 @@ import { db } from "@/api/base44Client";
 import { aiService } from "@/services/aiService";
 import { platformColor } from "@/services/constants";
 import { fmtDate } from "@/services/format";
-import { buildComposePath, kickCampaignWorker, loadPosts, scheduleCampaignDay } from "@/services/socialService";
+import {
+  buildComposePath,
+  kickCampaignWorker,
+  loadPosts,
+  scheduleCampaignDay,
+  SOCIAL_PROVIDERS,
+} from "@/services/socialService";
+import { primaryProviderForDayPlatform } from "@/services/social/dayPlatform";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useOverdueAutoPublish } from "@/hooks/useOverdueAutoPublish";
 import CopyButton from "@/components/CopyButton";
@@ -322,6 +329,9 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
         const sm = DAY_STATUSES.find((s) => s.id === day.status) || DAY_STATUSES[0];
         const dayPosts = postsByDay[day.id] || [];
         const canSchedule = !["processing", "posted"].includes(day.status);
+        const composeProvider = primaryProviderForDayPlatform(day.platform);
+        const composeProviderLabel =
+          SOCIAL_PROVIDERS.find((p) => p.id === composeProvider)?.name || day.platform || "Social";
         return (
           <div key={day.id} className="rounded-2xl border border-border/60 bg-card/50 p-4 animate-slide-up">
             <div className="flex items-start justify-between gap-3">
@@ -392,12 +402,13 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
                       campaignId: campaign.id,
                       campaignDayId: day.id,
                       releaseId: campaign.release_id || "",
+                      platform: day.platform,
                     })
                   )
                 }
                 className="rounded-full"
               >
-                <Share2 className="mr-1 h-3.5 w-3.5" />Post now
+                <Share2 className="mr-1 h-3.5 w-3.5" />Post to {composeProviderLabel}
               </Button>
               <CreateVideoButton
                 campaignId={campaign.id}

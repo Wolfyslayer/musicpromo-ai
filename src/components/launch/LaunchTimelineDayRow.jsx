@@ -69,6 +69,7 @@ export default function LaunchTimelineDayRow({
                   campaignId: campaign.id,
                   campaignDayId: day.id,
                   releaseId: campaign.release_id,
+                  platform: day.platform,
                 })
               )
             }
