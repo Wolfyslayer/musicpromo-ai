@@ -338,6 +338,7 @@ async function handler (req: Request): Promise<Response> {
         state,
         scopes,
         forceReauth,
+        includePublishScopes: forceReauth,
       });
     } else if (provider === "x") {
       const clientId = secretValue("X_CLIENT_ID", "TWITTER_CLIENT_ID", "X_API_KEY");
