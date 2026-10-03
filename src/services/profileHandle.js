@@ -41,3 +41,11 @@ export function formatHandleLabel(handle) {
   const h = String(handle || "").trim();
   return h ? `@${h}` : "";
 }
+
+/** Full shareable URL for a public profile (respects Vite base path). */
+export function absoluteProfileUrl(profileOrUser) {
+  if (typeof window === "undefined") return profilePublicPath(profileOrUser);
+  const base = String(import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
+  const path = profilePublicPath(profileOrUser).replace(/^\//, "");
+  return new URL(`${base}${path}`, window.location.origin).href;
+}

@@ -60,15 +60,45 @@ async function handler(req: Request): Promise<Response> {
       });
     }
 
-    const members = publicUsers.map((u) => ({
-      id: u.id,
-      handle: u.handle || null,
-      displayName: u.display_name || u.full_name || "Artist",
-      avatarUrl: u.avatar_url || null,
-      bio: u.bio || null,
-      isSelf: u.id === user.id,
-      artists: u.hide_artists_on_profile ? [] : artistsByUser[u.id] || [],
-    }));
+    const SOCIAL_KEYS = [
+      "instagram_url",
+      "tiktok_url",
+      "youtube_url",
+      "spotify_url",
+      "facebook_url",
+      "twitter_url",
+      "website",
+    ] as const;
+
+    const members = publicUsers.map((u) => {
+      const artists = u.hide_artists_on_profile ? [] : artistsByUser[u.id] || [];
+      const genres = [
+        ...new Set(
+          artists
+            .map((a) => (a.genre ? String(a.genre).trim() : ""))
+            .filter(Boolean)
+        ),
+      ];
+      let socialLinkCount = 0;
+      for (const a of artists) {
+        for (const key of SOCIAL_KEYS) {
+          if (String(a[key] || "").trim()) socialLinkCount += 1;
+        }
+      }
+      return {
+        id: u.id,
+        handle: u.handle || null,
+        displayName: u.display_name || u.full_name || "Artist",
+        avatarUrl: u.avatar_url || null,
+        bio: u.bio || null,
+        memberSince: u.created_at || null,
+        isSelf: u.id === user.id,
+        artistCount: artists.length,
+        socialLinkCount,
+        genres,
+        artists,
+      };
+    });
 
     return Response.json({ ok: true, members });
   } catch (error) {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Camera, Globe, Loader2, Lock, Pencil, Users } from "lucide-react";
+import { ArrowLeft, Camera, Copy, Globe, Loader2, Lock, Pencil, Share2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import SurfacePanel from "@/components/SurfacePanel";
 import { useAuth } from "@/lib/AuthContext";
 import { loadArtists } from "@/services/data";
 import {
+  absoluteProfileUrl,
   formatHandleLabel,
   isUuid,
   normalizeHandleInput,
@@ -254,9 +255,60 @@ export default function Profile() {
     );
   }
 
+  const sharePublicProfile = async () => {
+    if (!publicView) return;
+    const url = absoluteProfileUrl(publicView);
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({
+          title: `${publicView.displayName} on MusicPromo AI`,
+          url,
+        });
+        return;
+      }
+    } catch {
+      /* user cancelled share sheet */
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Profile link copied" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Could not copy link", description: e.message });
+    }
+  };
+
   if (!isOwn && publicView) {
     return (
       <div className="space-y-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" size="sm" className="rounded-full" asChild>
+            <Link to="/community">
+              <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+              Community
+            </Link>
+          </Button>
+          <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={sharePublicProfile}>
+            <Share2 className="mr-1.5 h-3.5 w-3.5" />
+            Share
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(absoluteProfileUrl(publicView));
+                toast({ title: "Profile link copied" });
+              } catch (e) {
+                toast({ variant: "destructive", title: "Could not copy link", description: e.message });
+              }
+            }}
+          >
+            <Copy className="mr-1.5 h-3.5 w-3.5" />
+            Copy link
+          </Button>
+        </div>
         <PageHeader eyebrow="Community" title={publicView.displayName} description="Public artist profile" />
         <SurfacePanel className="space-y-5">
           <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:text-left">
@@ -291,10 +343,20 @@ export default function Profile() {
               : "Set a @handle so others can find you in Community."
           }
           actions={
-            <Button type="button" variant="outline" size="sm" className="rounded-full gap-1.5" onClick={() => setEditing(true)}>
-              <Pencil className="h-3.5 w-3.5" />
-              Edit profile
-            </Button>
+            <>
+              {profile?.profile_public !== false ? (
+                <Button variant="secondary" size="sm" className="rounded-full gap-1.5" asChild>
+                  <Link to="/community">
+                    <Users className="h-3.5 w-3.5" />
+                    Browse Community
+                  </Link>
+                </Button>
+              ) : null}
+              <Button type="button" variant="outline" size="sm" className="rounded-full gap-1.5" onClick={() => setEditing(true)}>
+                <Pencil className="h-3.5 w-3.5" />
+                Edit profile
+              </Button>
+            </>
           }
         />
 
