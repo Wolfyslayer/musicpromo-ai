@@ -10,6 +10,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import StatusBadge from "@/components/StatusBadge";
 import ArtworkImage from "@/components/ArtworkImage";
 import PageHeader from "@/components/PageHeader";
+import SocialPlatformPreview from "@/components/social/SocialPlatformPreview";
 
 import { db } from "@/api/base44Client";
 import {
@@ -348,7 +349,7 @@ export default function SocialCompose() {
   if (loading) return <div className="h-64 animate-shimmer rounded-2xl" />;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <button
         type="button"
         onClick={() => navigate("/social")}
@@ -416,6 +417,8 @@ export default function SocialCompose() {
         </dl>
       </section>
 
+      <div className="grid gap-6 lg:grid-cols-[1fr,min(280px,100%)]">
+      <div className="space-y-6">
       <section className="space-y-3 rounded-2xl border border-border/60 bg-card/50 p-4">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
@@ -515,6 +518,16 @@ export default function SocialCompose() {
           )}
         </div>
       </section>
+
+      <aside className="lg:sticky lg:top-24 lg:self-start">
+        <SocialPlatformPreview
+          caption={caption}
+          mediaUrl={mediaType === "REELS" ? mediaUrl : ""}
+          artworkUrl={mediaUrl || release?.artwork_url || song?.artwork_url || ""}
+          username={instagram?.username || ""}
+        />
+      </aside>
+      </div>
 
       {publishBlocker && (
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm">

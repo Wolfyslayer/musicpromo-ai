@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Sparkles, BarChart3, CalendarDays, Film, ArrowRight, PlayCircle, Globe2 } from "lucide-react";
+import { Plus, Sparkles, BarChart3, CalendarDays, Film, ArrowRight, PlayCircle, Globe2, Rocket, Activity } from "lucide-react";
+import LaunchBoardSummary from "@/components/launch/LaunchBoardSummary";
 import { Link } from "react-router-dom";
 import SurfacePanel from "@/components/SurfacePanel";
 import { Button } from "@/components/ui/button";
@@ -66,11 +67,18 @@ export default function Dashboard() {
     ? (active.videosCount || 0) - readyVideos.length
     : 0;
 
+  const launchReleaseId = active?.release_id || active?.release?.id || null;
+
   const quickActions = [
+    {
+      label: "Launch board",
+      icon: Rocket,
+      to: launchReleaseId ? `/releases/${launchReleaseId}/launch` : active ? `/campaigns/${active.id}/plan` : "/campaigns",
+    },
     { label: "New Campaign", icon: Plus, to: "/create" },
     { label: "Generate Content", icon: Sparkles, to: active ? `/campaigns/${active.id}/library` : "/campaigns" },
+    { label: "Social health", icon: Activity, to: "/social/health" },
     { label: "View Analytics", icon: BarChart3, to: "/analytics" },
-    { label: "View Campaign Plan", icon: CalendarDays, to: active ? `/campaigns/${active.id}/plan` : "/campaigns" },
   ];
 
   return (
@@ -109,7 +117,16 @@ export default function Dashboard() {
         </Button>
       </SurfacePanel>
 
-      {active ? (
+      {active && launchReleaseId ? (
+        <section>
+          <SectionTitle>Launch board</SectionTitle>
+          <LaunchBoardSummary
+            campaign={active}
+            releaseId={launchReleaseId}
+            readyVideosCount={readyVideos.length}
+          />
+        </section>
+      ) : active ? (
         <section>
           <SectionTitle>Active Campaign</SectionTitle>
           <button
@@ -124,23 +141,11 @@ export default function Dashboard() {
                 </div>
                 <h2 className="mt-2 truncate font-heading text-xl font-semibold">{active.song?.title || "Untitled"}</h2>
                 <p className="truncate text-sm text-muted-foreground">{active.artist?.name}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Link a release to unlock the launch board on your dashboard.
+                </p>
                 <div className="mt-3">
-                  <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                    <span>Campaign progress</span>
-                    <span>{active.progressValue || 0}%</span>
-                  </div>
-                  <ProgressBar value={active.progressValue || 0} />
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Film className="h-4 w-4 text-primary" />
-                    {readyVideos.length} ready
-                    {renderingCount > 0 ? ` · ${Math.max(0, renderingCount)} rendering` : ""}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <CalendarDays className="h-4 w-4 text-primary" />
-                    {active.daysCount || 0} posts
-                  </span>
+                  <ProgressBar value={active.progressValue || 0} showLabel />
                 </div>
               </div>
               <ArrowRight className="hidden h-5 w-5 shrink-0 text-muted-foreground transition group-hover:translate-x-1 sm:block" />

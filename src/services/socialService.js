@@ -183,7 +183,7 @@ export async function publishPost(postId) {
 
 /**
  * Schedule a campaign day for social publish.
- * @param {{ campaignId: string, dayId?: string, renderImmediately?: boolean }} payload
+ * @param {{ campaignDayId: string, scheduledAt?: string, providers?: string[] }} payload
  */
 export async function scheduleCampaignDay(payload) {
   const result = await invoke("campaignSchedule", payload || {});

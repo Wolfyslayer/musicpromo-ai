@@ -7,9 +7,9 @@ import {
   Globe2,
   Loader2,
   Megaphone,
-  Share2,
   Sparkles,
 } from "lucide-react";
+import LaunchTimelineDayRow from "@/components/launch/LaunchTimelineDayRow";
 import ArtworkImage from "@/components/ArtworkImage";
 import EmptyState from "@/components/EmptyState";
 import PageHeader from "@/components/PageHeader";
@@ -18,9 +18,7 @@ import SurfacePanel from "@/components/SurfacePanel";
 import { Button } from "@/components/ui/button";
 import { loadLaunchBoard } from "@/services/data";
 import { fmtDate } from "@/services/format";
-import { buildComposePath } from "@/services/socialService";
-
-function TimelineRow({ item, navigate }) {
+function TimelineRow({ item, navigate, release, artist, onRefresh }) {
   if (item.kind === "release_date") {
     return (
       <div className="flex gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
@@ -62,51 +60,13 @@ function TimelineRow({ item, navigate }) {
     );
   }
 
-  const day = item.day;
-  const campaign = item.campaign;
-  const post = item.posts?.[0];
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/50 p-3">
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground">
-          {fmtDate(item.date)} · Day {day.day_number ?? "—"} · {campaign?.name || "Campaign"}
-        </p>
-        <p className="mt-0.5 line-clamp-2 text-sm">{day.caption || day.theme || "No caption yet"}</p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <StatusBadge status={day.status || "pending"} />
-          {post ? <StatusBadge status={post.status} /> : null}
-          {day.publish_error ? (
-            <span className="text-xs text-destructive">{day.publish_error}</span>
-          ) : null}
-        </div>
-      </div>
-      <div className="flex shrink-0 flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          className="rounded-full"
-          onClick={() => navigate(`/campaigns/${campaign.id}/plan`)}
-        >
-          Plan
-        </Button>
-        <Button
-          size="sm"
-          className="rounded-full"
-          onClick={() =>
-            navigate(
-              buildComposePath({
-                campaignId: campaign.id,
-                campaignDayId: day.id,
-                releaseId: campaign.release_id,
-              })
-            )
-          }
-        >
-          <Share2 className="mr-1.5 h-3.5 w-3.5" />
-          Social
-        </Button>
-      </div>
-    </div>
+    <LaunchTimelineDayRow
+      item={item}
+      artworkUrl={release?.artwork_url}
+      artistName={artist?.name}
+      onRefresh={onRefresh}
+    />
   );
 }
 
@@ -117,12 +77,16 @@ export default function LaunchBoard() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const reload = () => {
     setLoading(true);
     loadLaunchBoard(id)
       .then(setData)
       .catch((e) => setError(e.message || "Could not load launch board"))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    reload();
   }, [id]);
 
   const dayTimeline = useMemo(
@@ -211,14 +175,28 @@ export default function LaunchBoard() {
       {(data.timeline || [])
         .filter((t) => t.kind === "campaign_meta")
         .map((item) => (
-          <TimelineRow key={`meta-${item.campaign.id}`} item={item} navigate={navigate} />
+          <TimelineRow
+            key={`meta-${item.campaign.id}`}
+            item={item}
+            navigate={navigate}
+            release={release}
+            artist={artist}
+            onRefresh={reload}
+          />
         ))}
 
       <section className="space-y-3">
         <h2 className="font-heading text-sm font-600 uppercase tracking-wider text-muted-foreground">Timeline</h2>
         {dayTimeline.length ? (
           dayTimeline.map((item, idx) => (
-            <TimelineRow key={`${item.kind}-${item.date}-${idx}`} item={item} navigate={navigate} />
+            <TimelineRow
+              key={`${item.kind}-${item.date}-${idx}`}
+              item={item}
+              navigate={navigate}
+              release={release}
+              artist={artist}
+              onRefresh={reload}
+            />
           ))
         ) : (
           <EmptyState
