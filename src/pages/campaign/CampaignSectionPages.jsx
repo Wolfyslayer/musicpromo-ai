@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useCampaign } from "@/contexts/CampaignContext";
 import CampaignPlan from "@/components/campaign/CampaignPlan";
+import CampaignCommunityShare from "@/components/campaign/CampaignCommunityShare";
 import ContentLibrary from "@/components/campaign/ContentLibrary";
 import SongAnalysis from "@/components/campaign/SongAnalysis";
 import CampaignVideos from "@/components/campaign/CampaignVideos";
@@ -12,12 +13,15 @@ import { campaignSectionPath } from "@/lib/campaignNav";
 export function CampaignPlanPage() {
   const { id, campaign, days, song, artist, reload } = useCampaign();
   return (
-    <CampaignPlan
-      campaign={campaign}
-      days={days}
-      song={{ ...song, artistName: artist?.name }}
-      onRefresh={reload}
-    />
+    <div className="space-y-4">
+      <CampaignPlan
+        campaign={campaign}
+        days={days}
+        song={{ ...song, artistName: artist?.name }}
+        onRefresh={reload}
+      />
+      <CampaignCommunityShare campaign={campaign} onUpdated={reload} />
+    </div>
   );
 }
 

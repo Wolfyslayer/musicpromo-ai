@@ -12,7 +12,7 @@ export async function fetchOwnProfile(userId) {
   const { data, error } = await supabase
     .from("users")
     .select(
-      "id, email, full_name, display_name, handle, avatar_url, avatar_override, bio, profile_public, hide_artists_on_profile, role"
+      "id, email, full_name, display_name, handle, avatar_url, avatar_override, bio, profile_public, hide_artists_on_profile, role, featured_release_id, show_active_campaign_badge, allow_public_contact"
     )
     .eq("id", userId)
     .maybeSingle();
@@ -54,6 +54,15 @@ export async function updateOwnProfile(userId, patch) {
     const check = validateHandle(normalized);
     if (!check.ok) throw new Error(check.error);
     allowed.handle = normalized || null;
+  }
+  if (patch.featured_release_id !== undefined) {
+    allowed.featured_release_id = patch.featured_release_id || null;
+  }
+  if (patch.show_active_campaign_badge != null) {
+    allowed.show_active_campaign_badge = Boolean(patch.show_active_campaign_badge);
+  }
+  if (patch.allow_public_contact != null) {
+    allowed.allow_public_contact = Boolean(patch.allow_public_contact);
   }
 
   allowed.last_active_at = new Date().toISOString();

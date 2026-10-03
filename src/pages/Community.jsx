@@ -13,7 +13,10 @@ import SurfacePanel from "@/components/SurfacePanel";
 import EmptyState from "@/components/EmptyState";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
-import { loadCommunityMembers, toggleCommunityFollow } from "@/services/communityService";
+import CommunityFeedPanel from "@/components/community/CommunityFeedPanel";
+import ProfileBadges from "@/components/community/ProfileBadges";
+import { genreToSlug } from "@/services/communityProfileUtils";
+import { loadCommunityFeed, loadCommunityMembers, toggleCommunityFollow } from "@/services/communityService";
 import { absoluteProfileUrl, formatHandleLabel, profilePublicPath } from "@/services/profileHandle";
 import { fetchOwnProfile } from "@/services/userProfile";
 
@@ -50,6 +53,9 @@ export default function Community() {
   const [followingIds, setFollowingIds] = useState([]);
   const [followBusyId, setFollowBusyId] = useState(null);
   const [ownPublic, setOwnPublic] = useState(null);
+  const [tab, setTab] = useState("discover");
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [feedItems, setFeedItems] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +85,28 @@ export default function Community() {
       cancelled = true;
     };
   }, [user?.id, toast]);
+
+  useEffect(() => {
+    if (tab !== "following" || !user?.id) return;
+    let cancelled = false;
+    (async () => {
+      setFeedLoading(true);
+      try {
+        const { items } = await loadCommunityFeed();
+        if (!cancelled) setFeedItems(items);
+      } catch (e) {
+        if (!cancelled) {
+          toast({ variant: "destructive", title: "Feed unavailable", description: e.message });
+          setFeedItems([]);
+        }
+      } finally {
+        if (!cancelled) setFeedLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, user?.id, toast]);
 
   const onToggleFollow = async (member) => {
     if (!member?.id || member.isSelf || followBusyId) return;
@@ -148,12 +176,35 @@ export default function Community() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Discover"
+        eyebrow="Artists"
         title="Community"
-        description="Browse public artist profiles, explore genres, and connect through social links."
+        description="Discover profiles, follow artists, and see campaign teasers in your feed."
       />
 
-      {ownPublic === false ? (
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={tab === "discover" ? "default" : "outline"}
+          className="rounded-full"
+          onClick={() => setTab("discover")}
+        >
+          Discover
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={tab === "following" ? "default" : "outline"}
+          className="rounded-full"
+          onClick={() => setTab("following")}
+        >
+          Following feed
+        </Button>
+      </div>
+
+      {tab === "following" ? <CommunityFeedPanel loading={feedLoading} items={feedItems} /> : null}
+
+      {tab !== "discover" ? null : ownPublic === false ? (
         <SurfacePanel className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             Your profile is private. Turn on a public profile so others can discover you in Community.
@@ -164,8 +215,9 @@ export default function Community() {
         </SurfacePanel>
       ) : null}
 
-      {!loading ? <CommunitySpotlightRow spotlight={spotlight} /> : null}
+      {tab === "discover" && !loading ? <CommunitySpotlightRow spotlight={spotlight} /> : null}
 
+      {tab === "discover" ? (
       <SurfacePanel className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -237,12 +289,13 @@ export default function Community() {
           </div>
         </div>
       </SurfacePanel>
+      ) : null}
 
-      {loading ? (
+      {tab === "discover" && loading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : tab === "discover" && filtered.length === 0 ? (
         <EmptyState
           icon={Users}
           title={members.length ? "No matches" : "No public profiles yet"}
@@ -257,7 +310,7 @@ export default function Community() {
             </Button>
           }
         />
-      ) : (
+      ) : tab === "discover" ? (
         <div className="grid gap-4 sm:grid-cols-2">
           {filtered.map((member) => (
             <SurfacePanel key={member.id} className="flex flex-col gap-3">
@@ -276,6 +329,12 @@ export default function Community() {
                       </Link>
                       {member.handle ? (
                         <p className="truncate text-xs text-muted-foreground">{formatHandleLabel(member.handle)}</p>
+                      ) : null}
+                      <ProfileBadges badges={member.badges} className="mt-1.5" />
+                      {typeof member.completenessScore === "number" ? (
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          Profile strength {member.completenessScore}%
+                        </p>
                       ) : null}
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         {member.isSelf ? <span className="font-medium text-primary">You</span> : null}
@@ -330,14 +389,13 @@ export default function Community() {
                   {(member.genres || []).length ? (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {member.genres.slice(0, 4).map((g) => (
-                        <button
+                        <Link
                           key={g}
-                          type="button"
+                          to={`/community/genre/${genreToSlug(g)}`}
                           className="rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted"
-                          onClick={() => setGenreFilter(g)}
                         >
                           {g}
-                        </button>
+                        </Link>
                       ))}
                     </div>
                   ) : null}
@@ -368,7 +426,7 @@ export default function Community() {
             </SurfacePanel>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { serveWithCors } from "../_shared/cors.ts";
 import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
 import { secrets } from "../_shared/runtime.ts";
+import { computeBadges, computeCompleteness, genreToSlug } from "../_shared/communityProfile.ts";
 
 function unpackArtist(row: Record<string, unknown>) {
   const data = row.data && typeof row.data === "object" ? (row.data as Record<string, unknown>) : {};
@@ -47,6 +48,9 @@ function buildMember(
   }
   const lastActiveAt =
     String(u.last_active_at || u.created_at || "") || null;
+  const completeness = computeCompleteness(u, artists);
+  const badges = computeBadges(u);
+  const genreSlugs = [...new Set(genres.map((g) => genreToSlug(g)).filter(Boolean))];
   return {
     id: u.id,
     handle: u.handle || null,
@@ -61,7 +65,10 @@ function buildMember(
     artistCount: artists.length,
     socialLinkCount,
     genres,
+    genreSlugs,
     artists,
+    badges,
+    completenessScore: completeness.score,
   };
 }
 
@@ -100,7 +107,7 @@ async function handler(req: Request): Promise<Response> {
     const { data: userRows, error: userErr } = await admin
       .from("users")
       .select(
-        "id, display_name, full_name, handle, avatar_url, bio, hide_artists_on_profile, created_at, community_featured, last_active_at"
+        "id, display_name, full_name, handle, avatar_url, bio, hide_artists_on_profile, created_at, community_featured, community_verified_at, last_active_at, featured_release_id, show_active_campaign_badge, profile_public"
       )
       .eq("profile_public", true)
       .order("created_at", { ascending: false })
