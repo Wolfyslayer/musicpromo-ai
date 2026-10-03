@@ -4,12 +4,15 @@ import {
   AlertTriangle,
   ArrowLeft,
   CalendarDays,
-  Globe2,
   Loader2,
   Megaphone,
   Sparkles,
 } from "lucide-react";
 import LaunchTimelineDayRow from "@/components/launch/LaunchTimelineDayRow";
+import DayActionDrawer from "@/components/ux/DayActionDrawer";
+import SocialConnectionStrip from "@/components/ux/SocialConnectionStrip";
+import ReleaseChecklist from "@/components/ux/ReleaseChecklist";
+import LaunchWeekDigestBar from "@/components/ux/LaunchWeekDigestBar";
 import ArtworkImage from "@/components/ArtworkImage";
 import EmptyState from "@/components/EmptyState";
 import PageHeader from "@/components/PageHeader";
@@ -18,7 +21,9 @@ import SurfacePanel from "@/components/SurfacePanel";
 import { Button } from "@/components/ui/button";
 import { loadLaunchBoard } from "@/services/data";
 import { fmtDate } from "@/services/format";
-function TimelineRow({ item, navigate, release, artist, onRefresh }) {
+import { getConnectionStatus } from "@/services/socialService";
+
+function TimelineRow({ item, onManageDay }) {
   if (item.kind === "release_date") {
     return (
       <div className="flex gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
@@ -43,7 +48,7 @@ function TimelineRow({ item, navigate, release, artist, onRefresh }) {
             <StatusBadge status={c.status} />
             {item.communityShare ? (
               <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
-                <Globe2 className="h-3 w-3" /> Community feed
+                Community feed
               </span>
             ) : null}
             {item.crossPromo ? (
@@ -60,14 +65,7 @@ function TimelineRow({ item, navigate, release, artist, onRefresh }) {
     );
   }
 
-  return (
-    <LaunchTimelineDayRow
-      item={item}
-      artworkUrl={release?.artwork_url}
-      artistName={artist?.name}
-      onRefresh={onRefresh}
-    />
-  );
+  return <LaunchTimelineDayRow item={item} onManageDay={onManageDay} />;
 }
 
 export default function LaunchBoard() {
@@ -76,11 +74,16 @@ export default function LaunchBoard() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [providers, setProviders] = useState([]);
+  const [drawerItem, setDrawerItem] = useState(null);
 
   const reload = () => {
     setLoading(true);
-    loadLaunchBoard(id)
-      .then(setData)
+    Promise.all([loadLaunchBoard(id), getConnectionStatus().catch(() => ({ providers: [] }))])
+      .then(([board, status]) => {
+        setData(board);
+        setProviders(status?.providers || []);
+      })
       .catch((e) => setError(e.message || "Could not load launch board"))
       .finally(() => setLoading(false));
   };
@@ -93,6 +96,17 @@ export default function LaunchBoard() {
     () => (data?.timeline || []).filter((t) => t.kind === "day" || t.kind === "release_date"),
     [data]
   );
+
+  const readyVideosCount = useMemo(() => {
+    return (data?.entries || []).filter((e) => e.video_project_id).length;
+  }, [data]);
+
+  const connectedCount = providers.filter((p) => p.status === "connected").length;
+
+  const openDayById = (dayId) => {
+    const item = (data?.timeline || []).find((t) => t.kind === "day" && t.day?.id === dayId);
+    if (item) setDrawerItem(item);
+  };
 
   if (error) {
     return (
@@ -124,9 +138,9 @@ export default function LaunchBoard() {
       </Button>
 
       <PageHeader
-        eyebrow="Launch board"
+        eyebrow="Release command center"
         title={release.title || "Untitled release"}
-        description={`${artist?.name || "Artist"} — one timeline for rollout, social queue, and Community.`}
+        description={`${artist?.name || "Artist"} — timeline, queue, Community, and fixes in one place.`}
         actions={
           <>
             <Button variant="outline" size="sm" className="rounded-full" asChild>
@@ -145,7 +159,7 @@ export default function LaunchBoard() {
 
       <div className="flex gap-4 overflow-hidden rounded-3xl border border-border/60 surface p-5">
         <ArtworkImage src={release.artwork_url} alt={release.title} className="h-24 w-24 shrink-0 rounded-2xl" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <StatusBadge status={release.status || "draft"} />
           <p className="mt-2 text-sm text-muted-foreground">Release {fmtDate(release.release_date)}</p>
           <p className="mt-1 text-sm">
@@ -154,6 +168,16 @@ export default function LaunchBoard() {
           </p>
         </div>
       </div>
+
+      <SocialConnectionStrip providers={providers} />
+      <LaunchWeekDigestBar />
+      <ReleaseChecklist
+        release={release}
+        campaigns={campaigns}
+        entries={data.entries}
+        connectedCount={connectedCount}
+        readyVideosCount={readyVideosCount}
+      />
 
       {issues.length ? (
         <SurfacePanel className="space-y-2 border-amber-500/30 bg-amber-500/5">
@@ -164,8 +188,14 @@ export default function LaunchBoard() {
           <ul className="space-y-1 text-xs text-muted-foreground">
             {issues.slice(0, 6).map((issue) => (
               <li key={`${issue.type}-${issue.dayId}`}>
-                {issue.type === "missing_caption" ? "Missing caption" : "Publish error"} on {fmtDate(issue.date)}
-                {issue.message ? ` — ${issue.message}` : ""}
+                <button
+                  type="button"
+                  className="text-left hover:text-primary hover:underline"
+                  onClick={() => openDayById(issue.dayId)}
+                >
+                  {issue.type === "missing_caption" ? "Missing caption" : "Publish error"} on {fmtDate(issue.date)}
+                  {issue.message ? ` — ${issue.message}` : ""}
+                </button>
               </li>
             ))}
           </ul>
@@ -175,38 +205,29 @@ export default function LaunchBoard() {
       {(data.timeline || [])
         .filter((t) => t.kind === "campaign_meta")
         .map((item) => (
-          <TimelineRow
-            key={`meta-${item.campaign.id}`}
-            item={item}
-            navigate={navigate}
-            release={release}
-            artist={artist}
-            onRefresh={reload}
-          />
+          <TimelineRow key={`meta-${item.campaign.id}`} item={item} onManageDay={setDrawerItem} />
         ))}
 
       <section className="space-y-3">
         <h2 className="font-heading text-sm font-600 uppercase tracking-wider text-muted-foreground">Timeline</h2>
+        <p className="text-xs text-muted-foreground">Tap a day to schedule, publish, preview, or fix issues.</p>
         {dayTimeline.length ? (
           dayTimeline.map((item, idx) => (
             <TimelineRow
               key={`${item.kind}-${item.date}-${idx}`}
               item={item}
-              navigate={navigate}
-              release={release}
-              artist={artist}
-              onRefresh={reload}
+              onManageDay={item.kind === "day" ? setDrawerItem : undefined}
             />
           ))
         ) : (
           <EmptyState
             icon={CalendarDays}
             title="No planned days yet"
-            description="Generate a campaign plan or open the calendar to schedule your rollout."
+            description="Generate a campaign plan, then manage every day from this timeline."
             action={
               campaigns[0] ? (
                 <Button className="rounded-full" asChild>
-                  <Link to={`/campaigns/${campaigns[0].id}/plan`}>Open campaign plan</Link>
+                  <Link to={`/campaigns/${campaigns[0].id}/plan`}>Generate / open plan</Link>
                 </Button>
               ) : (
                 <Button className="rounded-full" onClick={() => navigate("/create")}>
@@ -217,6 +238,20 @@ export default function LaunchBoard() {
           />
         )}
       </section>
+
+      <DayActionDrawer
+        open={Boolean(drawerItem)}
+        onOpenChange={(open) => {
+          if (!open) setDrawerItem(null);
+        }}
+        day={drawerItem?.day}
+        campaign={drawerItem?.campaign}
+        release={release}
+        posts={drawerItem?.posts || []}
+        artworkUrl={release?.artwork_url}
+        artistName={artist?.name}
+        onRefresh={reload}
+      />
     </div>
   );
 }

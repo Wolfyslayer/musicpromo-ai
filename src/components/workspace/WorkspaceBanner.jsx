@@ -11,8 +11,8 @@ export default function WorkspaceBanner() {
     <div className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2">
       <p className="flex items-center gap-2 text-xs text-foreground sm:text-sm">
         <Users className="h-4 w-4 text-amber-600" />
-        Managing <span className="font-600">{managedLabel || "artist workspace"}</span> — changes apply to their
-        campaigns.
+        Managing <span className="font-600">{managedLabel || "artist workspace"}</span> — campaigns and posts use their
+        data. Connect social accounts from their login (not yours).
       </p>
       <Button
         type="button"

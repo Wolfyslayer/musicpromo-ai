@@ -20,6 +20,7 @@ import Logo from "./Logo";
 import AppNavMenu from "./navigation/AppNavMenu";
 import FirstLoginTutorial from "@/components/onboarding/FirstLoginTutorial";
 import WorkspaceBanner from "@/components/workspace/WorkspaceBanner";
+import ActivityInboxBell from "@/components/ux/ActivityInboxBell";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -72,8 +73,9 @@ export default function Layout() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground md:flex-row">
       <aside className="hidden h-full w-[15.5rem] shrink-0 flex-col border-r border-border/40 bg-sidebar/80 p-4 md:flex">
-        <div className="px-2 py-2">
+        <div className="flex items-center justify-between gap-2 px-2 py-2">
           <Logo />
+          {isAuthenticated ? <ActivityInboxBell /> : null}
         </div>
         <nav className="mt-6 flex flex-1 flex-col gap-1 overflow-y-auto">
           {NAV.map((item) => (
@@ -114,6 +116,7 @@ export default function Layout() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="glass-bar flex h-[3.25rem] shrink-0 items-center justify-between gap-2 border-b border-border/40 px-4 md:hidden">
           <Logo size={32} linkToHome />
+          {isAuthenticated ? <ActivityInboxBell /> : null}
           <AppNavMenu
             primary={NAV}
             secondary={SECONDARY}

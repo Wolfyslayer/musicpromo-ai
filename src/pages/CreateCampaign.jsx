@@ -444,7 +444,19 @@ export default function CreateCampaign() {
                 styleSuggestion={suggestPromoStyleFromProfile(form.assetProfile)}
               />
             )}
-            {step === 5 && <StepSummary form={form} artists={artists} releases={releases} />}
+            {step === 5 && (
+              <>
+                <div className="mb-4 rounded-2xl border border-primary/25 bg-primary/5 p-4 text-sm">
+                  <p className="font-600">Suggested rollout</p>
+                  <p className="mt-1 text-muted-foreground">
+                    {form.durationDays || 14}-day plan with emphasis on{" "}
+                    {(form.platforms || ["TikTok", "Instagram"]).slice(0, 2).join(" and ") || "your platforms"}. After
+                    generate, open the release command center to manage each day from one timeline.
+                  </p>
+                </div>
+                <StepSummary form={form} artists={artists} releases={releases} />
+              </>
+            )}
 
             <div className="mt-6 flex items-center justify-between">
               <Button variant="ghost" onClick={back} disabled={step === 0} className="rounded-full"><ArrowLeft className="mr-1.5 h-4 w-4" />Back</Button>
