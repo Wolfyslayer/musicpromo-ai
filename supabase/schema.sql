@@ -227,6 +227,32 @@ create policy "studio manager analytics" on public.analytics_entries
   for all using (public.studio_can_access_owner(user_id))
   with check (public.studio_can_access_owner(user_id));
 
+create table if not exists public.support_tickets (
+  id uuid primary key default gen_random_uuid(),
+  public_id text not null unique,
+  user_id uuid references auth.users (id) on delete set null,
+  email text not null,
+  subject text not null,
+  message text not null,
+  transcript jsonb not null default '[]'::jsonb,
+  page_path text,
+  status text not null default 'open' check (status in ('open', 'closed')),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists support_tickets_user_idx on public.support_tickets (user_id, created_at desc);
+
+create table if not exists public.support_chat_usage (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  window_start timestamptz not null default now(),
+  message_count int not null default 0
+);
+
+alter table public.support_tickets enable row level security;
+
+create policy "support tickets read own" on public.support_tickets
+  for select using (user_id is not null and user_id = auth.uid());
+
 insert into storage.buckets (id, name, public)
 values ('music-promo-assets', 'music-promo-assets', true)
 on conflict (id) do update set public = true;

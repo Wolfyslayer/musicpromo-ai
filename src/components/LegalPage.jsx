@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import Logo from "@/components/Logo";
 import SupportEmailLink from "@/components/SupportEmailLink";
+import SupportChatWidget from "@/components/support/SupportChatWidget";
 
 /**
  * Shared chrome for public legal pages (no login required — needed for TikTok / Google app review).
@@ -36,6 +37,7 @@ export default function LegalPage({ title, children }) {
           <SupportEmailLink>Contact support</SupportEmailLink>
         </p>
       </main>
+      <SupportChatWidget />
     </div>
   );
 }

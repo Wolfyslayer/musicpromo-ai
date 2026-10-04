@@ -21,6 +21,7 @@ import AppNavMenu from "./navigation/AppNavMenu";
 import FirstLoginTutorial from "@/components/onboarding/FirstLoginTutorial";
 import WorkspaceBanner from "@/components/workspace/WorkspaceBanner";
 import ActivityInboxBell from "@/components/ux/ActivityInboxBell";
+import SupportChatWidget from "@/components/support/SupportChatWidget";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -183,6 +184,7 @@ export default function Layout() {
         </main>
       </div>
       <FirstLoginTutorial />
+      <SupportChatWidget />
     </div>
   );
 }
