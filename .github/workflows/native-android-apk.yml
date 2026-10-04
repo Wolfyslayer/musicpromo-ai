@@ -1,0 +1,107 @@
+# Phone-friendly Android install: builds a debug APK in the cloud (no PC / Android Studio).
+# Install: GitHub Actions run → Artifacts → musicpromo-android-debug.apk → open on Android.
+#
+# One-time: add GOOGLE_SERVICES_JSON_BASE64 (see docs/NATIVE_APP.md § Android from your phone).
+# For Play Store AAB: use native-android-aab.yml instead.
+
+name: Build Android debug APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Branch or tag to build (default main)
+        required: false
+        default: main
+
+jobs:
+  build-apk:
+    name: Capacitor debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      - name: Configure Vite base path
+        run: |
+          if [ -n "${{ vars.VITE_BASE_PATH }}" ]; then
+            echo "VITE_BASE_PATH=${{ vars.VITE_BASE_PATH }}" >> "$GITHUB_ENV"
+          else
+            echo "VITE_BASE_PATH=/" >> "$GITHUB_ENV"
+          fi
+
+      - name: Write google-services.json
+        env:
+          GS_B64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+          GS_RAW: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          mkdir -p /tmp/android-secrets
+          OUT=/tmp/android-secrets/google-services.json
+          if [ -n "$GS_B64" ]; then
+            echo "$GS_B64" | base64 -d > "$OUT"
+          elif [ -n "$GS_RAW" ]; then
+            printf '%s' "$GS_RAW" > "$OUT"
+          else
+            echo "::error::Add repository secret GOOGLE_SERVICES_JSON_BASE64 (preferred) or GOOGLE_SERVICES_JSON. See docs/NATIVE_APP.md"
+            exit 1
+          fi
+          if ! grep -q '"package_name".*site.musicpromoai.app' "$OUT" && ! grep -q 'site.musicpromoai.app' "$OUT"; then
+            echo "::warning::google-services.json may not match app id site.musicpromoai.app — check Firebase Android app package name"
+          fi
+          echo "GOOGLE_SERVICES_JSON_PATH=$OUT" >> "$GITHUB_ENV"
+
+      - name: Build debug APK
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_AI_VIDEO_PROVIDER: ${{ vars.VITE_AI_VIDEO_PROVIDER }}
+          VITE_SUPPORT_AI: ${{ vars.VITE_SUPPORT_AI }}
+          ANDROID_BUILD_VARIANT: debug
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "::error::Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY repository secrets."
+            exit 1
+          fi
+          chmod +x scripts/build-capacitor-android.sh
+          scripts/build-capacitor-android.sh
+          echo "APK_PATH=android/app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: musicpromo-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Summary (install on phone)
+        run: |
+          {
+            echo "### Android debug APK ready"
+            echo ""
+            echo "1. On your phone, open this workflow run in the browser (or GitHub app → Actions)."
+            echo "2. **Artifacts** → **musicpromo-android-debug** → download **app-debug.apk**."
+            echo "3. Tap the file → install (allow installs from this source if prompted)."
+            echo "4. Log in → allow notifications → check Supabase \`push_devices\`."
+            echo ""
+            echo "Rebuild after each \`main\` merge you want on device."
+          } >> "$GITHUB_STEP_SUMMARY"

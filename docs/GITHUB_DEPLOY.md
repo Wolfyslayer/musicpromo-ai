@@ -25,8 +25,16 @@ To change which paths trigger a job, edit the `filters` block in the workflow’
 | `VITE_SUPABASE_ANON_KEY` | Project **anon/public** API key (Settings → API) |
 | `SUPABASE_URL` | Same as `VITE_SUPABASE_URL` — used by **Campaign worker cron** (optional) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Project **service_role** key (Settings → API) — cron only; never expose in the frontend |
+| `GOOGLE_SERVICES_JSON_BASE64` | Firebase **Android** `google-services.json` (base64) — [Build Android debug APK](../.github/workflows/native-android-apk.yml) |
+| `GOOGLE_SERVICES_JSON` | *Optional alternative* to base64 — raw JSON for the same workflow |
+| `ANDROID_UPLOAD_KEYSTORE_BASE64` | Upload keystore for [Build Android release AAB](../.github/workflows/native-android-aab.yml) |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
+| `ANDROID_KEY_ALIAS` | Key alias inside the keystore |
+| `ANDROID_KEY_PASSWORD` | Key password |
 
 **Settings → Secrets and variables → Actions → New repository secret**
+
+Phone-first Android flow (no PC): **[docs/NATIVE_APP.md § Android from your phone only](./NATIVE_APP.md#android-from-your-phone-only-no-pc)**.
 
 Optional: [`.github/workflows/campaign-worker-cron.yml`](../.github/workflows/campaign-worker-cron.yml) invokes `campaignWorker` every **5 minutes** so scheduled auto-posts publish on time. If the service-role secrets are missing, the workflow skips safely.
 

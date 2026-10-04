@@ -149,6 +149,90 @@ Until then, some flows may work better in Safari than inside the WebView. See §
 
 ---
 
+## Android from your phone only (no PC)
+
+Use the **GitHub mobile app** or mobile browser for ops; **GitHub Actions** builds installable Android packages in the cloud.
+
+### One-time setup (can all be done on phone)
+
+| Step | Where | What |
+|------|--------|------|
+| 1 | Supabase app / browser | Run `supabase/migrations/20261004_native_push.sql` in SQL editor |
+| 2 | Firebase console | Android app package **`site.musicpromoai.app`** → download **`google-services.json`** |
+| 3 | GitHub → repo → **Settings → Secrets** | Add secrets below (use desktop site if the mobile UI hides Settings) |
+| 4 | Optional: Termux on Android | Generate upload keystore for Play (see below) |
+
+**GitHub repository secrets**
+
+| Secret | Purpose |
+|--------|---------|
+| `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | Same as web Deploy (already set if Pages works) |
+| `GOOGLE_SERVICES_JSON_BASE64` | Base64 of Firebase `google-services.json` (preferred on mobile) |
+| `GOOGLE_SERVICES_JSON` | *Alternative:* paste raw JSON if base64 is awkward |
+
+**Play release AAB only** (skip for personal debug installs):
+
+| Secret | Purpose |
+|--------|---------|
+| `ANDROID_UPLOAD_KEYSTORE_BASE64` | Base64 of your upload `.keystore` or `.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
+| `ANDROID_KEY_ALIAS` | Key alias (e.g. `upload`) |
+| `ANDROID_KEY_PASSWORD` | Key password |
+
+**Encode `google-services.json` on Android (Termux)**
+
+```bash
+pkg install termux-api   # optional
+base64 -w 0 ~/storage/downloads/google-services.json
+```
+
+Copy the single line → GitHub secret **`GOOGLE_SERVICES_JSON_BASE64`**.
+
+**Create upload keystore on Android (Termux, once)**
+
+```bash
+pkg install openjdk-17
+keytool -genkeypair -v -storetype PKCS12 -keystore upload.keystore -alias upload \
+  -keyalg RSA -keysize 2048 -validity 10000 \
+  -storepass 'YOUR_STORE_PASS' -keypass 'YOUR_KEY_PASS' \
+  -dname "CN=MusicPromo AI, OU=Mobile, O=MusicPromo, L=City, ST=State, C=US"
+base64 -w 0 upload.keystore
+```
+
+Save the keystore file to cloud storage; add base64 + passwords as GitHub secrets. **Back up the keystore** — you need the same file for every Play upload.
+
+### Day-to-day: install the app on your phone
+
+1. **GitHub** → **Actions** → **Build Android debug APK** → **Run workflow** → branch **`main`**.
+2. Wait for green ✓ → open the run → **Artifacts** → **musicpromo-android-debug** → download **`app-debug.apk`**.
+3. Open the APK from Downloads → **Install** (allow “install unknown apps” for Chrome/Files if asked).
+4. Open **MusicPromo AI** → log in → allow **notifications**.
+5. Supabase → **`push_devices`** should show your token.
+
+Repeat after merges you want on device (each run builds fresh from `main`).
+
+### Day-to-day: Google Play internal testing
+
+1. **Actions** → **Build Android release AAB** → Run workflow.
+2. Set **`version_code`** higher than your last Play upload (integer, e.g. `2`, `3`, …).
+3. Download artifact **`musicpromo-android-release-aab`** → `app-release.aab`.
+4. **Play Console** in browser → **Testing → Internal testing** → **Create release** → upload AAB.
+
+You can create the Play app, add testers, and upload releases from the Play Console mobile site for many steps.
+
+### What still needs a browser (not a PC)
+
+- GitHub **Secrets** (first time)
+- Supabase **SQL** and table checks
+- Firebase **console**
+- Play **Console** for store listing and review
+
+You do **not** need Android Studio or a laptop for debug APKs or CI-built AABs once secrets exist.
+
+Workflows: [`.github/workflows/native-android-apk.yml`](../.github/workflows/native-android-apk.yml), [`.github/workflows/native-android-aab.yml`](../.github/workflows/native-android-aab.yml).
+
+---
+
 ## How this fits GitHub Actions (recommended)
 
 You already use **[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)** on every push to `main`. Treat native as a **second deliverable** from the same build, not a separate backend.
@@ -159,7 +243,8 @@ You already use **[`.github/workflows/deploy.yml`](../.github/workflows/deploy.y
 | **Edge Functions** (incl. `registerPushToken`) | Deploy → **Supabase** | Push when `supabase/functions/**` changes |
 | **Postgres schema** (`push_devices`, …) | **You** (Supabase SQL editor) | Once per migration file — Actions does **not** auto-run SQL yet |
 | **Supabase secrets** (FCM, Resend, OpenAI) | **Supabase dashboard** | Not GitHub — see [GITHUB_DEPLOY.md](./GITHUB_DEPLOY.md) |
-| **Store `.ipa` / `.aab`** | **You** (Mac + Xcode / Android Studio) or future signing workflow | After web + functions are live |
+| **Android debug APK / release AAB** | **Build Android debug APK** / **Build Android release AAB** (`workflow_dispatch`) | After secrets + Firebase JSON; install APK from Artifacts on phone |
+| **Store `.ipa`** | Mac + Xcode | iOS only |
 
 ### Release rhythm that keeps web and native aligned
 

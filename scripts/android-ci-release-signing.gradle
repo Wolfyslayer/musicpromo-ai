@@ -1,0 +1,25 @@
+// Applied only in CI release builds (copied into android/app/ by build-capacitor-android.sh).
+def keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+def storePass = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+def aliasName = System.getenv("ANDROID_KEY_ALIAS")
+def keyPass = System.getenv("ANDROID_KEY_PASSWORD")
+
+if (keystorePath == null || storePass == null || aliasName == null || keyPass == null) {
+    throw new GradleException("Release signing env vars missing")
+}
+
+android {
+    signingConfigs {
+        ciRelease {
+            storeFile file(keystorePath)
+            storePassword storePass
+            keyAlias aliasName
+            keyPassword keyPass
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.ciRelease
+        }
+    }
+}

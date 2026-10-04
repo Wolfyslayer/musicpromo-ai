@@ -1,0 +1,126 @@
+# Signed release AAB for Google Play (internal / production tracks).
+# Trigger from phone: Actions → Build Android release AAB → Run workflow.
+#
+# Requires signing secrets (generate upload keystore once — see docs/NATIVE_APP.md).
+
+name: Build Android release AAB
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Branch or tag to build (default main)
+        required: false
+        default: main
+      version_code:
+        description: Play versionCode (must increase every Play upload)
+        required: true
+        default: "1"
+      version_name:
+        description: User-visible versionName (e.g. 1.0.0)
+        required: false
+        default: "1.0.0"
+
+jobs:
+  build-aab:
+    name: Capacitor release AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      - name: Configure Vite base path
+        run: |
+          if [ -n "${{ vars.VITE_BASE_PATH }}" ]; then
+            echo "VITE_BASE_PATH=${{ vars.VITE_BASE_PATH }}" >> "$GITHUB_ENV"
+          else
+            echo "VITE_BASE_PATH=/" >> "$GITHUB_ENV"
+          fi
+
+      - name: Write google-services.json
+        env:
+          GS_B64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+          GS_RAW: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          mkdir -p /tmp/android-secrets
+          OUT=/tmp/android-secrets/google-services.json
+          if [ -n "$GS_B64" ]; then
+            echo "$GS_B64" | base64 -d > "$OUT"
+          elif [ -n "$GS_RAW" ]; then
+            printf '%s' "$GS_RAW" > "$OUT"
+          else
+            echo "::error::Add GOOGLE_SERVICES_JSON_BASE64 or GOOGLE_SERVICES_JSON"
+            exit 1
+          fi
+          echo "GOOGLE_SERVICES_JSON_PATH=$OUT" >> "$GITHUB_ENV"
+
+      - name: Decode upload keystore
+        env:
+          KS_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS_B64" ]; then
+            echo "::error::Add ANDROID_UPLOAD_KEYSTORE_BASE64 (see docs/NATIVE_APP.md)"
+            exit 1
+          fi
+          KS=/tmp/android-secrets/upload.keystore
+          echo "$KS_B64" | base64 -d > "$KS"
+          echo "ANDROID_KEYSTORE_PATH=$KS" >> "$GITHUB_ENV"
+
+      - name: Build release AAB
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_AI_VIDEO_PROVIDER: ${{ vars.VITE_AI_VIDEO_PROVIDER }}
+          VITE_SUPPORT_AI: ${{ vars.VITE_SUPPORT_AI }}
+          ANDROID_BUILD_VARIANT: release
+          ANDROID_VERSION_CODE: ${{ inputs.version_code }}
+          ANDROID_VERSION_NAME: ${{ inputs.version_name }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          for v in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing secret or env: $v"
+              exit 1
+            fi
+          done
+          chmod +x scripts/build-capacitor-android.sh
+          scripts/build-capacitor-android.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: musicpromo-android-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Summary
+        run: |
+          {
+            echo "### Release AAB ready"
+            echo ""
+            echo "1. Download artifact **musicpromo-android-release-aab**."
+            echo "2. Play Console (browser on phone or desktop) → your app → **Release** → upload \`app-release.aab\`."
+            echo "3. Bump \`versionCode\` in a future commit if Play rejects duplicate version (edit via PR or Builder)."
+          } >> "$GITHUB_STEP_SUMMARY"
