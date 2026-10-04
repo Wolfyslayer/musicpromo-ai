@@ -400,7 +400,7 @@ export default function CampaignPlan({
             onSchedule={() => scheduleDay(day)}
             onPost={() => setDrawerDay(day)}
           >
-          <div className="rounded-2xl border border-border/60 bg-card/50 p-4 animate-slide-up">
+          <div className="rounded-2xl border border-border/60 bg-card p-4 animate-slide-up md:bg-card/50">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="grid h-11 w-11 place-items-center rounded-xl bg-muted/60">
