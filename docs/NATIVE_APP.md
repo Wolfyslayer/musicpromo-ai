@@ -240,6 +240,14 @@ You do **not** need Android Studio or a laptop for debug APKs or CI-built AABs o
 
 Workflows: [APK](../.github/workflows/native-android-apk.yml), [AAB](../.github/workflows/native-android-aab.yml), [Generate keystore](../.github/workflows/native-android-keystore.yml).
 
+### App icon and “category” on the phone
+
+**Icon:** CI runs `scripts/apply-android-branding.sh`, which generates Android mipmaps from **`assets/icon.png`** (same brand mark as `public/musicpromo-ai-icon.svg`). Rebuild the APK after icon changes.
+
+**Launcher grouping (Social / Music, etc.):** Android reads **`android:appCategory`** on the app (default **`social`** in CI). Some phones use this for app-drawer grouping; others ignore it. To prefer music grouping, set repository variable **`ANDROID_APP_CATEGORY`** = `audio` (allowed: `social`, `audio`, `video`, `game`, `news`, `maps`, `productivity`).
+
+**Google Play store category** (what shoppers see) is **not** set in the APK — in **Play Console → Store settings → App category**, pick e.g. **Music & Audio** or **Social**, and add tags like *entertainment* / *music* in the store listing. That affects Play browse/search, not the home-screen icon file itself.
+
 ---
 
 ## How this fits GitHub Actions (recommended)

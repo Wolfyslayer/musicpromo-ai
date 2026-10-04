@@ -102,6 +102,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_APP_CATEGORY: ${{ vars.ANDROID_APP_CATEGORY || 'social' }}
         run: |
           for v in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
             if [ -z "${!v}" ]; then
