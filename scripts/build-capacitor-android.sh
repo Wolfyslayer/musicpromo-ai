@@ -68,7 +68,7 @@ fi
 
 SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 if [[ -n "$SDK_DIR" && -d "$SDK_DIR" ]]; then
-  printf 'sdk.dir=%s\n' "$SDK_DIR" > local.properties
+  printf 'sdk.dir=%s\n' "$SDK_DIR" > android/local.properties
 fi
 
 cd android

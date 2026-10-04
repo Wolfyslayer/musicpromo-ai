@@ -1,4 +1,8 @@
 import { pkceChallengeFromVerifier, randomUrlSafeString } from "@/lib/googlePkce";
+import { isNativeApp } from "@/lib/nativeApp";
+
+/** Production origin for OAuth (Capacitor must use same hostname in capacitor.config.ts). */
+const NATIVE_APP_ORIGIN = "https://musicpromoai.site";
 
 export const GOOGLE_AUTH_STORAGE = {
   state: "musicpromo:google_oauth_state",
@@ -12,7 +16,11 @@ const LOGIN_SCOPES = ["openid", "email", "profile"];
 /** Redirect URI registered in Google Cloud (must match token exchange). */
 export function getGoogleSignInRedirectUri() {
   const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
-  return `${window.location.origin}${base}/auth/google/callback`;
+  const configured = String(import.meta.env.VITE_APP_ORIGIN || "").trim().replace(/\/$/, "");
+  const origin = isNativeApp()
+    ? configured || NATIVE_APP_ORIGIN
+    : window.location.origin;
+  return `${origin}${base}/auth/google/callback`;
 }
 
 export function getGoogleClientId() {

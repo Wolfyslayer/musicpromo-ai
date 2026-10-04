@@ -5,8 +5,16 @@ const config: CapacitorConfig = {
   appName: "MusicPromo AI",
   webDir: "dist",
   server: {
-    // Bundled production build. For dev against live site, set CAP_SERVER_URL=https://musicpromoai.site
-    ...(process.env.CAP_SERVER_URL ? { url: process.env.CAP_SERVER_URL, cleartext: false } : {}),
+    // Bundled build: pretend to be the production site so Google OAuth redirect_uri matches
+    // https://musicpromoai.site/auth/google/callback (registered in Google Cloud).
+    // Without this, Android WebView origin is https://localhost → redirect_uri_mismatch.
+    ...(process.env.CAP_SERVER_URL
+      ? { url: process.env.CAP_SERVER_URL, cleartext: false }
+      : {
+          hostname: "musicpromoai.site",
+          androidScheme: "https",
+          iosScheme: "https",
+        }),
   },
   plugins: {
     SplashScreen: {
