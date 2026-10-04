@@ -66,6 +66,11 @@ if [[ "$VARIANT" == "release" ]]; then
   fi
 fi
 
+SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+if [[ -n "$SDK_DIR" && -d "$SDK_DIR" ]]; then
+  printf 'sdk.dir=%s\n' "$SDK_DIR" > local.properties
+fi
+
 cd android
 chmod +x gradlew
 
