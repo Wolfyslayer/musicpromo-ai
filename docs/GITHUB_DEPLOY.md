@@ -25,12 +25,12 @@ To change which paths trigger a job, edit the `filters` block in the workflow’
 | `VITE_SUPABASE_ANON_KEY` | Project **anon/public** API key (Settings → API) |
 | `SUPABASE_URL` | Same as `VITE_SUPABASE_URL` — used by **Campaign worker cron** (optional) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Project **service_role** key (Settings → API) — cron only; never expose in the frontend |
-| `GOOGLE_SERVICES_JSON_BASE64` | Firebase **Android** `google-services.json` (base64) — [Build Android debug APK](../.github/workflows/native-android-apk.yml) |
-| `GOOGLE_SERVICES_JSON` | *Optional alternative* to base64 — raw JSON for the same workflow |
-| `ANDROID_UPLOAD_KEYSTORE_BASE64` | Upload keystore for [Build Android release AAB](../.github/workflows/native-android-aab.yml) |
-| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
-| `ANDROID_KEY_ALIAS` | Key alias inside the keystore |
-| `ANDROID_KEY_PASSWORD` | Key password |
+| `GOOGLE_SERVICES_JSON` | Firebase **Android** file pasted whole (easiest on phone) — [Build Android debug APK](../.github/workflows/native-android-apk.yml) |
+| `GOOGLE_SERVICES_JSON_BASE64` | *Optional* single-line base64 instead of raw JSON |
+| `ANDROID_KEYSTORE_PASSWORD` | Password you choose — used by [Generate Android upload keystore](../.github/workflows/native-android-keystore.yml) |
+| `ANDROID_KEY_ALIAS` | Key alias (e.g. `upload`) |
+| `ANDROID_KEY_PASSWORD` | Key password you choose |
+| `ANDROID_UPLOAD_KEYSTORE_BASE64` | Copy from **android-upload-keystore-base64** artifact after keystore workflow |
 
 **Settings → Secrets and variables → Actions → New repository secret**
 
