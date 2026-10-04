@@ -1,22 +1,56 @@
 # In-app support chat (AI + email tickets)
 
-Floating **Help & support** widget: signed-in users get an AI assistant; anyone can **Email the team**, which creates a ticket and sends email to `support@musicpromoai.site` (Reply-To = user).
+Floating **Help & support** widget: signed-in users can use an optional AI assistant; anyone can **Email the team**, which creates a ticket and sends email to `support@musicpromoai.site` (Reply-To = user).
 
-## Supabase setup
+## Supabase setup (tickets — always)
 
 1. Run the `support_tickets` and `support_chat_usage` section in `supabase/schema.sql` (SQL editor).
-2. Deploy edge functions:
+2. Deploy:
    ```bash
-   supabase functions deploy supportChat submitSupportTicket
+   supabase functions deploy submitSupportTicket
    ```
-3. Secrets (Project Settings → Edge Functions):
-   - `OPENAI_API_KEY` — required for AI replies
-   - `RESEND_API_KEY` — required to email tickets
+3. Secrets:
+   - `RESEND_API_KEY` — sends ticket mail
    - `SUPPORT_FROM_EMAIL` — e.g. `MusicPromo AI <notifications@yourdomain.com>` (verified in Resend)
    - Optional: reuse `LAUNCH_DIGEST_FROM_EMAIL` if `SUPPORT_FROM_EMAIL` is unset
 
-Tickets are stored in `support_tickets` with a public id like `MP-A1B2C3`. You reply from your inbox to the user (Resend sets Reply-To on the team notification).
+Tickets get a public id like `MP-A1B2C3`. Reply from your inbox (Resend sets **Reply-To** on the team notification).
+
+## AI assistant (optional — not required for tickets)
+
+The assistant uses the same **OpenAI-compatible** stack as campaign generation (`invokeLlm` / `invokeLlmChat`). You do **not** have to use OpenAI’s paid API.
+
+### Option A — Free/cheap LLM (recommended): Groq
+
+Same secrets as [FREE_AI.md](./FREE_AI.md) — one setup powers campaigns **and** support chat:
+
+| Secret | Value |
+|--------|--------|
+| `OPENAI_API_KEY` | Groq key (`gsk_...`) |
+| `OPENAI_BASE_URL` | `https://api.groq.com/openai/v1` |
+| `OPENAI_MODEL` | `llama-3.1-8b-instant` (fast, generous free tier) or `llama-3.3-70b-versatile` (better answers) |
+
+Then deploy the chat function:
+
+```bash
+supabase functions deploy supportChat
+```
+
+No OpenAI account or `sk-...` key is involved when `OPENAI_BASE_URL` points at Groq.
+
+Other free-tier providers (Gemini OpenAI compatibility, OpenRouter `:free` models) are listed in **FREE_AI.md**.
+
+### Option B — No AI at all (email only, $0 LLM)
+
+1. Deploy only `submitSupportTicket` (skip `supportChat`).
+2. In your **frontend build** (GitHub Actions / `.env.local`), set:
+   ```bash
+   VITE_SUPPORT_AI=off
+   ```
+3. Rebuild and deploy the site.
+
+Signed-in users see the **ticket form only** — no chat, no LLM calls. Guests on `/privacy` and `/terms` behave the same as before.
 
 ## Rate limits
 
-- AI: 40 user messages per hour (`support_chat_usage`).
+- AI (when enabled): 40 user messages per hour per user (`support_chat_usage`).

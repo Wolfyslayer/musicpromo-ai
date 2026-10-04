@@ -4,7 +4,11 @@ import { Loader2, MessageCircle, Send, Mail } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { cn } from "@/lib/utils";
 import { SUPPORT_EMAIL } from "@/services/constants";
-import { sendSupportChatMessage, submitSupportTicket } from "@/services/supportService";
+import {
+  sendSupportChatMessage,
+  submitSupportTicket,
+  supportAiEnabledFromEnv,
+} from "@/services/supportService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,9 +22,6 @@ import {
 
 const WELCOME_SIGNED_IN =
   "Hi! I’m the MusicPromo AI assistant — quick answers about campaigns, social connect, and video. For human help, tap “Email the team”; we reply to your email when we can (usually within 1–2 business days).";
-
-const WELCOME_GUEST =
-  "Send us a message and we’ll reply by email. You don’t need to stay online — we’ll reach you at the address you provide.";
 
 function Bubble({ role, content }) {
   const isUser = role === "user";
@@ -44,9 +45,11 @@ export default function SupportChatWidget() {
   const { isAuthenticated, user } = useAuth();
   const location = useLocation();
   const pagePath = `${location.pathname}${location.search || ""}`;
+  const aiEnabled = supportAiEnabledFromEnv();
+  const chatAvailable = isAuthenticated && aiEnabled;
 
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState("chat");
+  const [view, setView] = useState(chatAvailable ? "chat" : "ticket");
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -67,15 +70,14 @@ export default function SupportChatWidget() {
 
   useEffect(() => {
     if (!open) return;
+    if (!chatAvailable) {
+      setView("ticket");
+      return;
+    }
     if (messages.length) return;
-    setMessages([
-      {
-        role: "assistant",
-        content: isAuthenticated ? WELCOME_SIGNED_IN : WELCOME_GUEST,
-      },
-    ]);
-    if (!isAuthenticated) setView("ticket");
-  }, [open, isAuthenticated, messages.length]);
+    setMessages([{ role: "assistant", content: WELCOME_SIGNED_IN }]);
+    setView("chat");
+  }, [open, chatAvailable, messages.length]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -89,7 +91,7 @@ export default function SupportChatWidget() {
 
   const sendChat = async () => {
     const text = input.trim();
-    if (!text || chatLoading || !isAuthenticated) return;
+    if (!text || chatLoading || !chatAvailable) return;
 
     const next = [...messages, { role: "user", content: text }];
     setMessages(next);
@@ -166,7 +168,7 @@ export default function SupportChatWidget() {
           setOpen(next);
           if (!next) {
             window.setTimeout(() => {
-              setView(isAuthenticated ? "chat" : "ticket");
+              setView(chatAvailable ? "chat" : "ticket");
               setMessages([]);
               setInput("");
               setSuggestHuman(false);
@@ -181,13 +183,15 @@ export default function SupportChatWidget() {
           <SheetHeader className="border-b border-border/60 px-4 py-4 text-left">
             <SheetTitle className="font-heading text-lg">Help & support</SheetTitle>
             <SheetDescription className="text-xs leading-relaxed">
-              {isAuthenticated
+              {chatAvailable
                 ? "AI answers instantly. Human replies go to your email — no live chat."
-                : `We reply by email to ${SUPPORT_EMAIL} when we can.`}
+                : isAuthenticated
+                  ? `Send a message — we reply by email to ${SUPPORT_EMAIL} when we can.`
+                  : `We reply by email to ${SUPPORT_EMAIL} when we can.`}
             </SheetDescription>
           </SheetHeader>
 
-          {view === "chat" && isAuthenticated ? (
+          {view === "chat" && chatAvailable ? (
             <>
               <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
                 {messages.map((m, i) => (

@@ -1,6 +1,15 @@
 import { db, ensureClientSessionToken } from "@/api/base44Client";
 import { getSessionAccessToken } from "@/lib/app-params";
 
+/** When false, widget is email-ticket only (no supportChat / LLM). Set VITE_SUPPORT_AI=off in build. */
+export function supportAiEnabledFromEnv() {
+  const raw = String(import.meta.env.VITE_SUPPORT_AI ?? "on")
+    .trim()
+    .toLowerCase();
+  if (raw === "off" || raw === "false" || raw === "0" || raw === "none") return false;
+  return true;
+}
+
 function unwrap(res) {
   return res?.data ?? res;
 }
