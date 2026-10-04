@@ -2,6 +2,153 @@
 
 The web app ships inside **Capacitor** for App Store / Play Store builds. **One codebase** — the same Vite `dist/` that GitHub Actions publishes to **musicpromoai.site** is copied into native projects.
 
+## Complete setup checklist (zero → TestFlight / internal Play)
+
+Use this once to wire **GitHub**, **Supabase**, **Firebase**, and **local native projects**. Order matters.
+
+### Phase 0 — Code on `main`
+
+1. Merge the native PR (Capacitor packages, `NativeAppBootstrap`, push Edge Functions, migration file).
+2. **Actions → Deploy → Run workflow** (or push a trivial change) and wait until **Frontend** and **Supabase** jobs succeed.
+3. Confirm **musicpromoai.site** loads and login works (same Supabase as the app will use).
+
+### Phase 1 — GitHub (CI builds)
+
+Repository **Settings → Secrets and variables → Actions**:
+
+| Secret | Value |
+| --- | --- |
+| `VITE_SUPABASE_URL` | `https://<project-ref>.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Anon key (Settings → API) |
+| `SUPABASE_ACCESS_TOKEN` | [Account token](https://supabase.com/dashboard/account/tokens) with Edge Functions deploy |
+| `SUPABASE_PROJECT_REF` | Ref from dashboard URL |
+
+Optional **variable** for custom domain at site root: `VITE_BASE_PATH` = `/` (see [GITHUB_DEPLOY.md](./GITHUB_DEPLOY.md)).
+
+Optional **variables** (same as web): `VITE_GOOGLE_CLIENT_ID`, `VITE_SUPPORT_AI`, etc.
+
+**Pages:** Settings → Pages → **Source: GitHub Actions**.
+
+### Phase 2 — Supabase (database + functions + secrets)
+
+1. **SQL editor** — paste and run once:
+   - `supabase/migrations/20261004_native_push.sql`  
+   Creates `push_devices` and `users.push_digest_enabled`.
+
+2. **Edge Functions** — should deploy from GitHub on `main`. Verify in dashboard or:
+   ```bash
+   supabase functions deploy registerPushToken unregisterPushToken --project-ref YOUR_REF
+   ```
+
+3. **Edge Function secrets** (dashboard → Edge Functions → Secrets) — same as web app:
+   - Auth/social: `PUBLIC_APP_URL`, platform OAuth secrets (see [GITHUB_DEPLOY.md](./GITHUB_DEPLOY.md)).
+   - Support email: `RESEND_API_KEY`, `SUPPORT_FROM_EMAIL` if you use support tickets.
+   - **Push sending (later):** `FCM_SERVICE_ACCOUNT_JSON` when `sendLaunchDigest` sends FCM — not required for **token registration** today.
+
+4. **Auth** — ensure Site URL / redirect URLs include your production domain (`https://musicpromoai.site` and any OAuth paths you use).
+
+### Phase 3 — Firebase (device tokens)
+
+Registration uses **FCM on Android** and **APNs via Firebase on iOS**. You need a Firebase project even before server-side “send push” is implemented.
+
+1. [Firebase console](https://console.firebase.google.com) → **Add project** (or use existing).
+2. **Android app**
+   - Package name must match Capacitor Android (`site.musicpromoai.app` after `cap add android` — confirm in `android/app/build.gradle`).
+   - Download **`google-services.json`** → place in **`android/app/google-services.json`** (gitignored).
+3. **iOS app**
+   - Bundle ID must match **`site.musicpromoai.app`** (`capacitor.config.ts` → `appId`).
+   - Download **`GoogleService-Info.plist`** → add to the iOS target in Xcode (gitignored).
+4. **Cloud Messaging → Apple app configuration**
+   - Upload your **APNs Authentication Key** (.p8) from Apple Developer → Keys, or use APNs certificates.
+5. (Optional) **Service account** for server send → JSON stored later as Supabase secret `FCM_SERVICE_ACCOUNT_JSON`.
+
+Without steps 2–4, the app may run but **push permission / registration** will fail on device.
+
+### Phase 4 — Local machine (Mac for iOS)
+
+**Prerequisites:** Node 22+, Xcode (iOS), Android Studio (Android), Apple Developer + Google Play accounts for store builds.
+
+```bash
+git clone <repo> && cd musicpromo-ai
+git checkout main && git pull
+npm ci
+```
+
+Create **`.env.local`** (never commit) with the **same** values as GitHub secrets:
+
+```bash
+VITE_SUPABASE_URL=https://YOUR_REF.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+# Optional: VITE_GOOGLE_CLIENT_ID=...
+```
+
+Build and generate native shells **once per clone**:
+
+```bash
+npm run build
+npx cap add ios
+npx cap add android
+```
+
+Add Firebase files (Phase 3), then:
+
+**iOS (Xcode)**
+
+1. `npm run cap:ios`
+2. Signing & Capabilities → select your **Team**, enable **Push Notifications**.
+3. Confirm **Bundle Identifier** = `site.musicpromoai.app`.
+4. Add **GoogleService-Info.plist** to the app target if not already.
+
+**Android (Android Studio)**
+
+1. `npm run cap:android`
+2. Confirm `applicationId` = `site.musicpromoai.app`.
+3. Ensure `google-services.json` is in `android/app/`.
+4. Sync Gradle; use a physical device or emulator with Google Play services for push tests.
+
+### Phase 5 — Build aligned with production
+
+Every store build should match a **deployed** web commit:
+
+```bash
+git pull origin main
+npm ci
+npm run cap:sync    # runs build + cap sync
+npm run cap:ios     # or cap:android → Run on device
+```
+
+**Alternative:** Actions → **Prepare native bundle** → download `capacitor-web-dist` → unzip into `dist/` → `npx cap sync` (skip local `npm run build` if you trust the artifact commit).
+
+**Do not** use `CAP_SERVER_URL=https://musicpromoai.site` for App Store builds (that mode is for quick QA only).
+
+### Phase 6 — Verify on a real device
+
+1. Install debug/release build on phone.
+2. Log in → app should request **notification permission** (`NativeAppBootstrap` → `syncNativePushRegistration`).
+3. Supabase **Table Editor → `push_devices`** — row with your `user_id`, `platform`, and `token`.
+4. **Launch digest** screen — **Weekly push** toggle appears only in the native app; toggling updates `users.push_digest_enabled`.
+5. Log out → token should be removed via `unregisterPushToken` (best effort).
+
+Push **delivery** for the weekly digest requires the roadmap FCM work in `sendLaunchDigest`; registration and preferences work without it.
+
+### Phase 7 — Store release (manual)
+
+1. Increment version in Xcode / `android/app/build.gradle`.
+2. Archive (iOS) or **Build → Generate Signed Bundle** (Android).
+3. Upload to **TestFlight** / **Play internal testing**.
+4. Repeat Phase 5 after each `main` merge you ship to users.
+
+### Phase 8 — OAuth (when you need social connect in-app)
+
+Register **Universal Links** (iOS) and **App Links** (Android) for:
+
+- `https://musicpromoai.site/auth/google/callback`
+- Social OAuth return paths you use
+
+Until then, some flows may work better in Safari than inside the WebView. See § OAuth / deep links below.
+
+---
+
 ## How this fits GitHub Actions (recommended)
 
 You already use **[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)** on every push to `main`. Treat native as a **second deliverable** from the same build, not a separate backend.
