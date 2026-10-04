@@ -20,6 +20,7 @@ import { resendSignupOtp, signInWithGoogle, verifyEmailOtp } from "@/lib/supabas
 import { cn } from "@/lib/utils";
 import HandleSignupField from "@/components/auth/HandleSignupField";
 import { normalizeHandleInput, validateHandle } from "@/services/profileHandle";
+import { AUTH_OTP_EXPIRES_MINUTES } from "@/services/signupHandle";
 
 export function AuthSuccessPulse() {
   const { authPulse } = useAuth();
