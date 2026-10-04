@@ -89,3 +89,21 @@ else
 fi
 
 echo "BUILD_OUTPUT=$OUT"
+
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+  KS="${HOME}/.android/debug.keystore"
+  if [[ -f "$KS" ]]; then
+    FP="$(keytool -list -v -keystore "$KS" -storepass android -alias androiddebugkey 2>/dev/null | awk -F': ' '/SHA256:/ {print $2; exit}' | tr -d '[:space:]')"
+    if [[ -n "$FP" ]]; then
+      {
+        echo "### Android App Links (Google sign-in return to app)"
+        echo ""
+        echo "Copy this **SHA-256** into \`public/.well-known/assetlinks.json\`, commit, merge, wait for Deploy, then rebuild the APK:"
+        echo ""
+        echo "\`$FP\`"
+        echo ""
+        echo "See \`docs/android-assetlinks.example.json\`."
+      } >> "$GITHUB_STEP_SUMMARY"
+    fi
+  fi
+fi

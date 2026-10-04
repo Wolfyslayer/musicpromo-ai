@@ -40,4 +40,26 @@ if [[ -f "$STRINGS" ]]; then
   sed -i 's/<string name="title_activity_main">.*<\/string>/<string name="title_activity_main">MusicPromo AI<\/string>/' "$STRINGS"
 fi
 
+MANIFEST=android/app/src/main/AndroidManifest.xml
+if ! grep -q 'pathPrefix="/auth"' "$MANIFEST"; then
+  echo ">> Android App Links intent filter (/auth/*)"
+  python3 << 'PY'
+from pathlib import Path
+path = Path("android/app/src/main/AndroidManifest.xml")
+text = path.read_text()
+block = """
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="musicpromoai.site" android:pathPrefix="/auth" />
+            </intent-filter>
+"""
+needle = '<intent-filter>\n                <action android:name="android.intent.action.MAIN" />'
+if needle not in text:
+    raise SystemExit("Could not patch AndroidManifest.xml for App Links")
+path.write_text(text.replace(needle, block + needle, 1))
+PY
+fi
+
 echo ">> Android branding applied (category=${APP_CATEGORY})"

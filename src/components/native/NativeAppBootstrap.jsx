@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { initNativeShell } from "@/lib/nativeApp";
 import { syncNativePushRegistration, unregisterNativePushToken } from "@/services/pushNotifications";
+import { installNativeGoogleAuthListener } from "@/lib/googleAuthNative";
 
 /** Initializes Capacitor chrome and push token sync when running as a native app. */
 export default function NativeAppBootstrap() {
@@ -11,7 +12,8 @@ export default function NativeAppBootstrap() {
 
   useEffect(() => {
     initNativeShell();
-  }, []);
+    installNativeGoogleAuthListener(navigate);
+  }, [navigate]);
 
   useEffect(() => {
     if (!authChecked) return;

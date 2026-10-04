@@ -340,6 +340,20 @@ Registration works without FCM server secrets; **sending** does not.
 
 ---
 
+## Google sign-in on Android (in-app + App Links)
+
+The native app opens Google in a **Chrome Custom Tab** (in-app sheet, not your default browser). After you pick an account, Android must return to the app with the callback URL — not Brave/Chrome.
+
+**One-time — Digital App Links**
+
+1. Run **Build Android debug APK** once after merging native auth fixes.
+2. Open the workflow run **Summary** and copy the **SHA-256** fingerprint.
+3. Paste it into **`public/.well-known/assetlinks.json`** → `sha256_cert_fingerprints` (replace the placeholder).
+4. Merge to `main` and wait for **Deploy** (GitHub Pages must serve `https://musicpromoai.site/.well-known/assetlinks.json`).
+5. Rebuild and reinstall the APK.
+
+Until `assetlinks.json` matches your APK signing certificate, the callback may still open in an external browser and show **Sign-in state mismatch**.
+
 ## Google sign-in on Android (redirect_uri_mismatch)
 
 Bundled Capacitor apps used to report origin **`https://localhost`**, so Google rejected login. The app now sets **`server.hostname: musicpromoai.site`** in `capacitor.config.ts` and uses the same redirect URI as the website.
