@@ -5,10 +5,11 @@ Floating **Help & support** widget: signed-in users can use an optional AI assis
 ## Supabase setup (tickets — always)
 
 1. Run the `support_tickets` and `support_chat_usage` section in `supabase/schema.sql` (SQL editor).
-2. Deploy:
+2. Deploy (required for the in-app form to work):
    ```bash
    supabase functions deploy submitSupportTicket
    ```
+   Or run your GitHub **Deploy** workflow so Edge Functions sync to the same project as `VITE_SUPABASE_URL`.
 3. Secrets:
    - `RESEND_API_KEY` — sends ticket mail
    - `SUPPORT_FROM_EMAIL` — e.g. `MusicPromo AI <notifications@yourdomain.com>` (verified in Resend)
