@@ -5,6 +5,7 @@ import { Sparkles, RefreshCw, Loader2, Clock, Film, Lightbulb } from "lucide-rea
 import { Button } from "@/components/ui/button";
 
 import { aiService } from "@/services/aiService";
+import { normalizeSongForAI } from "@/services/songLanguage";
 import { useToast } from "@/components/ui/use-toast";
 
 /**
@@ -25,7 +26,7 @@ export default function SongAnalysis({ song, onRefresh }) {
   const generateAnalysis = async () => {
     setLoadingAnalysis(true);
     try {
-      const result = await aiService.analyzeSong({ ...song, artistName: song.artistName });
+      const result = await aiService.analyzeSong(normalizeSongForAI(song, song.artistName));
       await db.entities.Song.update(song.id, { analysis: result });
       toast({ title: "Song analysis generated" });
       onRefresh();
@@ -39,7 +40,10 @@ export default function SongAnalysis({ song, onRefresh }) {
   const regenerateMoment = async () => {
     setLoadingMoment(true);
     try {
-      const moment = await aiService.analyzePromotionalMoment({ song, analysis });
+      const moment = await aiService.analyzePromotionalMoment({
+        song: normalizeSongForAI(song, song.artistName),
+        analysis,
+      });
       await db.entities.Song.update(song.id, {
         analysis: { ...(analysis || {}), promotionalMoment: moment },
       });

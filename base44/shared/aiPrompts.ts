@@ -34,6 +34,27 @@ const GUARDRAILS = `CONSTRAINTS
 - Where information is missing, make a reasonable, clearly-hedged inference and keep it general.
 - Use cautious language ("may", "could", "tends to"). Never promise virality.`;
 
+function resolveSongLanguage(song: { language?: string } | null | undefined): string {
+  const raw = String(song?.language || "").trim();
+  return raw || "English";
+}
+
+/** Mandatory copy language for hooks, captions, CTAs, hashtags, and campaign day text. */
+function buildLanguageOutputRule(song: { language?: string; description?: string } | null | undefined): string {
+  const lang = resolveSongLanguage(song);
+  if (lang.toLowerCase() === "instrumental") {
+    return `OUTPUT LANGUAGE (mandatory)
+- The track is instrumental (no vocals). Do not invent lyrics.
+- Write ALL hooks, captions, CTAs, objectives, videoConcept lines, and hashtag words in English unless the song description is clearly written in another language — then match that language.
+- Keep platform names (TikTok, Instagram, YouTube) as proper nouns.`;
+  }
+  return `OUTPUT LANGUAGE (mandatory)
+- The song language setting is "${lang}". Write ALL promotional copy (hooks, captions, CTAs, objectives, videoConcept descriptions, campaign summary lines meant for the artist, and hashtag words) in ${lang}.
+- Do not default to English when ${lang} is not English.
+- You may keep platform names and @handles in their original form.
+- When quoting lyrics verbatim, keep quotes in the lyric language; all non-quote promo copy must still be ${lang}.`;
+}
+
 // ---------------------------------------------------------------------------
 // 1. SONG ANALYSIS
 // ---------------------------------------------------------------------------
@@ -41,6 +62,8 @@ export function buildAnalyzeSongPrompt(song) {
   const prompt = `You are a senior music marketing A&R analyst. Analyze the following song and release information and return a structured analysis that an independent artist can use to promote it.
 
 ${SONG_SUMMARY(song)}
+
+${buildLanguageOutputRule(song)}
 
 ${GUARDRAILS}
 
@@ -108,6 +131,8 @@ export function buildGenerateHooksPrompt({ song, analysis, platform }) {
 
 ${SONG_SUMMARY(song)}
 
+${buildLanguageOutputRule(song)}
+
 ANALYSIS
 ${JSON.stringify(analysis || {}, null, 2)}
 
@@ -149,6 +174,8 @@ export function buildGenerateCaptionsPrompt({ song, analysis, platform }) {
   const prompt = `You are a short-form music content writer. Generate 3 caption variations for ${platform || "TikTok"} based on this song.
 
 ${SONG_SUMMARY(song)}
+
+${buildLanguageOutputRule(song)}
 
 ANALYSIS
 ${JSON.stringify(analysis || {}, null, 2)}
@@ -192,6 +219,8 @@ export function buildGenerateHashtagsPrompt({ song, analysis, platform }) {
 
 ${SONG_SUMMARY(song)}
 
+${buildLanguageOutputRule(song)}
+
 ANALYSIS
 ${JSON.stringify(analysis || {}, null, 2)}
 
@@ -230,6 +259,8 @@ export function buildGenerateCTAPrompt({ song, analysis, campaignGoals }) {
   const prompt = `You are a music marketing copywriter. Generate relevant calls-to-action for promoting this song.
 
 ${SONG_SUMMARY(song)}
+
+${buildLanguageOutputRule(song)}
 
 ANALYSIS
 ${JSON.stringify(analysis || {}, null, 2)}
@@ -271,6 +302,8 @@ export function buildGenerateVideoConceptsPrompt({ song, analysis }) {
   const prompt = `You are a music video creative director. Generate promotional video concepts for this song.
 
 ${SONG_SUMMARY(song)}
+
+${buildLanguageOutputRule(song)}
 
 ANALYSIS
 ${JSON.stringify(analysis || {}, null, 2)}
@@ -315,6 +348,8 @@ export function buildAnalyzePromotionalMomentPrompt({ song, analysis }) {
   const prompt = `You are a music production analyst. Estimate the most promotable moment of this song for short-form video.
 
 ${SONG_SUMMARY(song)}
+
+${buildLanguageOutputRule(song)}
 
 ANALYSIS
 ${JSON.stringify(analysis || {}, null, 2)}
@@ -362,6 +397,8 @@ export function buildGenerateCampaignPrompt(input) {
   const prompt = `You are an expert social-media music marketing strategist. Design a ${durationDays}-day promotional campaign for a song.
 
 ${SONG_SUMMARY(song)}
+
+${buildLanguageOutputRule(song)}
 
 ANALYSIS (use this as your strategic foundation)
 ${JSON.stringify(analysis || {}, null, 2)}

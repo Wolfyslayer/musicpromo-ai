@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { aiService } from "@/services/aiService";
+import { normalizeSongForAI } from "@/services/songLanguage";
 import { PLATFORMS } from "@/services/constants";
 import { useToast } from "@/components/ui/use-toast";
 import ContentItem from "@/components/campaign/ContentItem";
@@ -25,7 +26,7 @@ export default function ContentLibrary({ campaign, song, content = [], onRefresh
   const { toast } = useToast();
 
   const analysis = song?.analysis;
-  const songData = { ...song, artistName: song?.artistName };
+  const songData = normalizeSongForAI(song, song?.artistName);
   const goals = campaign?.goals || [];
 
   const createRecords = async (records) => {

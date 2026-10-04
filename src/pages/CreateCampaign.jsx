@@ -210,7 +210,11 @@ export default function CreateCampaign() {
       if (form.releaseId) songPayload.release_id = form.releaseId;
       const song = await db.entities.Song.create(songPayload);
 
-      const songForAI = { ...song, artistName: artist.name };
+      const songForAI = {
+        ...song,
+        language: form.language,
+        artistName: artist.name,
+      };
 
       setStage("Analyzing song with AI…");
       const generated = await aiService.analyzeSong(songForAI);
@@ -529,6 +533,9 @@ function StepSong({ form, set, artists, releases, selectArtist, selectRelease })
         </Field>
         <Field label="Release Date"><Input type="date" value={form.releaseDate} onChange={(e) => set("releaseDate", e.target.value)} /></Field>
         <Field label="Language">
+          <p className="mb-1.5 text-xs text-muted-foreground">
+            Hooks, captions, hashtags, and CTAs are generated in this language.
+          </p>
           <Select value={form.language} onValueChange={(v) => set("language", v)}>
             <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
             <SelectContent>{LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
