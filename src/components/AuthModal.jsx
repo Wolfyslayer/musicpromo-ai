@@ -139,7 +139,7 @@ export default function AuthModal() {
           </DialogTitle>
           <DialogDescription>
             {showOtp
-              ? `We sent a code to ${email}`
+              ? `We sent a code to ${email}. It expires in ${AUTH_OTP_EXPIRES_MINUTES} minutes.`
               : "Browse freely. Sign in when you want to upload, export, or connect."}
           </DialogDescription>
         </DialogHeader>
