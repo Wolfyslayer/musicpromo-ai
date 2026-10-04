@@ -332,14 +332,26 @@ Registration works without FCM server secrets; **sending** does not.
 
 ---
 
-## OAuth / deep links
+## Google sign-in on Android (redirect_uri_mismatch)
 
-Register Universal Links / App Links for:
+Bundled Capacitor apps used to report origin **`https://localhost`**, so Google rejected login. The app now sets **`server.hostname: musicpromoai.site`** in `capacitor.config.ts` and uses the same redirect URI as the website.
 
-- `https://musicpromoai.site/auth/google/callback`
-- Social OAuth callback paths
+**Google Cloud Console** (same **Web client** as `VITE_GOOGLE_CLIENT_ID`):
 
-Use **`@capacitor/browser`** for provider login when native flows need the system browser (future hardening).
+1. [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials) → your **Web application** OAuth client.
+2. **Authorized JavaScript origins** — include:
+   - `https://musicpromoai.site`
+3. **Authorized redirect URIs** — include **exactly**:
+   - `https://musicpromoai.site/auth/google/callback`
+4. Save. Wait a few minutes, then **rebuild the APK** (Actions → **Build Android debug APK**) and reinstall.
+
+If you still see **redirect_uri_mismatch**, open the error screen or Logcat and note the URI Google shows — add that exact string to redirect URIs (no trailing slash unless the app sends one).
+
+**Supabase:** Edge Function **`googleAuthExchange`** needs **`GOOGLE_LOGIN_CLIENT_SECRET`** (or `GOOGLE_CLIENT_SECRET`) for that same Web client.
+
+## OAuth / deep links (social connect)
+
+Register App Links for social callback paths when connecting Instagram/TikTok/YouTube inside the app. Google login uses the hostname + redirect URI above, not a separate scheme.
 
 ---
 
