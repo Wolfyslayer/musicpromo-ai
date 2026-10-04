@@ -2,7 +2,7 @@ import { db } from '@/api/base44Client';
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Copy, Archive, Trash2, Filter } from "lucide-react";
+import { Search, Plus, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,8 +14,6 @@ import CampaignCard from "@/components/CampaignCard";
 import EmptyState from "@/components/EmptyState";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import PageHeader from "@/components/PageHeader";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-
 export default function Campaigns() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -41,20 +39,6 @@ export default function Campaigns() {
     return matchQ && matchArtist && matchStatus;
   });
 
-  const duplicate = async (c) => {
-    await db.entities.Campaign.create({
-      song_id: c.song_id, artist_id: c.artist_id, name: (c.name || "Campaign") + " (copy)",
-      status: "draft", duration_days: c.duration_days, goals: c.goals || [],
-      start_date: c.start_date, end_date: c.end_date, summary: c.summary, is_demo: false,
-    });
-    toast({ title: "Campaign duplicated" });
-    reload();
-  };
-  const archive = async (c) => {
-    await db.entities.Campaign.update(c.id, { status: "archived" });
-    toast({ title: "Campaign archived" });
-    reload();
-  };
   const remove = async (c) => {
     await db.entities.CampaignDay.deleteMany({ campaign_id: c.id });
     await db.entities.Campaign.delete(c.id);

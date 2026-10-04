@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Copy, Pencil, Trash2, RefreshCw, Film } from "lucide-react";
+import { Copy, Pencil, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 
 /**

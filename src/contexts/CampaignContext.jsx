@@ -41,6 +41,7 @@ export function CampaignProvider({ children }) {
       analytics: data?.analytics ?? null,
       videos: data?.videos ?? [],
       content: data?.content ?? [],
+      release: data?.release ?? null,
     }),
     [id, data, error, reload]
   );

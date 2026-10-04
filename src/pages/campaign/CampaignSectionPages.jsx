@@ -1,8 +1,11 @@
-import { LayoutGrid } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { LayoutGrid, Rocket } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useCampaign } from "@/contexts/CampaignContext";
 import CampaignPlan from "@/components/campaign/CampaignPlan";
+import SocialConnectionStrip from "@/components/ux/SocialConnectionStrip";
+import { getConnectionStatus } from "@/services/socialService";
+import { useEffect, useState } from "react";
 import CampaignCommunityShare from "@/components/campaign/CampaignCommunityShare";
 import ContentLibrary from "@/components/campaign/ContentLibrary";
 import SongAnalysis from "@/components/campaign/SongAnalysis";
@@ -11,14 +14,56 @@ import CampaignAnalytics from "@/components/campaign/CampaignAnalytics";
 import { campaignSectionPath } from "@/lib/campaignNav";
 
 export function CampaignPlanPage() {
-  const { id, campaign, days, song, artist, reload } = useCampaign();
+  const { campaign, days, song, artist, release, reload } = useCampaign();
+  const [params, setParams] = useSearchParams();
+  const [providers, setProviders] = useState([]);
+  const initialManageDayId = params.get("day") || "";
+
+  useEffect(() => {
+    getConnectionStatus()
+      .then((s) => setProviders(s?.providers || []))
+      .catch(() => setProviders([]));
+  }, []);
+
+  const refreshAll = () => {
+    reload();
+    getConnectionStatus()
+      .then((s) => setProviders(s?.providers || []))
+      .catch(() => {});
+  };
+
   return (
     <div className="space-y-4">
+      {campaign?.release_id ? (
+        <div className="flex flex-col gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-heading text-sm font-600">Release command center</p>
+            <p className="text-xs text-muted-foreground">
+              Schedule, quick post, and fix issues from the launch timeline — same drawer as here.
+            </p>
+          </div>
+          <Button size="sm" className="shrink-0 rounded-full" asChild>
+            <Link to={`/releases/${campaign.release_id}/launch`}>
+              <Rocket className="mr-1.5 h-3.5 w-3.5" /> Open launch board
+            </Link>
+          </Button>
+        </div>
+      ) : null}
+      <SocialConnectionStrip providers={providers} />
       <CampaignPlan
         campaign={campaign}
         days={days}
         song={{ ...song, artistName: artist?.name }}
-        onRefresh={reload}
+        release={release}
+        artistName={artist?.name}
+        initialManageDayId={initialManageDayId}
+        onManageDayOpened={() => {
+          if (params.has("day")) {
+            params.delete("day");
+            setParams(params, { replace: true });
+          }
+        }}
+        onRefresh={refreshAll}
       />
       <CampaignCommunityShare campaign={campaign} onUpdated={reload} />
     </div>

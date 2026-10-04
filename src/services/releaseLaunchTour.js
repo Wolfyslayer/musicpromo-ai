@@ -33,4 +33,14 @@ export async function markReleaseLaunchTourComplete(userId, releaseId) {
   writeLocalReleaseLaunchTourComplete(userId, releaseId);
 }
 
+/** Allow replaying the launch tour from Settings. */
+export function resetReleaseLaunchTour(userId, releaseId) {
+  if (!userId || !releaseId || typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(storageKey(userId, releaseId));
+  } catch {
+    /* ignore */
+  }
+}
+
 export const RELEASE_LAUNCH_TOUR_SHOW_EVENT = "musicpromo:show-release-launch-tour";

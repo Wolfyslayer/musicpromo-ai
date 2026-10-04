@@ -11,6 +11,7 @@ import {
   Share2,
   CalendarClock,
   ExternalLink,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,7 @@ import DayStatusChip from "@/components/ux/DayStatusChip";
 import { pushActivity } from "@/lib/activityInbox";
 import CampaignPlanInsights from "@/components/campaign/CampaignPlanInsights";
 import SwipeDayCard from "@/components/campaign/SwipeDayCard";
+import DayActionDrawer from "@/components/ux/DayActionDrawer";
 
 const DAY_STATUSES = [
   { id: "planned", label: "Planned", color: "#8b8b9a" },
@@ -167,13 +169,42 @@ function DayScheduleMeta({ day, posts, onRefresh }) {
   return null;
 }
 
-export default function CampaignPlan({ campaign, days, song, onRefresh }) {
+export default function CampaignPlan({
+  campaign,
+  days,
+  song,
+  release,
+  artistName,
+  initialManageDayId = "",
+  onManageDayOpened,
+  onRefresh,
+}) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [editing, setEditing] = useState(null);
   const [regenerating, setRegenerating] = useState(null);
   const [schedulingId, setSchedulingId] = useState(null);
   const [posts, setPosts] = useState([]);
+  const [drawerDay, setDrawerDay] = useState(null);
+
+  useEffect(() => {
+    if (!initialManageDayId || !days.length) return;
+    const match = days.find((d) => d.id === initialManageDayId);
+    if (match) {
+      setDrawerDay(match);
+      onManageDayOpened?.();
+    }
+  }, [initialManageDayId, days, onManageDayOpened]);
+
+  const reloadPosts = async () => {
+    if (!campaign?.id) return;
+    try {
+      const res = await loadPosts({ campaignId: campaign.id });
+      setPosts(res?.posts || []);
+    } catch {
+      setPosts([]);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -190,6 +221,11 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
       cancelled = true;
     };
   }, [campaign?.id, days]);
+
+  const refreshPlan = () => {
+    reloadPosts();
+    onRefresh?.();
+  };
 
   const postsByDay = useMemo(() => {
     const map = {};
@@ -358,7 +394,7 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
             scheduleLabel={day.status === "scheduled" || day.status === "failed" ? "Reschedule" : "Schedule"}
             postLabel={composeProviderLabel}
             onSchedule={() => scheduleDay(day)}
-            onPost={openCompose}
+            onPost={() => setDrawerDay(day)}
           >
           <div className="rounded-2xl border border-border/60 bg-card/50 p-4 animate-slide-up">
             <div className="flex items-start justify-between gap-3">
@@ -377,12 +413,24 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
                   <DayScheduleMeta day={day} posts={dayPosts} onRefresh={onRefresh} />
                 </div>
               </div>
-              <Select value={sm.id} onValueChange={(v) => setStatus(day, v)}>
-                <SelectTrigger className="h-7 w-32 rounded-full text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {DAY_STATUSES.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className="flex flex-col items-end gap-1.5">
+                <Select value={sm.id} onValueChange={(v) => setStatus(day, v)}>
+                  <SelectTrigger className="h-7 w-32 rounded-full text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {DAY_STATUSES.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 rounded-full px-2.5 text-[11px]"
+                  onClick={() => setDrawerDay(day)}
+                >
+                  Manage
+                  <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
 
             <p className="mt-3 text-sm font-600">{day.objective}</p>
@@ -446,7 +494,21 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
         );
       })}
 
-      {editing && <EditDayDialog day={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); onRefresh(); }} />}
+      {editing && <EditDayDialog day={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refreshPlan(); }} />}
+
+      <DayActionDrawer
+        open={Boolean(drawerDay)}
+        onOpenChange={(open) => {
+          if (!open) setDrawerDay(null);
+        }}
+        day={drawerDay}
+        campaign={campaign}
+        release={release}
+        posts={drawerDay ? postsByDay[drawerDay.id] || [] : []}
+        artworkUrl={release?.artwork_url || song?.artwork_url}
+        artistName={artistName || song?.artistName}
+        onRefresh={refreshPlan}
+      />
     </div>
   );
 }
