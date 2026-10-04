@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { WorkspaceProvider } from '@/lib/workspaceContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
+import NativeAppBootstrap from '@/components/native/NativeAppBootstrap';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AuthModal, { AuthSuccessPulse } from '@/components/AuthModal';
 import Login from '@/pages/Login';
@@ -164,6 +165,7 @@ function App() {
         <QueryClientProvider client={queryClientInstance}>
           <Router basename={routerBasename}>
             <ScrollToTop />
+            <NativeAppBootstrap />
             <AuthenticatedApp />
           </Router>
           <Toaster />

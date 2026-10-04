@@ -39,5 +39,13 @@ dist-ssr
 .vite
 base44/.app.jsonc
 
+# Capacitor native projects (generated via `npx cap add`)
+/ios
+/android
+
+# Firebase local configs (add in Xcode/Android Studio, do not commit secrets)
+**/GoogleService-Info.plist
+**/google-services.json
+
 # ONNX Runtime wasm copied from node_modules on dev/build
 public/ort/

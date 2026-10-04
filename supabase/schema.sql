@@ -21,6 +21,7 @@ create table if not exists public.users (
   community_collab_intents text[] not null default '{}',
   launch_digest_enabled boolean not null default true,
   launch_digest_last_sent_at timestamptz,
+  push_digest_enabled boolean not null default true,
   last_active_at timestamptz,
   created_at timestamptz default now()
 );
@@ -248,7 +249,22 @@ create table if not exists public.support_chat_usage (
   message_count int not null default 0
 );
 
+create table if not exists public.push_devices (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  token text not null,
+  platform text not null check (platform in ('ios', 'android')),
+  updated_at timestamptz not null default now(),
+  unique (token)
+);
+
+create index if not exists push_devices_user_idx on public.push_devices (user_id);
+
 alter table public.support_tickets enable row level security;
+alter table public.push_devices enable row level security;
+
+create policy "push devices read own" on public.push_devices
+  for select using (user_id = auth.uid());
 
 create policy "support tickets read own" on public.support_tickets
   for select using (user_id is not null and user_id = auth.uid());

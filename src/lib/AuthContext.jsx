@@ -8,6 +8,7 @@ import {
   authSignupUserMetadata,
   stashPendingSignupHandle,
 } from "@/services/signupHandle";
+import { unregisterNativePushToken } from "@/services/pushNotifications";
 
 const AuthContext = createContext();
 
@@ -135,6 +136,11 @@ export const AuthProvider = ({ children }) => {
     setIsLoginModalOpen(false);
     setUser(null);
     setIsAuthenticated(false);
+    try {
+      await unregisterNativePushToken();
+    } catch {
+      /* ignore */
+    }
     try {
       if (supabase) {
         const { error } = await supabase.auth.signOut();
