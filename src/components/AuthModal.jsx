@@ -20,6 +20,7 @@ import { resendSignupOtp, signInWithGoogle, verifyEmailOtp } from "@/lib/supabas
 import { cn } from "@/lib/utils";
 import HandleSignupField from "@/components/auth/HandleSignupField";
 import { normalizeHandleInput, validateHandle } from "@/services/profileHandle";
+import { AUTH_OTP_EXPIRES_MINUTES } from "@/services/signupHandle";
 
 export function AuthSuccessPulse() {
   const { authPulse } = useAuth();
@@ -138,7 +139,7 @@ export default function AuthModal() {
           </DialogTitle>
           <DialogDescription>
             {showOtp
-              ? `We sent a code to ${email}`
+              ? `We sent a code to ${email}. It expires in ${AUTH_OTP_EXPIRES_MINUTES} minutes.`
               : "Browse freely. Sign in when you want to upload, export, or connect."}
           </DialogDescription>
         </DialogHeader>

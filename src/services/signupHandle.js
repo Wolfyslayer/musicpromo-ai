@@ -6,6 +6,28 @@ import {
 } from "@/services/profileHandle";
 import { updateOwnProfile } from "@/services/userProfile";
 
+/**
+ * Must match Supabase: Authentication → Providers → Email → Email OTP expiration (seconds ÷ 60).
+ * Used in confirmation email: {{ .Data.otp_expires_minutes }}
+ */
+export const AUTH_OTP_EXPIRES_MINUTES = 5;
+
+/** Fields stored on auth.users.user_metadata — available as {{ .Data.* }} in Supabase email templates. */
+export function authSignupUserMetadata(rawHandle) {
+  const normalized = normalizeHandleInput(rawHandle);
+  const base = {
+    otp_expires_minutes: AUTH_OTP_EXPIRES_MINUTES,
+  };
+  if (!normalized) return base;
+  return {
+    ...base,
+    pending_handle: normalized,
+    /** Used by confirmation email template: {{ .Data.username }} */
+    username: normalized,
+    handle: normalized,
+  };
+}
+
 export function stashPendingSignupHandle(rawHandle) {
   if (typeof window === "undefined") return;
   const normalized = normalizeHandleInput(rawHandle);
