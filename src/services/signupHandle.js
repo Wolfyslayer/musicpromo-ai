@@ -10,7 +10,7 @@ import { updateOwnProfile } from "@/services/userProfile";
  * Must match Supabase: Authentication → Providers → Email → Email OTP expiration (seconds ÷ 60).
  * Used in confirmation email: {{ .Data.otp_expires_minutes }}
  */
-export const AUTH_OTP_EXPIRES_MINUTES = 60;
+export const AUTH_OTP_EXPIRES_MINUTES = 5;
 
 /** Fields stored on auth.users.user_metadata — available as {{ .Data.* }} in Supabase email templates. */
 export function authSignupUserMetadata(rawHandle) {
