@@ -60,10 +60,11 @@ export const db = {
         let message = error.message || "Function failed";
         let body = data && typeof data === "object" ? data : null;
         if (/failed to send a request to the edge function/i.test(message)) {
-          const hint =
-            "Redeploy Edge Functions (especially connectSocialProvider for Instagram/TikTok/YouTube connect) " +
-            "and confirm VITE_SUPABASE_URL matches your Supabase project.";
-          message = `${message} ${hint}`;
+          const fnHint =
+            name === "submitSupportTicket" || name === "supportChat"
+              ? "Deploy submitSupportTicket (and supportChat if using AI) via GitHub Actions → Deploy → Run workflow, or: supabase functions deploy submitSupportTicket. Run support_tickets SQL from supabase/schema.sql."
+              : "Redeploy the Edge Function and confirm VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY match your Supabase project (Settings → API).";
+          message = `Could not reach Edge Function “${name}”. ${fnHint}`;
         }
         try {
           const context = error.context;

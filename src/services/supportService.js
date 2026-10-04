@@ -1,5 +1,6 @@
 import { db, ensureClientSessionToken } from "@/api/base44Client";
 import { getSessionAccessToken } from "@/lib/app-params";
+import { messageFromFunctionInvokeError } from "@/lib/functionInvokeError";
 
 /** When false, widget is email-ticket only (no supportChat / LLM). Set VITE_SUPPORT_AI=off in build. */
 export function supportAiEnabledFromEnv() {
@@ -29,7 +30,8 @@ async function invoke(name, body) {
     return { ok: true, data: unwrap(res) };
   } catch (err) {
     const data = err?.data || err?.response?.data || err?.context;
-    return { ok: false, error: parseError(err, data), data };
+    const friendly = await messageFromFunctionInvokeError(err).catch(() => null);
+    return { ok: false, error: friendly || parseError(err, data), data };
   }
 }
 

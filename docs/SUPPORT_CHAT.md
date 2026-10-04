@@ -54,3 +54,10 @@ Signed-in users see the **ticket form only** — no chat, no LLM calls. Guests o
 ## Rate limits
 
 - AI (when enabled): 40 user messages per hour per user (`support_chat_usage`).
+
+## Troubleshooting “Could not reach Edge Function”
+
+1. **SQL** — In Supabase SQL editor, run the `support_tickets` / `support_chat_usage` block from `supabase/schema.sql`.
+2. **Deploy** — The live site calls `submitSupportTicket`. After merging support chat, run **GitHub → Actions → Deploy → Run workflow** (or `supabase functions deploy submitSupportTicket --project-ref YOUR_REF`).
+3. **Frontend env** — GitHub Pages build must use the same project as your functions: repository variables/secrets `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from **Supabase → Settings → API** (Project URL + anon public key).
+4. **Resend** — Ticket save can succeed even if email fails; check function logs in Supabase → Edge Functions → submitSupportTicket → Logs.
