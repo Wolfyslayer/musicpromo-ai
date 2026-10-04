@@ -1,4 +1,5 @@
 import LegalPage from "@/components/LegalPage";
+import SupportEmailLink from "@/components/SupportEmailLink";
 
 /**
  * Public Privacy Policy — required for TikTok / Google / Meta app review.
@@ -103,11 +104,7 @@ export default function PrivacyPolicy() {
 
       <h2>11. Contact</h2>
       <p>
-        Questions about privacy: open Settings in the app or email{" "}
-        <a className="underline hover:text-foreground" href="mailto:support@flying-sonic-promo-flow.base44.app">
-          support@flying-sonic-promo-flow.base44.app
-        </a>
-        .
+        Questions about privacy: open Settings in the app or email <SupportEmailLink />.
       </p>
     </LegalPage>
   );

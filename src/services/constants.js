@@ -117,3 +117,6 @@ export const statusMeta = (id) =>
   || SOCIAL_POST_STATUSES.find((s) => s.id === id)
   || SOCIAL_CONNECTION_STATUSES.find((s) => s.id === id)
   || CAMPAIGN_STATUSES[0];
+
+/** Public support inbox (legal pages, errors, Supabase email templates). */
+export const SUPPORT_EMAIL = "support@musicpromoai.site";

@@ -36,7 +36,10 @@ async function handler(req: Request): Promise<Response> {
     if (authErr) {
       console.error("[deleteAccount] auth.admin.deleteUser", authErr.message);
       return Response.json(
-        { error: "Could not remove auth user. Contact support if data was partially deleted." },
+        {
+          error:
+            "Could not remove auth user. Contact support@musicpromoai.site if data was partially deleted.",
+        },
         { status: 500 }
       );
     }
