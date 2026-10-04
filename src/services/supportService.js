@@ -1,5 +1,7 @@
 import { db, ensureClientSessionToken } from "@/api/base44Client";
 import { getSessionAccessToken } from "@/lib/app-params";
+import { messageFromFunctionInvokeError } from "@/lib/functionInvokeError";
+import { SUPPORT_EMAIL } from "@/services/constants";
 
 /** When false, widget is email-ticket only (no supportChat / LLM). Set VITE_SUPPORT_AI=off in build. */
 export function supportAiEnabledFromEnv() {
@@ -29,7 +31,17 @@ async function invoke(name, body) {
     return { ok: true, data: unwrap(res) };
   } catch (err) {
     const data = err?.data || err?.response?.data || err?.context;
-    return { ok: false, error: parseError(err, data), data };
+    let friendly = await messageFromFunctionInvokeError(err).catch(() => null);
+    if (
+      !friendly ||
+      /could not reach the edge function/i.test(friendly) ||
+      /failed to send a request to the edge function/i.test(String(err?.message || ""))
+    ) {
+      friendly =
+        `Support service is unavailable (deploy "${name}" in Supabase and run the support_tickets SQL). ` +
+        `Check VITE_SUPABASE_URL matches your project. Or email ${SUPPORT_EMAIL}.`;
+    }
+    return { ok: false, error: friendly || parseError(err, data), data };
   }
 }
 

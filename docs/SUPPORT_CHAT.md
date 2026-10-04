@@ -5,10 +5,11 @@ Floating **Help & support** widget: signed-in users can use an optional AI assis
 ## Supabase setup (tickets — always)
 
 1. Run the `support_tickets` and `support_chat_usage` section in `supabase/schema.sql` (SQL editor).
-2. Deploy:
+2. Deploy (required for the in-app form to work):
    ```bash
    supabase functions deploy submitSupportTicket
    ```
+   Or run your GitHub **Deploy** workflow so Edge Functions sync to the same project as `VITE_SUPABASE_URL`.
 3. Secrets:
    - `RESEND_API_KEY` — sends ticket mail
    - `SUPPORT_FROM_EMAIL` — e.g. `MusicPromo AI <notifications@yourdomain.com>` (verified in Resend)
@@ -54,3 +55,10 @@ Signed-in users see the **ticket form only** — no chat, no LLM calls. Guests o
 ## Rate limits
 
 - AI (when enabled): 40 user messages per hour per user (`support_chat_usage`).
+
+## Troubleshooting “Could not reach Edge Function”
+
+1. **SQL** — In Supabase SQL editor, run the `support_tickets` / `support_chat_usage` block from `supabase/schema.sql`.
+2. **Deploy** — The live site calls `submitSupportTicket`. After merging support chat, run **GitHub → Actions → Deploy → Run workflow** (or `supabase functions deploy submitSupportTicket --project-ref YOUR_REF`).
+3. **Frontend env** — GitHub Pages build must use the same project as your functions: repository variables/secrets `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from **Supabase → Settings → API** (Project URL + anon public key).
+4. **Resend** — Ticket save can succeed even if email fails; check function logs in Supabase → Edge Functions → submitSupportTicket → Logs.
