@@ -4,6 +4,9 @@ import { primaryProviderForDayPlatform } from "@/services/social/dayPlatform";
 
 export default function DayFixCards({ day, campaign, onOpenCompose }) {
   if (!day) return null;
+  const planDayHref = campaign?.id
+    ? `/campaigns/${campaign.id}/plan${day.id ? `?day=${day.id}` : ""}`
+    : null;
   const fixes = [];
   const err = String(day.publish_error || "").toLowerCase();
   const provider = primaryProviderForDayPlatform(day.platform);
@@ -13,7 +16,7 @@ export default function DayFixCards({ day, campaign, onOpenCompose }) {
       key: "caption",
       title: "Add caption",
       detail: "Empty captions underperform when you publish.",
-      action: { label: "Edit in plan", href: `/campaigns/${campaign?.id}/plan` },
+      action: { label: "Edit in plan", href: planDayHref },
     });
   }
 
@@ -48,7 +51,7 @@ export default function DayFixCards({ day, campaign, onOpenCompose }) {
       detail: day.publish_error,
       action: onOpenCompose
         ? { label: "Try manual post", onClick: onOpenCompose }
-        : { label: "Open plan", href: `/campaigns/${campaign?.id}/plan` },
+        : { label: "Open plan", href: planDayHref },
     });
   }
 

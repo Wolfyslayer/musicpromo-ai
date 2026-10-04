@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Sparkles, BarChart3, CalendarDays, Film, ArrowRight, PlayCircle, Globe2, Rocket, Activity } from "lucide-react";
+import { Plus, Sparkles, BarChart3, ArrowRight, PlayCircle, Globe2, Rocket, Activity } from "lucide-react";
 import ReleaseCommandHero from "@/components/ux/ReleaseCommandHero";
 import DashboardProfileNudge from "@/components/ux/DashboardProfileNudge";
 import { Link } from "react-router-dom";

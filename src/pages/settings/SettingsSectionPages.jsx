@@ -1,7 +1,9 @@
 import { Share2, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
+import { loadCampaigns } from "@/services/data";
+import { resetReleaseLaunchTour } from "@/services/releaseLaunchTour";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -446,6 +448,50 @@ export function SettingsStudioPage() {
 
 export function SettingsPreferencesPage() {
   const { s, set } = useSettingsOutlet();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [campaignRows, setCampaignRows] = useState(null);
+  const [launchReleaseId, setLaunchReleaseId] = useState("");
+
+  useEffect(() => {
+    loadCampaigns()
+      .then(setCampaignRows)
+      .catch(() => setCampaignRows([]));
+  }, []);
+
+  const releaseOptions = useMemo(() => {
+    const map = new Map();
+    for (const c of campaignRows || []) {
+      if (!c.release_id || !c.release) continue;
+      if (!map.has(c.release_id)) {
+        map.set(c.release_id, {
+          id: c.release_id,
+          title: c.release.title || c.name || "Release",
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [campaignRows]);
+
+  useEffect(() => {
+    if (launchReleaseId || !releaseOptions.length) return;
+    setLaunchReleaseId(releaseOptions[0].id);
+  }, [launchReleaseId, releaseOptions]);
+
+  const replayLaunchTour = () => {
+    if (!user?.id || !launchReleaseId) {
+      toast({
+        variant: "destructive",
+        title: "No release found",
+        description: "Link a campaign to a release first, then replay the launch tour.",
+      });
+      return;
+    }
+    resetReleaseLaunchTour(user.id, launchReleaseId);
+    navigate(`/releases/${launchReleaseId}/launch`);
+    toast({ title: "Launch tour", description: "Opening your release command center…" });
+  };
 
   return (
     <div className="space-y-4">
@@ -461,6 +507,36 @@ export function SettingsPreferencesPage() {
         >
           Show setup tour
         </Button>
+      </Card>
+
+      <Card title="Release launch tour">
+        <p className="text-sm text-muted-foreground">
+          Replay the walkthrough for the release command center (timeline, checklist, quick post in the day drawer).
+        </p>
+        {releaseOptions.length ? (
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Release</Label>
+              <Select value={launchReleaseId} onValueChange={setLaunchReleaseId}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="Choose release" />
+                </SelectTrigger>
+                <SelectContent>
+                  {releaseOptions.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="button" variant="outline" className="rounded-full" onClick={replayLaunchTour}>
+              Replay launch tour
+            </Button>
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-muted-foreground">Create a campaign linked to a release to enable this tour.</p>
+        )}
       </Card>
 
       <Card title="Appearance">
