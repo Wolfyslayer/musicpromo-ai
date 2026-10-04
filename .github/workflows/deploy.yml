@@ -29,6 +29,7 @@ jobs:
             functions:
               - 'supabase/functions/**'
               - 'supabase/config.toml'
+              - 'supabase/migrations/**'
             frontend:
               - 'src/**'
               - 'public/**'
@@ -40,6 +41,7 @@ jobs:
               - 'components.json'
               - 'package.json'
               - 'package-lock.json'
+              - 'capacitor.config.ts'
               # Deploy workflow changes base path / Pages steps — must rebuild the site.
               - '.github/workflows/deploy.yml'
 

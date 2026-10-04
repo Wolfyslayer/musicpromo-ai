@@ -1,0 +1,74 @@
+# Build the same web bundle used for Capacitor (manual — does not upload to App Store).
+# Use after Deploy succeeds on main, or to verify a branch before merging.
+#
+# Typical flow:
+#   1. Merge to main → Deploy workflow updates musicpromoai.site + Edge Functions.
+#   2. Run this workflow (Actions → Prepare native bundle → Run workflow).
+#   3. Download artifact "capacitor-web-dist" on your Mac.
+#   4. Replace local dist/ (or unzip into repo root dist/), then: npm run cap:sync → Xcode / Android Studio.
+#
+# See docs/NATIVE_APP.md § GitHub Actions
+
+name: Prepare native bundle
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-for-capacitor:
+    name: Build web dist for Capacitor
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Configure Vite base path
+        run: |
+          if [ -n "${{ vars.VITE_BASE_PATH }}" ]; then
+            BASE="${{ vars.VITE_BASE_PATH }}"
+          else
+            BASE="/"
+          fi
+          echo "VITE_BASE_PATH=$BASE" >> "$GITHUB_ENV"
+
+      - name: Install and build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_AI_VIDEO_PROVIDER: ${{ vars.VITE_AI_VIDEO_PROVIDER }}
+          VITE_SUPPORT_AI: ${{ vars.VITE_SUPPORT_AI }}
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "::error::Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY repository secrets."
+            exit 1
+          fi
+          npm ci
+          npm run build
+
+      - name: Package dist for Capacitor sync
+        run: |
+          cd dist && zip -r ../capacitor-web-dist.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capacitor-web-dist
+          path: capacitor-web-dist.zip
+          retention-days: 14
+
+      - name: Summary
+        run: |
+          {
+            echo "### Native bundle ready"
+            echo ""
+            echo "1. Download **capacitor-web-dist** artifact from this run."
+            echo "2. Unzip into \`dist/\` in your local clone (same commit as this run)."
+            echo "3. \`npm run cap:sync\` then open Xcode / Android Studio."
+            echo ""
+            echo "Edge Functions and SQL are **not** part of this job — use **Deploy** on \`main\` + Supabase SQL migrations."
+          } >> "$GITHUB_STEP_SUMMARY"

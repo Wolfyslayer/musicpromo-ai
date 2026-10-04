@@ -3,7 +3,9 @@
 Pushes to **`main`** run [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml):
 
 1. **Backend** — deploy Edge Functions **only if** `supabase/functions/**` or `supabase/config.toml` changed on that push.
-2. **Frontend** — build and publish **only if** app source or frontend deps changed (`src/`, `public/`, `package.json`, etc.).
+2. **Frontend** — build and publish **only if** app source or frontend deps changed (`src/`, `public/`, `package.json`, `capacitor.config.ts`, etc.).
+
+**Native (Capacitor) apps** use the **same** frontend build and Supabase project as the website. They are **not** uploaded by this workflow. See **[docs/NATIVE_APP.md](./NATIVE_APP.md)** for the release flow and **[Prepare native bundle](../.github/workflows/native-prepare.yml)** (`workflow_dispatch`) to download a CI-built `dist/` before `cap sync` on your Mac.
 
 **Manual run:** **Actions → Deploy → Run workflow** deploys **both** jobs (even when nothing changed in those paths).
 
@@ -44,7 +46,13 @@ For a **custom domain at the site root**, add a repository **variable** (not sec
 
 Then add your domain under **Pages → Custom domain** and configure DNS.
 
-### 3. Supabase Edge Function secrets (not in GitHub)
+### 3. Database migrations (not auto-applied by Deploy)
+
+SQL under `supabase/migrations/` (e.g. native **`push_devices`**) is **not** run by GitHub Actions. After merging a migration, open **Supabase → SQL editor**, paste the file, and run it once.
+
+Optional: add a dedicated workflow with `supabase db push` and a database password secret later.
+
+### 4. Supabase Edge Function secrets (not in GitHub)
 
 AI and OAuth handlers read secrets from **Supabase**, not from the frontend bundle. Set these once in the dashboard (**Project Settings → Edge Functions → Secrets**) or via CLI:
 
