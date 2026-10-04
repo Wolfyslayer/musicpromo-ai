@@ -36,10 +36,15 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
+      # v3 defaults to legacy SDK package "tools" (removed by Google) — use v4 + explicit packages.
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
 
       - name: Install Android SDK components
-        run: sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
       - name: Configure Vite base path
         run: |
