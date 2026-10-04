@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import Logo from "@/components/Logo";
+import SupportEmailLink from "@/components/SupportEmailLink";
 
 /**
  * Shared chrome for public legal pages (no login required — needed for TikTok / Google app review).
@@ -32,9 +33,7 @@ export default function LegalPage({ title, children }) {
         </div>
         <p className="pt-6 text-xs text-muted-foreground">
           Last updated: October 1, 2026 ·{" "}
-          <a className="underline hover:text-foreground" href="mailto:support@flying-sonic-promo-flow.base44.app">
-            Contact support
-          </a>
+          <SupportEmailLink>Contact support</SupportEmailLink>
         </p>
       </main>
     </div>

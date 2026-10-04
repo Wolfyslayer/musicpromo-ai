@@ -1,4 +1,5 @@
 import LegalPage from "@/components/LegalPage";
+import SupportEmailLink from "@/components/SupportEmailLink";
 
 /**
  * Public Terms of Service — required for TikTok / Google / Meta app review.
@@ -96,11 +97,7 @@ export default function TermsOfService() {
 
       <h2>12. Contact</h2>
       <p>
-        Questions about these Terms:{" "}
-        <a className="underline hover:text-foreground" href="mailto:support@flying-sonic-promo-flow.base44.app">
-          support@flying-sonic-promo-flow.base44.app
-        </a>
-        .
+        Questions about these Terms: <SupportEmailLink />.
       </p>
 
       <h2>13. Related policies</h2>
