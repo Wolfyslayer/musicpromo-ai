@@ -52,7 +52,7 @@ export async function updateOwnProfile(userId, patch) {
   }
   if (patch.handle != null) {
     const normalized = normalizeHandleInput(patch.handle);
-    const check = validateHandle(normalized);
+    const check = validateHandle(normalized, { required: Boolean(normalized) });
     if (!check.ok) throw new Error(check.error);
     allowed.handle = normalized || null;
   }

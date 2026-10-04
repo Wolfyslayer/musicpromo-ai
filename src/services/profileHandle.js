@@ -3,6 +3,37 @@ const UUID_RE =
 
 const HANDLE_RE = /^[a-z0-9_]{3,24}$/;
 
+export const PENDING_SIGNUP_HANDLE_KEY = "musicpromo_pending_signup_handle";
+
+/** Blocked public handles (routes, product names, abuse). */
+export const RESERVED_HANDLES = new Set([
+  "admin",
+  "support",
+  "help",
+  "api",
+  "login",
+  "register",
+  "signup",
+  "sign_up",
+  "profile",
+  "community",
+  "settings",
+  "dashboard",
+  "create",
+  "social",
+  "campaigns",
+  "releases",
+  "analytics",
+  "musicpromo",
+  "musicpromoai",
+  "null",
+  "undefined",
+  "me",
+  "you",
+  "root",
+  "system",
+]);
+
 export function isUuid(value) {
   return UUID_RE.test(String(value || "").trim());
 }
@@ -17,14 +48,24 @@ export function normalizeHandleInput(raw) {
   return h.slice(0, 24);
 }
 
-export function validateHandle(handle) {
+export function isReservedHandle(handle) {
+  return RESERVED_HANDLES.has(String(handle || "").trim().toLowerCase());
+}
+
+export function validateHandle(handle, { required = false } = {}) {
   const h = String(handle || "").trim();
-  if (!h) return { ok: true, handle: "" };
+  if (!h) {
+    if (required) return { ok: false, error: "Choose a username for your @handle." };
+    return { ok: true, handle: "" };
+  }
   if (!HANDLE_RE.test(h)) {
     return {
       ok: false,
       error: "Handle must be 3–24 characters: lowercase letters, numbers, and underscores.",
     };
+  }
+  if (isReservedHandle(h)) {
+    return { ok: false, error: "That handle is reserved. Try another one." };
   }
   return { ok: true, handle: h };
 }

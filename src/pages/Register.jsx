@@ -12,9 +12,14 @@ import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
 import { toast } from "@/components/ui/use-toast";
 import { safeReturnTo } from "@/lib/authReturnTo";
+import HandleSignupField from "@/components/auth/HandleSignupField";
+import { stashPendingSignupHandle } from "@/services/signupHandle";
+import { validateHandle, normalizeHandleInput } from "@/services/profileHandle";
 
 export default function Register() {
   const [email, setEmail] = useState("");
+  const [handle, setHandle] = useState("");
+  const [handleReady, setHandleReady] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -29,9 +34,20 @@ export default function Register() {
       setError("Passwords do not match");
       return;
     }
+    const normalizedHandle = normalizeHandleInput(handle);
+    const handleCheck = validateHandle(normalizedHandle, { required: true });
+    if (!handleCheck.ok) {
+      setError(handleCheck.error);
+      return;
+    }
+    if (!handleReady) {
+      setError("Choose an available username before continuing.");
+      return;
+    }
     setLoading(true);
     try {
-      const result = await db.auth.register({ email, password });
+      stashPendingSignupHandle(normalizedHandle);
+      const result = await db.auth.register({ email, password, handle: normalizedHandle });
       if (result?.session) {
         window.location.href = safeReturnTo();
         return;
@@ -173,6 +189,11 @@ export default function Register() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <HandleSignupField
+          value={handle}
+          onChange={setHandle}
+          onValidityChange={(ok) => setHandleReady(ok)}
+        />
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <div className="relative">
