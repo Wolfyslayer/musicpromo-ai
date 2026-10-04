@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
-import { applyPendingSignupHandle } from "@/services/signupHandle";
+import { applyPendingSignupHandle, authSignupUserMetadata } from "@/services/signupHandle";
 
 function requireClient() {
   if (!supabase || !isSupabaseConfigured) {
@@ -79,13 +79,13 @@ export async function signInWithPassword(email, password) {
 
 export async function signUpWithPassword(email, password, { handle } = {}) {
   const client = requireClient();
-  const normalizedHandle = handle ? String(handle).trim().toLowerCase() : "";
+  const meta = authSignupUserMetadata(handle);
   const { data, error } = await client.auth.signUp({
     email: String(email || "").trim(),
     password,
     options: {
       emailRedirectTo: `${window.location.origin}/`,
-      data: normalizedHandle ? { pending_handle: normalizedHandle } : {},
+      data: meta,
     },
   });
   if (error) raise(error);

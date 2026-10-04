@@ -6,6 +6,18 @@ import {
 } from "@/services/profileHandle";
 import { updateOwnProfile } from "@/services/userProfile";
 
+/** Fields stored on auth.users.user_metadata — available as {{ .Data.* }} in Supabase email templates. */
+export function authSignupUserMetadata(rawHandle) {
+  const normalized = normalizeHandleInput(rawHandle);
+  if (!normalized) return {};
+  return {
+    pending_handle: normalized,
+    /** Used by confirmation email template: {{ .Data.username }} */
+    username: normalized,
+    handle: normalized,
+  };
+}
+
 export function stashPendingSignupHandle(rawHandle) {
   if (typeof window === "undefined") return;
   const normalized = normalizeHandleInput(rawHandle);

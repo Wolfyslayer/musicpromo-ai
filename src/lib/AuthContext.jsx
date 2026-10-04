@@ -3,7 +3,11 @@ import { toast } from "@/components/ui/use-toast";
 
 import { arrivedFromOAuth, supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { completeOAuthReturn, getCurrentUser, mapUser, upsertUserProfile } from "@/lib/supabaseAuth";
-import { applyPendingSignupHandle, stashPendingSignupHandle } from "@/services/signupHandle";
+import {
+  applyPendingSignupHandle,
+  authSignupUserMetadata,
+  stashPendingSignupHandle,
+} from "@/services/signupHandle";
 
 const AuthContext = createContext();
 
@@ -183,14 +187,13 @@ export const AuthProvider = ({ children }) => {
 
   const signUp = useCallback(async (email, password, handle) => {
     if (!supabase) throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to sign in.");
-    const normalizedHandle = handle ? String(handle).trim().toLowerCase() : "";
-    if (normalizedHandle) stashPendingSignupHandle(normalizedHandle);
+    if (handle) stashPendingSignupHandle(handle);
     const { data, error } = await supabase.auth.signUp({
       email: String(email || "").trim(),
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/`,
-        data: normalizedHandle ? { pending_handle: normalizedHandle } : {},
+        data: authSignupUserMetadata(handle),
       },
     });
     if (error) throw new Error(error.message);
