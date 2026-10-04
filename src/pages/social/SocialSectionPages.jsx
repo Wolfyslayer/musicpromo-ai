@@ -236,14 +236,29 @@ export function SocialHealthPage() {
                 </p>
                 <p className="text-destructive">{d.publish_error || "Publish failed"}</p>
                 {d.campaign_id ? (
-                  <Button
-                    size="sm"
-                    variant="link"
-                    className="h-auto p-0 text-primary"
-                    onClick={() => navigate(`/campaigns/${d.campaign_id}/plan`)}
-                  >
-                    Open campaign plan
-                  </Button>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 rounded-full"
+                      onClick={() => navigate(`/campaigns/${d.campaign_id}/plan`)}
+                    >
+                      Fix in plan
+                    </Button>
+                    {snapshot.activeCampaigns?.find((c) => c.id === d.campaign_id)?.release_id ? (
+                      <Button
+                        size="sm"
+                        className="h-7 rounded-full"
+                        onClick={() =>
+                          navigate(
+                            `/releases/${snapshot.activeCampaigns.find((c) => c.id === d.campaign_id).release_id}/launch`
+                          )
+                        }
+                      >
+                        Open timeline
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : null}
               </li>
             ))}
@@ -260,6 +275,14 @@ export function SocialHealthPage() {
                 <StatusBadge status={p.status} />
                 <p className="mt-1 line-clamp-2">{p.caption || "Untitled"}</p>
                 <p className="text-xs text-destructive">{p.errorMessage || "Publishing failed"}</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2 h-7 rounded-full"
+                  onClick={() => navigate(`/social/compose?post=${p.id}`)}
+                >
+                  Fix now
+                </Button>
               </li>
             ))}
           </ul>

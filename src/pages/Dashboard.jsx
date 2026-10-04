@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Sparkles, BarChart3, CalendarDays, Film, ArrowRight, PlayCircle, Globe2, Rocket, Activity } from "lucide-react";
-import LaunchBoardSummary from "@/components/launch/LaunchBoardSummary";
-import LaunchDigestPanel from "@/components/launch/LaunchDigestPanel";
+import ReleaseCommandHero from "@/components/ux/ReleaseCommandHero";
+import DashboardProfileNudge from "@/components/ux/DashboardProfileNudge";
 import { Link } from "react-router-dom";
 import SurfacePanel from "@/components/SurfacePanel";
 import { Button } from "@/components/ui/button";
@@ -101,6 +101,18 @@ export default function Dashboard() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
+      {active && launchReleaseId ? (
+        <ReleaseCommandHero
+          campaign={active}
+          releaseId={launchReleaseId}
+          releaseTitle={active.release?.title || active.song?.title}
+          artworkUrl={active.release?.artwork_url || active.song?.artwork_url}
+          readyVideosCount={readyVideos.length}
+        />
+      ) : null}
+
+      <DashboardProfileNudge />
+
       <SurfacePanel className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/12 text-primary">
@@ -118,19 +130,9 @@ export default function Dashboard() {
         </Button>
       </SurfacePanel>
 
-      {active && launchReleaseId ? (
+      {active && !launchReleaseId ? (
         <section className="space-y-4">
-          <SectionTitle>Launch board</SectionTitle>
-          <LaunchBoardSummary
-            campaign={active}
-            releaseId={launchReleaseId}
-            readyVideosCount={readyVideos.length}
-          />
-          <LaunchDigestPanel />
-        </section>
-      ) : active ? (
-        <section className="space-y-4">
-          <SectionTitle>Active Campaign</SectionTitle>
+          <SectionTitle>Active campaign</SectionTitle>
           <button
             onClick={() => navigate(`/campaigns/${active.id}/plan`)}
             className="surface-interactive group block w-full overflow-hidden rounded-3xl text-left animate-slide-up"
@@ -138,14 +140,10 @@ export default function Dashboard() {
             <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5">
               <ArtworkImage src={active.song?.artwork_url} alt={active.song?.title} className="h-40 w-40 shrink-0 sm:h-28 sm:w-28" rounded="rounded-2xl" />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <StatusBadge status={active.status} />
-                </div>
+                <StatusBadge status={active.status} />
                 <h2 className="mt-2 truncate font-heading text-xl font-semibold">{active.song?.title || "Untitled"}</h2>
                 <p className="truncate text-sm text-muted-foreground">{active.artist?.name}</p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Link a release to unlock the launch board on your dashboard.
-                </p>
+                <p className="mt-2 text-xs text-muted-foreground">Link a release to unlock the release command center.</p>
                 <div className="mt-3">
                   <ProgressBar value={active.progressValue || 0} showLabel />
                 </div>
@@ -153,11 +151,10 @@ export default function Dashboard() {
               <ArrowRight className="hidden h-5 w-5 shrink-0 text-muted-foreground transition group-hover:translate-x-1 sm:block" />
             </div>
           </button>
-          <LaunchDigestPanel />
         </section>
-      ) : (
+      ) : !active ? (
         !data && <div className="h-40 animate-shimmer rounded-2xl" />
-      )}
+      ) : null}
 
       {active && readyVideos.length > 0 && (
         <section>

@@ -37,6 +37,8 @@ import { useOverdueAutoPublish } from "@/hooks/useOverdueAutoPublish";
 import CopyButton from "@/components/CopyButton";
 import CreateVideoButton from "@/components/video/CreateVideoButton";
 import StatusBadge from "@/components/StatusBadge";
+import DayStatusChip from "@/components/ux/DayStatusChip";
+import { pushActivity } from "@/lib/activityInbox";
 import CampaignPlanInsights from "@/components/campaign/CampaignPlanInsights";
 
 const DAY_STATUSES = [
@@ -130,7 +132,7 @@ function DayScheduleMeta({ day, posts, onRefresh }) {
   if (anyScheduled && day.scheduled_at) {
     return (
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-        <StatusBadge status="scheduled" />
+        <DayStatusChip day={day} posts={posts} />
         <span className="inline-flex items-center gap-1 text-muted-foreground">
           <Clock className="h-3 w-3" />
           {countdown.label || new Date(day.scheduled_at).toLocaleString()}
@@ -209,6 +211,12 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
     try {
       const res = await scheduleCampaignDay({ campaignDayId: day.id });
       if (!res?.ok) {
+        pushActivity({
+          level: "error",
+          title: "Schedule failed",
+          message: res?.error || "Connect social accounts and try again.",
+          href: `/campaigns/${campaign.id}/plan`,
+        });
         toast({
           variant: "destructive",
           title: "Could not schedule",
@@ -261,7 +269,7 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
   if (!days.length) {
     return (
       <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">No campaign days yet.</p>
+        <p className="text-sm text-muted-foreground">No campaign days yet. Generate content or re-run campaign creation to build your plan.</p>
         <div className="flex flex-wrap gap-2">
           {campaign?.release_id && (
             <Button
