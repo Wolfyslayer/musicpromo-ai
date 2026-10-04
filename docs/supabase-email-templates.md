@@ -18,6 +18,10 @@ Paste each HTML block into **Supabase Dashboard → Authentication → Email tem
 
 **Logo URL:** `https://hmqxptxtcejhmuwbegvq.supabase.co/storage/v1/object/public/public-assets/musicpromo-ai-icon-1024.png`
 
+**Support email:** `support@musicpromoai.site` — use a `mailto:` link for “contact support” copy:
+
+`<a href="mailto:support@musicpromoai.site" style="color: #9049f3; font-weight: 600; text-decoration: underline;">contact support</a>`
+
 ---
 
 ## Suggested subjects
@@ -331,7 +335,7 @@ Uses `{{ .Token }}` (6-digit code).
           </tr>
           <tr>
             <td style="padding: 0 32px 28px 32px; border-top: 1px solid #edeff2;">
-              <p style="margin: 20px 0 0 0; font-size: 13px; line-height: 20px; color: #616875;">If you didn&apos;t request this code, secure your account and contact support.</p>
+              <p style="margin: 20px 0 0 0; font-size: 13px; line-height: 20px; color: #616875;">If you didn&apos;t request this code, secure your account and <a href="mailto:support@musicpromoai.site" style="color: #9049f3; font-weight: 600; text-decoration: underline;">contact support</a>.</p>
             </td>
           </tr>
         </table>
@@ -450,7 +454,7 @@ Uses `{{ .Email }}`.
               <p style="margin: 0 0 12px 0; font-size: 15px; line-height: 24px; color: #616875;">
                 The password for <strong style="color: #0f121a;">{{ .Email }}</strong> was updated successfully.
               </p>
-              <p style="margin: 0; font-size: 13px; line-height: 20px; color: #616875;">If you didn&apos;t make this change, reset your password immediately and contact support.</p>
+              <p style="margin: 0; font-size: 13px; line-height: 20px; color: #616875;">If you didn&apos;t make this change, reset your password immediately and <a href="mailto:support@musicpromoai.site" style="color: #9049f3; font-weight: 600; text-decoration: underline;">contact support</a>.</p>
             </td>
           </tr>
         </table>
@@ -496,7 +500,7 @@ Uses `{{ .Email }}`, `{{ .OldEmail }}` (when available).
               <p style="margin: 0 0 12px 0; font-size: 15px; line-height: 24px; color: #616875;">
                 Your MusicPromo AI account email is now <strong style="color: #9049f3;">{{ .Email }}</strong>.
               </p>
-              <p style="margin: 0; font-size: 13px; line-height: 20px; color: #616875;">If you didn&apos;t request this change, contact support right away.</p>
+              <p style="margin: 0; font-size: 13px; line-height: 20px; color: #616875;">If you didn&apos;t request this change, <a href="mailto:support@musicpromoai.site" style="color: #9049f3; font-weight: 600; text-decoration: underline;">contact support</a> right away.</p>
             </td>
           </tr>
         </table>
@@ -542,7 +546,7 @@ Uses `{{ .Email }}`. Adjust heading to match the notification type in the dashbo
               <p style="margin: 0 0 12px 0; font-size: 15px; line-height: 24px; color: #616875;">
                 We detected a security-related change for <strong style="color: #0f121a;">{{ .Email }}</strong>.
               </p>
-              <p style="margin: 0; font-size: 13px; line-height: 20px; color: #616875;">If this wasn&apos;t you, review your account settings and contact support.</p>
+              <p style="margin: 0; font-size: 13px; line-height: 20px; color: #616875;">If this wasn&apos;t you, review your account settings and <a href="mailto:support@musicpromoai.site" style="color: #9049f3; font-weight: 600; text-decoration: underline;">contact support</a>.</p>
             </td>
           </tr>
         </table>
