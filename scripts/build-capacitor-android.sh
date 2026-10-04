@@ -42,6 +42,10 @@ cp "$GS_JSON" android/app/google-services.json
 echo ">> cap sync android"
 npx cap sync android
 
+echo ">> launcher icon, splash, app category"
+chmod +x scripts/apply-android-branding.sh
+scripts/apply-android-branding.sh
+
 if [[ -n "${ANDROID_VERSION_CODE:-}" ]]; then
   sed -i "s/versionCode [0-9]*/versionCode ${ANDROID_VERSION_CODE}/" android/app/build.gradle
 fi

@@ -82,6 +82,7 @@ jobs:
           VITE_AI_VIDEO_PROVIDER: ${{ vars.VITE_AI_VIDEO_PROVIDER }}
           VITE_SUPPORT_AI: ${{ vars.VITE_SUPPORT_AI }}
           ANDROID_BUILD_VARIANT: debug
+          ANDROID_APP_CATEGORY: ${{ vars.ANDROID_APP_CATEGORY || 'social' }}
         run: |
           if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
             echo "::error::Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY repository secrets."
