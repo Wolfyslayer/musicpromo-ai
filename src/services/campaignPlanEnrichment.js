@@ -1,4 +1,5 @@
 import { getSettings } from "@/services/settings";
+import { getPlanCopyFallbacks } from "@/services/songLanguage";
 
 const SHORT_FORM_PLATFORMS = ["TikTok", "Instagram Reels", "YouTube Shorts"];
 
@@ -101,16 +102,15 @@ export function applyBestPlatformMatch(aiDays, { analysis, goals, defaultPlatfor
 export function ensureDayCopyFields(aiDays, { song, analysis } = {}) {
   const assetHooks = analysis?.assetProfile?.hooks || [];
   const title = song?.title || "New track";
+  const fallbacks = getPlanCopyFallbacks(song);
   return (aiDays || []).map((d, i) => {
     const hook =
       String(d.hook || "").trim() ||
       String(assetHooks[i % Math.max(assetHooks.length, 1)] || "").trim() ||
-      `${title} — don't scroll past this`;
+      fallbacks.hook(title);
     const caption = String(d.caption || "").trim() || hook;
-    const cta = String(d.cta || "").trim() || "Link in bio — stream now";
-    const hashtags =
-      String(d.hashtags || "").trim() ||
-      "#newmusic #indieartist #musicpromo #fyp #songwriter";
+    const cta = String(d.cta || "").trim() || fallbacks.cta;
+    const hashtags = String(d.hashtags || "").trim() || fallbacks.hashtags;
     return { ...d, hook, caption, cta, hashtags };
   });
 }

@@ -41,6 +41,7 @@ import StatusBadge from "@/components/StatusBadge";
 import DayStatusChip from "@/components/ux/DayStatusChip";
 import { pushActivity } from "@/lib/activityInbox";
 import CampaignPlanInsights from "@/components/campaign/CampaignPlanInsights";
+import { normalizeSongForAI } from "@/services/songLanguage";
 import SwipeDayCard from "@/components/campaign/SwipeDayCard";
 import DayActionDrawer from "@/components/ux/DayActionDrawer";
 
@@ -284,17 +285,20 @@ export default function CampaignPlan({
   const regenerateDay = async (day) => {
     setRegenerating(day.id);
     try {
-      const songData = { ...song, artistName: song?.artistName };
+      const songData = normalizeSongForAI(song, song?.artistName);
       const platform = day.platform || "TikTok";
-      const [cap, tags, cta] = await Promise.all([
-        aiService.generateCaptions({ song: songData, analysis: song?.analysis, platform }),
-        aiService.generateHashtags({ song: songData, analysis: song?.analysis, platform }),
-        aiService.generateCTA({ song: songData, analysis: song?.analysis, campaignGoals: campaign?.goals }),
+      const analysis = song?.analysis;
+      const [hooksRes, cap, tags, cta] = await Promise.all([
+        aiService.generateHooks({ song: songData, analysis, platform }),
+        aiService.generateCaptions({ song: songData, analysis, platform }),
+        aiService.generateHashtags({ song: songData, analysis, platform }),
+        aiService.generateCTA({ song: songData, analysis, campaignGoals: campaign?.goals }),
       ]);
+      const hook = hooksRes.hooks?.[0]?.text || day.hook;
       const caption = cap.captions?.[0]?.text || day.caption;
       const hashtags = tags.categories?.[0]?.tags?.join(" ") || day.hashtags;
       const ctaText = cta.ctas?.[0]?.text || day.cta;
-      await db.entities.CampaignDay.update(day.id, { caption, hashtags, cta: ctaText });
+      await db.entities.CampaignDay.update(day.id, { hook, caption, hashtags, cta: ctaText });
       onRefresh();
     } catch (e) {
       // keep simple
