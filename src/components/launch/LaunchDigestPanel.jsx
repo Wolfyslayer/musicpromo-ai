@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarRange, Loader2, Mail } from "lucide-react";
+import { Bell, CalendarRange, Loader2, Mail } from "lucide-react";
+import { canUseNativePush } from "@/services/pushNotifications";
 import SurfacePanel from "@/components/SurfacePanel";
 import StatusBadge from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,10 @@ export default function LaunchDigestPanel() {
   const [loading, setLoading] = useState(true);
   const [digest, setDigest] = useState(null);
   const [digestOn, setDigestOn] = useState(true);
+  const [pushOn, setPushOn] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pushSaving, setPushSaving] = useState(false);
+  const nativePush = canUseNativePush();
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +36,7 @@ export default function LaunchDigestPanel() {
         if (!cancelled) {
           setDigest(d);
           setDigestOn(profile?.launch_digest_enabled !== false);
+          setPushOn(profile?.push_digest_enabled !== false);
         }
       } catch (e) {
         if (!cancelled) toast({ variant: "destructive", title: "Digest unavailable", description: e.message });
@@ -43,6 +48,21 @@ export default function LaunchDigestPanel() {
       cancelled = true;
     };
   }, [user?.id, toast]);
+
+  const togglePush = async (checked) => {
+    if (!user?.id) return;
+    setPushOn(checked);
+    setPushSaving(true);
+    try {
+      await updateOwnProfile(user.id, { push_digest_enabled: checked });
+      toast({ title: checked ? "Weekly push notifications on" : "Weekly push notifications off" });
+    } catch (e) {
+      setPushOn(!checked);
+      toast({ variant: "destructive", title: "Could not save", description: e.message });
+    } finally {
+      setPushSaving(false);
+    }
+  };
 
   const toggleDigest = async (checked) => {
     if (!user?.id) return;
@@ -81,12 +101,23 @@ export default function LaunchDigestPanel() {
             <p className="text-xs text-muted-foreground">{digest.weekLabel}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Mail className="h-4 w-4 text-muted-foreground" />
-          <Label htmlFor="digest-email" className="text-xs font-normal">
-            Weekly email
-          </Label>
-          <Switch id="digest-email" checked={digestOn} disabled={saving} onCheckedChange={toggleDigest} />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Mail className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="digest-email" className="text-xs font-normal">
+              Weekly email
+            </Label>
+            <Switch id="digest-email" checked={digestOn} disabled={saving} onCheckedChange={toggleDigest} />
+          </div>
+          {nativePush ? (
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="digest-push" className="text-xs font-normal">
+                Weekly push
+              </Label>
+              <Switch id="digest-push" checked={pushOn} disabled={pushSaving} onCheckedChange={togglePush} />
+            </div>
+          ) : null}
         </div>
       </div>
 
