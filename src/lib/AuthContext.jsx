@@ -3,6 +3,7 @@ import { toast } from "@/components/ui/use-toast";
 
 import { arrivedFromOAuth, supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { completeOAuthReturn, getCurrentUser, mapUser, upsertUserProfile } from "@/lib/supabaseAuth";
+import { applyPendingSignupHandle, stashPendingSignupHandle } from "@/services/signupHandle";
 
 const AuthContext = createContext();
 
@@ -180,17 +181,26 @@ export const AuthProvider = ({ children }) => {
     return data;
   }, []);
 
-  const signUp = useCallback(async (email, password) => {
+  const signUp = useCallback(async (email, password, handle) => {
     if (!supabase) throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to sign in.");
+    const normalizedHandle = handle ? String(handle).trim().toLowerCase() : "";
+    if (normalizedHandle) stashPendingSignupHandle(normalizedHandle);
     const { data, error } = await supabase.auth.signUp({
       email: String(email || "").trim(),
       password,
-      options: { emailRedirectTo: `${window.location.origin}/` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+        data: normalizedHandle ? { pending_handle: normalizedHandle } : {},
+      },
     });
     if (error) throw new Error(error.message);
     if (data.session) {
       const mapped = mapUser(data.user);
-      if (mapped) await upsertUserProfile(mapped);
+      if (mapped) {
+        await upsertUserProfile(mapped, data.user);
+        const claim = await applyPendingSignupHandle(mapped.id);
+        if (!claim.ok) throw new Error(claim.error);
+      }
     }
     return data;
   }, []);

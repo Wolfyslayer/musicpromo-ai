@@ -22,7 +22,8 @@ export const db = {
   auth: {
     me: () => getCurrentUser(),
     loginViaEmailPassword: (email, password) => signInWithPassword(email, password),
-    register: (payload) => signUpWithPassword(payload?.email, payload?.password),
+    register: (payload) =>
+      signUpWithPassword(payload?.email, payload?.password, { handle: payload?.handle }),
     verifyOtp: ({ email, otpCode }) => verifyEmailOtp(email, otpCode),
     resendOtp: (email) => resendSignupOtp(email),
     loginWithProvider: (provider, returnTo) => {

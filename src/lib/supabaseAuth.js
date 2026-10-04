@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
+import { applyPendingSignupHandle } from "@/services/signupHandle";
 
 function requireClient() {
   if (!supabase || !isSupabaseConfigured) {
@@ -76,18 +77,24 @@ export async function signInWithPassword(email, password) {
   return { user, session: data.session };
 }
 
-export async function signUpWithPassword(email, password) {
+export async function signUpWithPassword(email, password, { handle } = {}) {
   const client = requireClient();
+  const normalizedHandle = handle ? String(handle).trim().toLowerCase() : "";
   const { data, error } = await client.auth.signUp({
     email: String(email || "").trim(),
     password,
     options: {
       emailRedirectTo: `${window.location.origin}/`,
+      data: normalizedHandle ? { pending_handle: normalizedHandle } : {},
     },
   });
   if (error) raise(error);
   const user = mapUser(data.user);
-  if (data.session && user) await upsertUserProfile(user);
+  if (data.session && user) {
+    await upsertUserProfile(user, data.user);
+    const claim = await applyPendingSignupHandle(user.id);
+    if (!claim.ok) raise(new Error(claim.error));
+  }
   return { user, session: data.session || null };
 }
 
@@ -150,7 +157,11 @@ export async function verifyEmailOtp(email, token) {
   });
   if (error) raise(error);
   const user = mapUser(data.user);
-  if (user) await upsertUserProfile(user);
+  if (user) {
+    await upsertUserProfile(user, data.user);
+    const claim = await applyPendingSignupHandle(user.id);
+    if (!claim.ok) raise(new Error(claim.error));
+  }
   return { user, session: data.session, access_token: data.session?.access_token || null };
 }
 

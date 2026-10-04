@@ -18,6 +18,8 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
 import { resendSignupOtp, signInWithGoogle, verifyEmailOtp } from "@/lib/supabaseAuth";
 import { cn } from "@/lib/utils";
+import HandleSignupField from "@/components/auth/HandleSignupField";
+import { normalizeHandleInput, validateHandle } from "@/services/profileHandle";
 
 export function AuthSuccessPulse() {
   const { authPulse } = useAuth();
@@ -29,6 +31,8 @@ export default function AuthModal() {
   const { isLoginModalOpen, onLoginModalOpenChange, finishLogin, signInWithPassword, signUp } = useAuth();
   const [tab, setTab] = useState("login");
   const [email, setEmail] = useState("");
+  const [handle, setHandle] = useState("");
+  const [handleReady, setHandleReady] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -78,9 +82,19 @@ export default function AuthModal() {
       setError("Passwords do not match");
       return;
     }
+    const normalizedHandle = normalizeHandleInput(handle);
+    const handleCheck = validateHandle(normalizedHandle, { required: true });
+    if (!handleCheck.ok) {
+      setError(handleCheck.error);
+      return;
+    }
+    if (!handleReady) {
+      setError("Choose an available username before continuing.");
+      return;
+    }
     setLoading(true);
     try {
-      const result = await signUp(email, password);
+      const result = await signUp(email, password, normalizedHandle);
       if (result?.session) await finishLogin();
       else setShowOtp(true);
     } catch (err) {
@@ -248,6 +262,12 @@ export default function AuthModal() {
               </form>
             ) : (
               <form onSubmit={handleRegister} className="space-y-4">
+                <HandleSignupField
+                  id="auth-register-handle"
+                  value={handle}
+                  onChange={setHandle}
+                  onValidityChange={(ok) => setHandleReady(ok)}
+                />
                 <Field label="Email" id="auth-register-email" icon={Mail}>
                   <Input
                     id="auth-register-email"
