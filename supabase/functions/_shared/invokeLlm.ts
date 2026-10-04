@@ -129,3 +129,80 @@ export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<st
   }
   return content;
 }
+
+export type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
+
+export async function invokeLlmChat(args: {
+  messages: ChatMessage[];
+  response_json_schema?: Record<string, unknown>;
+}): Promise<string | Record<string, unknown>> {
+  const apiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY") || "";
+  if (!apiKey) {
+    throw new Error(
+      "Set OPENAI_API_KEY in Supabase Edge Function secrets (Project Settings → Edge Functions)."
+    );
+  }
+
+  const messages = (args.messages || [])
+    .filter((m) => m?.content && String(m.content).trim())
+    .map((m) => ({
+      role: m.role === "assistant" || m.role === "system" ? m.role : "user",
+      content: String(m.content).trim().slice(0, 8000),
+    }));
+  if (!messages.length) throw new Error("messages are required.");
+
+  const schema = args.response_json_schema;
+  const baseBody: Record<string, unknown> = {
+    model: modelName(),
+    messages,
+  };
+
+  async function requestWithBody(body: Record<string, unknown>): Promise<Response> {
+    return fetch(`${apiBase()}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  let body = { ...baseBody };
+  if (schema && typeof schema === "object") {
+    body.response_format = {
+      type: "json_schema",
+      json_schema: { name: "response", strict: false, schema },
+    };
+  }
+
+  let res = await requestWithBody(body);
+  let raw = await res.text();
+
+  if (!res.ok && schema && (res.status === 400 || res.status === 422)) {
+    body = {
+      ...baseBody,
+      response_format: { type: "json_object" },
+      messages: [
+        ...messages.slice(0, -1),
+        {
+          role: "user",
+          content: `${messages[messages.length - 1]?.content}\n\nRespond with a single valid JSON object only.`,
+        },
+      ],
+    };
+    res = await requestWithBody(body);
+    raw = await res.text();
+  }
+
+  if (!res.ok) {
+    throw new Error(`AI request failed (${res.status}): ${raw.slice(0, 400)}`);
+  }
+
+  const parsed = JSON.parse(raw) as { choices?: { message?: { content?: string } }[] };
+  const content = parsed.choices?.[0]?.message?.content;
+  if (content == null) throw new Error("AI provider returned no message content.");
+
+  if (schema) return extractJson(content) as Record<string, unknown>;
+  return content;
+}
