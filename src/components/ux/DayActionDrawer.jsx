@@ -25,6 +25,7 @@ import { primaryProviderForDayPlatform } from "@/services/social/dayPlatform";
 import { useToast } from "@/components/ui/use-toast";
 import { pushActivity } from "@/lib/activityInbox";
 import { resolveDayUxStatus } from "@/lib/dayUxStatus";
+import ComposeInlinePanel from "@/components/ux/ComposeInlinePanel";
 
 export default function DayActionDrawer({
   open,
@@ -183,6 +184,16 @@ export default function DayActionDrawer({
 
           <LaunchDayScheduleControls day={day} onScheduled={onRefresh} />
 
+          {uxStatus.id !== "live" ? (
+            <ComposeInlinePanel
+              day={day}
+              campaign={campaign}
+              release={release}
+              posts={posts}
+              onPublished={onRefresh}
+            />
+          ) : null}
+
           <div className="flex flex-col gap-2">
             <Button
               type="button"
@@ -211,7 +222,7 @@ export default function DayActionDrawer({
             ) : null}
             <Button type="button" variant="outline" className="rounded-full" onClick={openFullCompose}>
               <Share2 className="mr-1.5 h-4 w-4" />
-              Post to {providerLabel}
+              Open full editor ({providerLabel})
             </Button>
             <Button type="button" variant="ghost" className="rounded-full" asChild>
               <Link to={`/campaigns/${campaign.id}/plan`}>Open full plan</Link>

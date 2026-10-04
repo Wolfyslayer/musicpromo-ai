@@ -9,6 +9,7 @@ export default function SocialConnectionStrip({ providers = [], className }) {
 
   return (
     <div
+      data-tour="launch-connections"
       className={cn(
         "flex flex-wrap items-center gap-2 rounded-2xl border border-border/50 bg-muted/15 px-3 py-2",
         className

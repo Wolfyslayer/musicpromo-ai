@@ -28,7 +28,13 @@ export default function ActivityInboxBell() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" className="relative h-9 w-9 rounded-full">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          data-tour="activity-bell"
+          className="relative h-9 w-9 rounded-full"
+        >
           <Bell className="h-4 w-4" />
           {unread > 0 ? (
             <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-700 text-primary-foreground">

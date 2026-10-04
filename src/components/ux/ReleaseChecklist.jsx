@@ -51,7 +51,7 @@ export default function ReleaseChecklist({
   const done = items.filter((i) => i.done).length;
 
   return (
-    <div className="rounded-2xl border border-border/50 bg-card/40 p-4">
+    <div data-tour="launch-checklist" className="rounded-2xl border border-border/50 bg-card/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-heading text-sm font-600">Release checklist</p>
         <span className="text-xs text-muted-foreground">

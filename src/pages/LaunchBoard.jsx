@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import LaunchTimelineDayRow from "@/components/launch/LaunchTimelineDayRow";
 import DayActionDrawer from "@/components/ux/DayActionDrawer";
+import ReleaseLaunchTour from "@/components/onboarding/ReleaseLaunchTour";
 import SocialConnectionStrip from "@/components/ux/SocialConnectionStrip";
 import ReleaseChecklist from "@/components/ux/ReleaseChecklist";
 import LaunchWeekDigestBar from "@/components/ux/LaunchWeekDigestBar";
@@ -208,7 +209,7 @@ export default function LaunchBoard() {
           <TimelineRow key={`meta-${item.campaign.id}`} item={item} onManageDay={setDrawerItem} />
         ))}
 
-      <section className="space-y-3">
+      <section className="space-y-3" data-tour="launch-timeline">
         <h2 className="font-heading text-sm font-600 uppercase tracking-wider text-muted-foreground">Timeline</h2>
         <p className="text-xs text-muted-foreground">Tap a day to schedule, publish, preview, or fix issues.</p>
         {dayTimeline.length ? (
@@ -251,6 +252,11 @@ export default function LaunchBoard() {
         artworkUrl={release?.artwork_url}
         artistName={artist?.name}
         onRefresh={reload}
+      />
+
+      <ReleaseLaunchTour
+        releaseId={id}
+        hasTimelineDays={dayTimeline.some((t) => t.kind === "day")}
       />
     </div>
   );

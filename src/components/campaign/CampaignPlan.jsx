@@ -40,6 +40,7 @@ import StatusBadge from "@/components/StatusBadge";
 import DayStatusChip from "@/components/ux/DayStatusChip";
 import { pushActivity } from "@/lib/activityInbox";
 import CampaignPlanInsights from "@/components/campaign/CampaignPlanInsights";
+import SwipeDayCard from "@/components/campaign/SwipeDayCard";
 
 const DAY_STATUSES = [
   { id: "planned", label: "Planned", color: "#8b8b9a" },
@@ -340,8 +341,26 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
         const composeProvider = primaryProviderForDayPlatform(day.platform);
         const composeProviderLabel =
           SOCIAL_PROVIDERS.find((p) => p.id === composeProvider)?.name || day.platform || "Social";
+        const openCompose = () =>
+          navigate(
+            buildComposePath({
+              campaignId: campaign.id,
+              campaignDayId: day.id,
+              releaseId: campaign.release_id || "",
+              platform: day.platform,
+            })
+          );
+
         return (
-          <div key={day.id} className="rounded-2xl border border-border/60 bg-card/50 p-4 animate-slide-up">
+          <SwipeDayCard
+            key={day.id}
+            canSchedule={canSchedule}
+            scheduleLabel={day.status === "scheduled" || day.status === "failed" ? "Reschedule" : "Schedule"}
+            postLabel={composeProviderLabel}
+            onSchedule={() => scheduleDay(day)}
+            onPost={openCompose}
+          >
+          <div className="rounded-2xl border border-border/60 bg-card/50 p-4 animate-slide-up">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="grid h-11 w-11 place-items-center rounded-xl bg-muted/60">
@@ -404,16 +423,7 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() =>
-                  navigate(
-                    buildComposePath({
-                      campaignId: campaign.id,
-                      campaignDayId: day.id,
-                      releaseId: campaign.release_id || "",
-                      platform: day.platform,
-                    })
-                  )
-                }
+                onClick={openCompose}
                 className="rounded-full"
               >
                 <Share2 className="mr-1 h-3.5 w-3.5" />Post to {composeProviderLabel}
@@ -432,6 +442,7 @@ export default function CampaignPlan({ campaign, days, song, onRefresh }) {
               </Button>
             </div>
           </div>
+          </SwipeDayCard>
         );
       })}
 
