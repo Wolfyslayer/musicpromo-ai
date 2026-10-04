@@ -160,46 +160,55 @@ Use the **GitHub mobile app** or mobile browser for ops; **GitHub Actions** buil
 | 1 | Supabase app / browser | Run `supabase/migrations/20261004_native_push.sql` in SQL editor |
 | 2 | Firebase console | Android app package **`site.musicpromoai.app`** → download **`google-services.json`** |
 | 3 | GitHub → repo → **Settings → Secrets** | Add secrets below (use desktop site if the mobile UI hides Settings) |
-| 4 | Optional: Termux on Android | Generate upload keystore for Play (see below) |
+| 4 | GitHub Actions (Play only) | **Generate Android upload keystore** — no Termux (see below) |
 
 **GitHub repository secrets**
 
 | Secret | Purpose |
 |--------|---------|
 | `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | Same as web Deploy (already set if Pages works) |
-| `GOOGLE_SERVICES_JSON_BASE64` | Base64 of Firebase `google-services.json` (preferred on mobile) |
-| `GOOGLE_SERVICES_JSON` | *Alternative:* paste raw JSON if base64 is awkward |
+| `GOOGLE_SERVICES_JSON` | **Recommended without Termux:** paste the full Firebase `google-services.json` file |
+| `GOOGLE_SERVICES_JSON_BASE64` | *Optional:* single-line base64 instead of raw JSON |
 
 **Play release AAB only** (skip for personal debug installs):
 
 | Secret | Purpose |
 |--------|---------|
-| `ANDROID_UPLOAD_KEYSTORE_BASE64` | Base64 of your upload `.keystore` or `.jks` |
-| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
-| `ANDROID_KEY_ALIAS` | Key alias (e.g. `upload`) |
-| `ANDROID_KEY_PASSWORD` | Key password |
+| `ANDROID_KEYSTORE_PASSWORD` | Password you choose (type in GitHub Settings) |
+| `ANDROID_KEY_ALIAS` | e.g. `upload` |
+| `ANDROID_KEY_PASSWORD` | Key password you choose |
+| `ANDROID_UPLOAD_KEYSTORE_BASE64` | Filled after keystore workflow (copy from artifact `.txt`) |
 
-**Encode `google-services.json` on Android (Termux)**
+### Without Termux (recommended)
 
-```bash
-pkg install termux-api   # optional
-base64 -w 0 ~/storage/downloads/google-services.json
-```
+**Firebase → GitHub (no encoding)**
 
-Copy the single line → GitHub secret **`GOOGLE_SERVICES_JSON_BASE64`**.
+1. Firebase console → download **`google-services.json`** to your phone (Files / Drive).
+2. Open the file in a text editor (Google Files, QuickEdit, iOS Files + tap to view text).
+3. **Select all → Copy.**
+4. GitHub → **Settings → Secrets → New secret** → name **`GOOGLE_SERVICES_JSON`** → paste entire JSON → Save.
 
-**Create upload keystore on Android (Termux, once)**
+The APK workflow accepts **`GOOGLE_SERVICES_JSON`** or **`GOOGLE_SERVICES_JSON_BASE64`** — you only need one.
 
-```bash
-pkg install openjdk-17
-keytool -genkeypair -v -storetype PKCS12 -keystore upload.keystore -alias upload \
-  -keyalg RSA -keysize 2048 -validity 10000 \
-  -storepass 'YOUR_STORE_PASS' -keypass 'YOUR_KEY_PASS' \
-  -dname "CN=MusicPromo AI, OU=Mobile, O=MusicPromo, L=City, ST=State, C=US"
-base64 -w 0 upload.keystore
-```
+**Play upload keystore → GitHub (no Termux, no PC)**
 
-Save the keystore file to cloud storage; add base64 + passwords as GitHub secrets. **Back up the keystore** — you need the same file for every Play upload.
+1. In GitHub Secrets, create **`ANDROID_KEYSTORE_PASSWORD`**, **`ANDROID_KEY_ALIAS`** (e.g. `upload`), and **`ANDROID_KEY_PASSWORD`** — pick passwords yourself in the browser.
+2. **Actions → Generate Android upload keystore → Run workflow.**
+3. Download artifacts:
+   - **`android-upload-keystore`** — back up `upload.keystore` to Google Drive.
+   - **`android-upload-keystore-base64`** — open the `.txt` file on your phone → copy the one line.
+4. New secret **`ANDROID_UPLOAD_KEYSTORE_BASE64`** → paste that line.
+5. Run **Build Android release AAB** when uploading to Play.
+
+**Back up the keystore** — Play updates need the same upload key unless you reset it through Google.
+
+**Other options (still no Termux)**
+
+| Task | Option |
+|------|--------|
+| Paste JSON secret awkward on phone | Use GitHub **desktop site** in Chrome (“Request desktop site”) or any computer once |
+| Base64 for JSON | Only if you prefer: a Play Store “file to base64” app, or paste file contents into a trusted encoder — **raw JSON secret is simpler** |
+| Keystore | One `keytool` command on any borrowed PC, or the **Generate Android upload keystore** workflow above |
 
 ### Day-to-day: install the app on your phone
 
@@ -229,7 +238,7 @@ You can create the Play app, add testers, and upload releases from the Play Cons
 
 You do **not** need Android Studio or a laptop for debug APKs or CI-built AABs once secrets exist.
 
-Workflows: [`.github/workflows/native-android-apk.yml`](../.github/workflows/native-android-apk.yml), [`.github/workflows/native-android-aab.yml`](../.github/workflows/native-android-aab.yml).
+Workflows: [APK](../.github/workflows/native-android-apk.yml), [AAB](../.github/workflows/native-android-aab.yml), [Generate keystore](../.github/workflows/native-android-keystore.yml).
 
 ---
 
