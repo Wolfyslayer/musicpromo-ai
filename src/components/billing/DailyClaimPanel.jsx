@@ -35,7 +35,8 @@ export default function DailyClaimPanel({
         </p>
       ) : null}
       <p className="text-sm text-muted-foreground">
-        Claim once per UTC day (up to 7 per month). Miss a day and the streak restarts. Day 3 = 2×, day 7 = 4× base (
+        Claim once per UTC day (up to 7 per month). If you skip days, you pick up on the next reward—progress
+        doesn&apos;t reset. Day 3 = 2×, day 7 = 4× base (
         {dailyClaim.baseCreditsPerDay} credits).
       </p>
       <div className="grid grid-cols-7 gap-1.5">
