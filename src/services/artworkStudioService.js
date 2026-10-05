@@ -10,6 +10,8 @@ export async function fetchCoverArtAiStatus() {
   return unwrap(res);
 }
 
+export { fileToCoverReferencePng, urlToCoverReferencePng } from "@/lib/coverReferenceImage";
+
 export async function generateCoverArtWithAi(payload) {
   const res = await db.functions.invoke("generateCoverArt", payload);
   if (res?.error) throw new Error(await messageFromFunctionInvokeError(res.error));

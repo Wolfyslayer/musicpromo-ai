@@ -60,7 +60,8 @@ If you use **Groq** for campaign copy (`OPENAI_BASE_URL` → Groq), keep Groq fo
 | `OPENAI_IMAGE_BASE_URL` | Optional; default `https://api.openai.com/v1` |
 
 Optional: `OPENAI_IMAGE_MODEL`, `OPENAI_IMAGE_SIZE` (default `1024x1024`), `OPENAI_IMAGE_QUALITY` (`standard` or `hd` for DALL·E 3).  
-Legacy: `AI_COVER_PROVIDER=fal|replicate` still works if you prefer Flux via `FAL_KEY` / `REPLICATE_API_TOKEN`.
+**Upload + edit:** Cover lab sends a square PNG plus your prompt to OpenAI **`/v1/images/edits`** (default model `OPENAI_IMAGE_EDIT_MODEL=gpt-image-1`). Optional: `OPENAI_IMAGE_EDIT_QUALITY`, `OPENAI_IMAGE_INPUT_FIDELITY` (`high` preserves more of the original).  
+Legacy: `AI_COVER_PROVIDER=fal|replicate` still works for **text-only** generation (no photo edits).
 
 ## What stays on-device (no LLM bill)
 
