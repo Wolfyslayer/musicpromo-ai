@@ -7,9 +7,13 @@ export async function fetchBillingStatus() {
 
 export async function startProCheckout() {
   const res = await db.functions.invoke("createSubscriptionCheckout", {});
+  if (res.data?.billingExempt) {
+    return { billingExempt: true, message: res.data.message };
+  }
   const url = res.data?.url;
   if (!url) throw new Error(res.data?.error || "Could not start checkout.");
   window.location.assign(url);
+  return { billingExempt: false };
 }
 
 /** Human-readable labels for credit cost keys returned by the API. */

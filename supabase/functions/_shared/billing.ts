@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { isBillingExempt, resolveAppRole, roleBypassesBilling } from "./appRoles.ts";
 
 export type BillingPlan = "free" | "pro";
 
@@ -163,6 +164,24 @@ export async function ensureUserBilling(admin: SupabaseClient, userId: string) {
 }
 
 export async function getBillingSnapshot(admin: SupabaseClient, userId: string) {
+  const appRole = await resolveAppRole(admin, userId);
+  const billingExempt = roleBypassesBilling(appRole);
+
+  if (billingExempt) {
+    return {
+      plan: "pro" as BillingPlan,
+      appRole,
+      billingExempt: true,
+      creditsBalance: null as number | null,
+      creditsPeriodStart: null as string | null,
+      monthlyGrant: null as number | null,
+      subscriptionStatus: null,
+      subscriptionRenewsAt: null,
+      stripeConfigured: Boolean(Deno.env.get("STRIPE_SECRET_KEY") && Deno.env.get("STRIPE_PRO_PRICE_ID")),
+      costs: CREDIT_COSTS,
+    };
+  }
+
   const refreshed = await ensureUserBilling(admin, userId);
   const { data: row } = await admin
     .from("user_billing")
@@ -175,6 +194,8 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
   const plan = effectivePlan(row || {});
   return {
     plan,
+    appRole,
+    billingExempt: false,
     creditsBalance: refreshed.credits_balance,
     creditsPeriodStart: refreshed.credits_period_start,
     monthlyGrant: monthlyGrant(plan),
@@ -191,7 +212,11 @@ export async function spendCredits(
   userId: string,
   action: CreditAction,
   metadata: Record<string, unknown> = {}
-): Promise<{ cost: number; balanceAfter: number; plan: BillingPlan }> {
+): Promise<{ cost: number; balanceAfter: number; plan: BillingPlan; billingExempt?: boolean }> {
+  if (await isBillingExempt(admin, userId)) {
+    return { cost: 0, balanceAfter: 0, plan: "pro", billingExempt: true };
+  }
+
   const cost = costForAction(action);
   if (cost <= 0) {
     const snap = await ensureUserBilling(admin, userId);
@@ -228,6 +253,7 @@ export async function refundCredits(
   reason: string
 ) {
   if (amount <= 0) return;
+  if (await isBillingExempt(admin, userId)) return;
   const snap = await ensureUserBilling(admin, userId);
   const balanceAfter = snap.credits_balance + amount;
   await admin

@@ -55,6 +55,31 @@ Events (minimum):
 
 Use the signing secret as `STRIPE_WEBHOOK_SECRET`. The handler verifies the `Stripe-Signature` header (HMAC SHA-256).
 
+## Staff / developer roles (no credits, no Stripe)
+
+Premium AI checks honor **`dev`** and **`admin`** roles. Those accounts never spend credits and do not need Pro checkout.
+
+Assign in either place (both work; JWT metadata wins when set):
+
+1. **Table Editor → `public.users` → `role`**  
+   Set to `dev` or `admin` for your user id (SQL example):
+
+   ```sql
+   update public.users set role = 'dev' where email = 'you@example.com';
+   ```
+
+2. **Authentication → Users → user → Raw user meta → `app_metadata`**  
+
+   ```json
+   { "role": "dev" }
+   ```
+
+Run `supabase/migrations/20261005_user_role_guard.sql` so users **cannot** change their own `role` from the app.
+
+Optional emergency allowlist (Edge secret, comma-separated UUIDs):
+
+- `BILLING_BYPASS_USER_IDS`
+
 ## App UX
 
 - **Settings → Plan & credits** (`/settings/billing`): balance, cost table, **Upgrade to Pro** (Stripe Checkout redirect).

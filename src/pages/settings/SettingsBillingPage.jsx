@@ -80,8 +80,11 @@ export default function SettingsBillingPage() {
     );
   }
 
-  const plan = billing?.plan === "pro" ? "Pro" : "Free";
-  const isPro = billing?.plan === "pro";
+  const exempt = Boolean(billing?.billingExempt);
+  const roleLabel =
+    billing?.appRole === "admin" ? "Admin" : billing?.appRole === "dev" ? "Developer" : null;
+  const plan = exempt ? roleLabel || "Staff" : billing?.plan === "pro" ? "Pro" : "Free";
+  const isPro = billing?.plan === "pro" || exempt;
 
   return (
     <div className="space-y-4">
@@ -93,9 +96,11 @@ export default function SettingsBillingPage() {
               {plan}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {isPro
-                ? "Higher monthly AI credits for campaigns, cover art, and optional cloud motion clips."
-                : "Includes a free monthly credit allowance. Upgrade for more AI generations each month."}
+              {exempt
+                ? "Unlimited premium AI — credits are not deducted for this account."
+                : isPro
+                  ? "Higher monthly AI credits for campaigns, cover art, and optional cloud motion clips."
+                  : "Includes a free monthly credit allowance. Upgrade for more AI generations each month."}
             </p>
             {billing?.subscriptionRenewsAt ? (
               <p className="mt-2 text-xs text-muted-foreground">
@@ -104,7 +109,7 @@ export default function SettingsBillingPage() {
               </p>
             ) : null}
           </div>
-          {!isPro && billing?.stripeConfigured ? (
+          {!exempt && !isPro && billing?.stripeConfigured ? (
             <Button type="button" className="rounded-full" disabled={checkoutBusy} onClick={onUpgrade}>
               {checkoutBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
               Upgrade to Pro
@@ -114,12 +119,19 @@ export default function SettingsBillingPage() {
       </Card>
 
       <Card title="Credits this month">
-        <p className="text-3xl font-semibold tabular-nums">{billing?.creditsBalance ?? "—"}</p>
+        {exempt ? (
+          <p className="text-lg font-semibold text-primary">Unlimited (staff)</p>
+        ) : (
+          <p className="text-3xl font-semibold tabular-nums">{billing?.creditsBalance ?? "—"}</p>
+        )}
         <p className="text-sm text-muted-foreground">
-          Monthly allowance: {billing?.monthlyGrant ?? "—"} credits
-          {billing?.creditsPeriodStart
-            ? ` · period started ${new Date(billing.creditsPeriodStart).toLocaleDateString()}`
-            : ""}
+          {exempt
+            ? "Assign dev/admin in Supabase only — see docs/BILLING.md."
+            : `Monthly allowance: ${billing?.monthlyGrant ?? "—"} credits${
+                billing?.creditsPeriodStart
+                  ? ` · period started ${new Date(billing.creditsPeriodStart).toLocaleDateString()}`
+                  : ""
+              }`}
         </p>
         <p className="text-xs text-muted-foreground">
           Each premium AI action deducts credits on the server before the model runs. Unused credits do not roll over.

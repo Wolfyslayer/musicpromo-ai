@@ -1,5 +1,6 @@
 import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
 import { ensureUserBilling } from "../_shared/billing.ts";
+import { isBillingExempt, resolveAppRole } from "../_shared/appRoles.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
 
 async function stripeRequest(path: string, body: URLSearchParams) {
@@ -35,6 +36,17 @@ async function handler(req: Request) {
     const appOrigin = (Deno.env.get("PUBLIC_APP_URL") || "https://musicpromoai.site").replace(/\/$/, "");
     const admin = serviceClient();
     const uid = String(user.id);
+
+    if (await isBillingExempt(admin, uid)) {
+      const appRole = await resolveAppRole(admin, uid);
+      return jsonWithCors(req, {
+        ok: true,
+        billingExempt: true,
+        appRole,
+        message: "Your account bypasses credit limits; Stripe checkout is not required.",
+      });
+    }
+
     await ensureUserBilling(admin, uid);
 
     const { data: billing } = await admin.from("user_billing").select("stripe_customer_id").eq("user_id", uid).maybeSingle();
