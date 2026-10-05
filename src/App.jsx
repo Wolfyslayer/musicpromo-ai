@@ -29,6 +29,7 @@ import {
 } from '@/pages/campaign/CampaignSectionPages';
 import VideoGenerator from '@/pages/VideoGenerator';
 import ArtworkStudio from '@/pages/ArtworkStudio';
+import PremiumAiStudio from '@/pages/PremiumAiStudio';
 import Analytics from '@/pages/Analytics';
 import Artists from '@/pages/Artists';
 import ArtistEditor from '@/pages/ArtistEditor';
@@ -111,6 +112,7 @@ const AuthenticatedApp = () => {
           <Route path="/create" element={<CreateCampaign />} />
           <Route path="/studio" element={<VideoGenerator />} />
           <Route path="/artwork" element={<ArtworkStudio />} />
+          <Route path="/premium" element={<PremiumAiStudio />} />
           <Route path="/campaigns/:id/video" element={<VideoGenerator />} />
           <Route path="/campaigns/:id" element={<CampaignShell />}>
             <Route index element={<CampaignIndexRedirect />} />

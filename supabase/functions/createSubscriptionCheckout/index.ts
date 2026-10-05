@@ -1,6 +1,11 @@
 import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
 import { ensureUserBilling } from "../_shared/billing.ts";
 import { isBillingExempt, resolveAppRole } from "../_shared/appRoles.ts";
+import {
+  normalizeBillingInterval,
+  normalizePaidPlanId,
+  resolveStripePriceId,
+} from "../_shared/subscriptionPlans.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
 
 async function stripeRequest(path: string, body: URLSearchParams) {
@@ -24,14 +29,28 @@ async function stripeRequest(path: string, body: URLSearchParams) {
 
 async function handler(req: Request) {
   try {
+    const body = await req.json().catch(() => ({}));
+    const planId = normalizePaidPlanId(body?.plan || body?.tier || "creator");
+    const interval = normalizeBillingInterval(body?.interval || body?.billingInterval);
+
+    if (!planId) {
+      return jsonWithCors(req, { error: "plan must be creator, pro, or studio" }, 400);
+    }
+
+    const priceId = resolveStripePriceId(planId, interval);
+    if (!priceId) {
+      return jsonWithCors(
+        req,
+        {
+          error: `Stripe price not configured for ${planId} (${interval}). Set STRIPE_${planId.toUpperCase()}_${interval === "year" ? "YEARLY" : "MONTHLY"}_PRICE_ID.`,
+        },
+        503
+      );
+    }
+
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user?.id) return jsonWithCors(req, { error: "Unauthorized" }, 401);
-
-    const priceId = (Deno.env.get("STRIPE_PRO_PRICE_ID") || "").trim();
-    if (!priceId) {
-      return jsonWithCors(req, { error: "Pro plan is not configured (STRIPE_PRO_PRICE_ID)." }, 503);
-    }
 
     const appOrigin = (Deno.env.get("PUBLIC_APP_URL") || "https://musicpromoai.site").replace(/\/$/, "");
     const admin = serviceClient();
@@ -71,14 +90,17 @@ async function handler(req: Request) {
         customer: customerId,
         "line_items[0][price]": priceId,
         "line_items[0][quantity]": "1",
-        success_url: `${appOrigin}/settings/billing?checkout=success`,
+        success_url: `${appOrigin}/settings/billing?checkout=success&plan=${planId}`,
         cancel_url: `${appOrigin}/settings/billing?checkout=cancel`,
         "metadata[user_id]": uid,
+        "metadata[plan]": planId,
+        "metadata[interval]": interval,
         "subscription_data[metadata][user_id]": uid,
+        "subscription_data[metadata][plan]": planId,
       })
     );
 
-    return jsonWithCors(req, { ok: true, url: session.url, sessionId: session.id });
+    return jsonWithCors(req, { ok: true, url: session.url, sessionId: session.id, plan: planId, interval });
   } catch (error) {
     return jsonWithCors(req, { error: (error as Error).message }, 500);
   }

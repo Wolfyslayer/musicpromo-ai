@@ -13,6 +13,7 @@ import {
   Film,
   Globe2,
   Palette,
+  Music2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
@@ -36,6 +37,7 @@ const NAV = [
 
 const SECONDARY = [
   { to: "/artwork", label: "Cover lab", icon: Palette },
+  { to: "/premium", label: "AI songs", icon: Music2 },
   { to: "/artists", label: "Artists", icon: Users },
   { to: "/releases", label: "Releases", icon: Disc3 },
   { to: "/social", label: "Social", icon: Share2 },

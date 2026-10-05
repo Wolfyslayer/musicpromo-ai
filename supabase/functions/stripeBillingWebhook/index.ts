@@ -1,34 +1,48 @@
 import { serviceClient } from "../_shared/runtime.ts";
 import { verifyStripeWebhookSignature } from "../_shared/stripeWebhookVerify.ts";
+import {
+  monthlyCreditsForPlan,
+  planFromStripePriceId,
+  type BillingInterval,
+  type PaidPlanId,
+} from "../_shared/subscriptionPlans.ts";
 
-function proGrant(): number {
-  const raw = Deno.env.get("BILLING_PRO_MONTHLY_CREDITS");
-  if (raw) {
-    const n = Number(raw);
-    if (Number.isFinite(n) && n >= 0) return Math.floor(n);
-  }
-  return 1200;
+function intervalFromStripe(subscription: Record<string, unknown>): BillingInterval {
+  const items = subscription.items as { data?: Array<{ price?: { recurring?: { interval?: string } } }> } | undefined;
+  const interval = items?.data?.[0]?.price?.recurring?.interval;
+  return interval === "year" ? "year" : "month";
 }
 
-async function applyProSubscription(userId: string, subscription: Record<string, unknown>) {
+function priceIdFromSubscription(subscription: Record<string, unknown>): string {
+  const items = subscription.items as { data?: Array<{ price?: { id?: string } }> } | undefined;
+  return String(items?.data?.[0]?.price?.id || "");
+}
+
+async function applyPaidSubscription(userId: string, subscription: Record<string, unknown>) {
   const admin = serviceClient();
   const status = String(subscription.status || "");
   const periodEnd = subscription.current_period_end
     ? new Date(Number(subscription.current_period_end) * 1000).toISOString()
     : null;
   const subId = String(subscription.id || "");
+  const priceId = priceIdFromSubscription(subscription);
 
   const active = status === "active" || status === "trialing";
-  const grant = active ? proGrant() : 0;
+  const paidPlan: PaidPlanId | null = active ? planFromStripePriceId(priceId) : null;
+  const plan = active && paidPlan ? paidPlan : "free";
+  const grant = active && paidPlan ? monthlyCreditsForPlan(paidPlan) : 0;
+  const billingInterval = intervalFromStripe(subscription);
 
   const { data: existing } = await admin.from("user_billing").select("credits_balance").eq("user_id", userId).maybeSingle();
-  const balance = active ? Math.max(Number(existing?.credits_balance || 0), grant) : Number(existing?.credits_balance || 0);
+  const balance = active && grant ? Math.max(Number(existing?.credits_balance || 0), grant) : Number(existing?.credits_balance || 0);
 
   await admin.from("user_billing").upsert(
     {
       user_id: userId,
-      plan: active ? "pro" : "free",
+      plan,
       stripe_subscription_id: subId,
+      stripe_price_id: priceId || null,
+      billing_interval: billingInterval,
       subscription_status: status,
       subscription_current_period_end: periodEnd,
       credits_balance: balance,
@@ -37,13 +51,13 @@ async function applyProSubscription(userId: string, subscription: Record<string,
     { onConflict: "user_id" }
   );
 
-  if (active) {
+  if (active && paidPlan) {
     await admin.from("credit_ledger").insert({
       user_id: userId,
       delta: 0,
       balance_after: balance,
       action: "subscription_activated",
-      metadata: { subscriptionId: subId, status, grantApplied: grant },
+      metadata: { subscriptionId: subId, status, plan: paidPlan, grantApplied: grant, priceId },
     });
   }
 }
@@ -104,13 +118,13 @@ Deno.serve(async (req) => {
           headers: { Authorization: `Bearer ${secret}` },
         });
         const sub = await subRes.json();
-        if (subRes.ok) await applyProSubscription(userId, sub);
+        if (subRes.ok) await applyPaidSubscription(userId, sub);
       }
     }
 
     if (type === "customer.subscription.updated" || type === "customer.subscription.deleted") {
       const userId = await resolveUserId(obj);
-      if (userId) await applyProSubscription(userId, obj);
+      if (userId) await applyPaidSubscription(userId, obj);
     }
 
     return new Response(JSON.stringify({ received: true }), {

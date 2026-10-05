@@ -1,8 +1,16 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { isBillingExempt, resolveAppRole, roleBypassesBilling } from "./appRoles.ts";
 import { getDailyClaimStatus } from "./dailyClaims.ts";
+import {
+  type BillingPlanId,
+  type PremiumFeature,
+  monthlyCreditsForPlan,
+  planHasPremiumFeature,
+  publicPlanCatalog,
+  stripePlansConfigured,
+} from "./subscriptionPlans.ts";
 
-export type BillingPlan = "free" | "pro";
+export type BillingPlan = BillingPlanId;
 
 export type CreditAction =
   | "analyze_song"
@@ -10,7 +18,9 @@ export type CreditAction =
   | "generate_content"
   | "cover_art"
   | "cover_art_edit"
-  | "ai_video_clip";
+  | "ai_video_clip"
+  | "suno_generation"
+  | "stem_split";
 
 /** Credits charged per premium AI call (tune via env CREDIT_COST_<ACTION>). */
 export const CREDIT_COSTS: Record<CreditAction, number> = {
@@ -20,15 +30,12 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   cover_art: 8,
   cover_art_edit: 10,
   ai_video_clip: 0,
+  suno_generation: 25,
+  stem_split: 18,
 };
 
 /** Shown in API/docs — always free regardless of env overrides for these actions. */
 export const ALWAYS_FREE_CREDIT_ACTIONS = new Set<CreditAction>(["generate_campaign", "ai_video_clip"]);
-
-const PLAN_MONTHLY_GRANT: Record<BillingPlan, number> = {
-  free: 120,
-  pro: 1200,
-};
 
 export class InsufficientCreditsError extends Error {
   code = "INSUFFICIENT_CREDITS";
@@ -39,7 +46,7 @@ export class InsufficientCreditsError extends Error {
     public plan: BillingPlan
   ) {
     super(
-      `Not enough credits (${balance} available, ${required} required). Upgrade to Pro in Settings → Plan & credits.`
+      `Not enough credits (${balance} available, ${required} required). Upgrade in Settings → Plan & credits or claim daily 🎁 credits.`
     );
     this.name = "InsufficientCreditsError";
   }
@@ -64,26 +71,21 @@ export function publicCreditCosts(): Record<CreditAction, number> {
   return out;
 }
 
-function monthlyGrant(plan: BillingPlan): number {
-  const key = plan === "pro" ? "BILLING_PRO_MONTHLY_CREDITS" : "BILLING_FREE_MONTHLY_CREDITS";
-  const raw = Deno.env.get(key);
-  if (raw) {
-    const n = Number(raw);
-    if (Number.isFinite(n) && n >= 0) return Math.floor(n);
-  }
-  return PLAN_MONTHLY_GRANT[plan];
+function monthlyGrant(plan: BillingPlanId): number {
+  return monthlyCreditsForPlan(plan);
 }
 
 function startOfUtcMonth(d = new Date()): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0));
 }
 
-function isProActive(row: {
+function isPaidSubscriptionActive(row: {
   plan?: string;
   subscription_status?: string | null;
   subscription_current_period_end?: string | null;
 }): boolean {
-  if (row.plan !== "pro") return false;
+  const plan = String(row.plan || "free");
+  if (plan === "free") return false;
   const st = String(row.subscription_status || "").toLowerCase();
   if (st === "active" || st === "trialing") return true;
   const end = row.subscription_current_period_end ? Date.parse(String(row.subscription_current_period_end)) : 0;
@@ -94,8 +96,11 @@ export function effectivePlan(row: {
   plan?: string;
   subscription_status?: string | null;
   subscription_current_period_end?: string | null;
-}): BillingPlan {
-  return isProActive(row) ? "pro" : "free";
+}): BillingPlanId {
+  if (!isPaidSubscriptionActive(row)) return "free";
+  const p = String(row.plan || "").toLowerCase();
+  if (p === "creator" || p === "pro" || p === "studio") return p;
+  return "free";
 }
 
 async function refreshPeriodCredits(
@@ -183,9 +188,14 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
   const appRole = await resolveAppRole(admin, userId);
   const billingExempt = roleBypassesBilling(appRole);
 
+  const premiumFeatures: Record<PremiumFeature, boolean> = {
+    suno_generation: true,
+    stem_split: true,
+  };
+
   if (billingExempt) {
     return {
-      plan: "pro" as BillingPlan,
+      plan: "studio" as BillingPlanId,
       appRole,
       billingExempt: true,
       creditsBalance: null as number | null,
@@ -193,7 +203,10 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
       monthlyGrant: null as number | null,
       subscriptionStatus: null,
       subscriptionRenewsAt: null,
-      stripeConfigured: Boolean(Deno.env.get("STRIPE_SECRET_KEY") && Deno.env.get("STRIPE_PRO_PRICE_ID")),
+      billingInterval: null,
+      stripeConfigured: stripePlansConfigured(),
+      planCatalog: publicPlanCatalog(),
+      premiumFeatures,
       costs: publicCreditCosts(),
       freeFeatures: ["generate_campaign", "ai_video_clip"],
     };
@@ -203,12 +216,13 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
   const { data: row } = await admin
     .from("user_billing")
     .select(
-      "plan, credits_balance, credits_period_start, subscription_status, subscription_current_period_end, stripe_customer_id"
+      "plan, credits_balance, credits_period_start, subscription_status, subscription_current_period_end, stripe_customer_id, billing_interval"
     )
     .eq("user_id", userId)
     .maybeSingle();
 
   const plan = effectivePlan(row || {});
+  const paidPremium = (f: PremiumFeature) => planHasPremiumFeature(plan, f);
   return {
     plan,
     appRole,
@@ -218,7 +232,13 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
     monthlyGrant: monthlyGrant(plan),
     subscriptionStatus: row?.subscription_status || null,
     subscriptionRenewsAt: row?.subscription_current_period_end || null,
-    stripeConfigured: Boolean(Deno.env.get("STRIPE_SECRET_KEY") && Deno.env.get("STRIPE_PRO_PRICE_ID")),
+    billingInterval: row?.billing_interval || null,
+    stripeConfigured: stripePlansConfigured(),
+    planCatalog: publicPlanCatalog(),
+    premiumFeatures: {
+      suno_generation: paidPremium("suno_generation"),
+      stem_split: paidPremium("stem_split"),
+    },
     costs: publicCreditCosts(),
     freeFeatures: ["generate_campaign", "ai_video_clip"],
     dailyClaim: await getDailyClaimStatus(admin, userId),
@@ -233,7 +253,7 @@ export async function spendCredits(
   metadata: Record<string, unknown> = {}
 ): Promise<{ cost: number; balanceAfter: number; plan: BillingPlan; billingExempt?: boolean }> {
   if (await isBillingExempt(admin, userId)) {
-    return { cost: 0, balanceAfter: 0, plan: "pro", billingExempt: true };
+    return { cost: 0, balanceAfter: 0, plan: "studio", billingExempt: true };
   }
 
   const cost = costForAction(action);

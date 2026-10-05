@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { CreditCard, Loader2, Sparkles } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Loader2, Sparkles } from "lucide-react";
 import DailyClaimPanel from "@/components/billing/DailyClaimPanel";
-import { Button } from "@/components/ui/button";
+import SubscriptionPlanPicker from "@/components/billing/SubscriptionPlanPicker";
 import { useToast } from "@/components/ui/use-toast";
-import {
-  CREDIT_ACTION_LABELS,
-  fetchBillingStatus,
-  startProCheckout,
-} from "@/services/billingService";
+import { CREDIT_ACTION_LABELS, fetchBillingStatus, PLAN_LABELS } from "@/services/billingService";
 
 function Card({ title, children }) {
   return (
@@ -23,7 +19,6 @@ export default function SettingsBillingPage() {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
-  const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [billing, setBilling] = useState(null);
 
   const load = () => {
@@ -44,8 +39,15 @@ export default function SettingsBillingPage() {
   useEffect(() => {
     const checkout = searchParams.get("checkout");
     if (checkout === "success") {
-      toast({ title: "Welcome to Pro", description: "Your subscription is processing. Credits refresh when Stripe confirms payment." });
+      const plan = searchParams.get("plan");
+      toast({
+        title: "Subscription started",
+        description: plan
+          ? `Your ${PLAN_LABELS[plan] || plan} plan will activate when Stripe confirms payment.`
+          : "Credits refresh when Stripe confirms payment.",
+      });
       searchParams.delete("checkout");
+      searchParams.delete("plan");
       setSearchParams(searchParams, { replace: true });
       load();
     } else if (checkout === "cancel") {
@@ -62,16 +64,6 @@ export default function SettingsBillingPage() {
       .sort((a, b) => Number(b[1]) - Number(a[1]));
   }, [billing?.costs]);
 
-  const onUpgrade = async () => {
-    setCheckoutBusy(true);
-    try {
-      await startProCheckout();
-    } catch (e) {
-      toast({ variant: "destructive", title: "Checkout unavailable", description: e.message });
-      setCheckoutBusy(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -84,8 +76,10 @@ export default function SettingsBillingPage() {
   const exempt = Boolean(billing?.billingExempt);
   const roleLabel =
     billing?.appRole === "admin" ? "Admin" : billing?.appRole === "dev" ? "Developer" : null;
-  const plan = exempt ? roleLabel || "Staff" : billing?.plan === "pro" ? "Pro" : "Free";
-  const isPro = billing?.plan === "pro" || exempt;
+  const paidPlan = billing?.plan && billing.plan !== "free";
+  const planLabel = exempt
+    ? roleLabel || "Staff"
+    : PLAN_LABELS[billing?.plan] || (paidPlan ? billing.plan : "Free");
 
   return (
     <div className="space-y-4">
@@ -94,15 +88,26 @@ export default function SettingsBillingPage() {
           <div>
             <p className="flex items-center gap-2 text-lg font-semibold">
               <Sparkles className="h-5 w-5 text-primary" />
-              {plan}
+              {planLabel}
+              {billing?.billingInterval ? (
+                <span className="text-sm font-normal text-muted-foreground">({billing.billingInterval}ly)</span>
+              ) : null}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {exempt
                 ? "Unlimited premium AI — credits are not deducted for this account."
-                : isPro
-                  ? "Higher monthly AI credits for campaigns, cover art, and optional cloud motion clips."
-                  : "Includes a free monthly credit allowance. Upgrade for more AI generations each month."}
+                : paidPlan
+                  ? "Includes Suno-style songs, stem splitter, and a larger monthly credit pool."
+                  : "Free tier with monthly credits. Subscribe for AI songs, stems, and more credits."}
             </p>
+            {billing?.premiumFeatures?.suno_generation ? (
+              <p className="mt-2 text-xs text-primary">
+                Premium:{" "}
+                <Link to="/premium" className="underline">
+                  AI songs & stems
+                </Link>
+              </p>
+            ) : null}
             {billing?.subscriptionRenewsAt ? (
               <p className="mt-2 text-xs text-muted-foreground">
                 Renews {new Date(billing.subscriptionRenewsAt).toLocaleDateString()} · status{" "}
@@ -110,14 +115,21 @@ export default function SettingsBillingPage() {
               </p>
             ) : null}
           </div>
-          {!exempt && !isPro && billing?.stripeConfigured ? (
-            <Button type="button" className="rounded-full" disabled={checkoutBusy} onClick={onUpgrade}>
-              {checkoutBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-              Upgrade to Pro
-            </Button>
-          ) : null}
         </div>
       </Card>
+
+      {!exempt ? (
+        <Card title="Choose a plan">
+          <SubscriptionPlanPicker
+            catalog={billing?.planCatalog}
+            currentPlan={paidPlan ? billing.plan : "free"}
+            stripeConfigured={billing?.stripeConfigured}
+            onCheckoutStart={(err) => {
+              if (err) toast({ variant: "destructive", title: "Checkout unavailable", description: err.message });
+            }}
+          />
+        </Card>
+      ) : null}
 
       <Card title="Credits this month">
         {exempt ? (
@@ -135,8 +147,8 @@ export default function SettingsBillingPage() {
               }`}
         </p>
         <p className="text-xs text-muted-foreground">
-          Campaign plans and cloud video clips are free. Cover art and content tools use credits. Unused monthly credits do
-          not roll over.
+          Campaign plans and cloud video clips are free. Cover art, content, Suno, and stems use credits. Claim daily 🎁
+          in the header for extras.
         </p>
       </Card>
 
@@ -162,6 +174,13 @@ export default function SettingsBillingPage() {
         </ul>
       </Card>
 
+      <Card title="Premium (Creator+)">
+        <ul className="space-y-1 text-sm text-muted-foreground">
+          <li>AI song generation (Suno API)</li>
+          <li>Stem splitter (vocals / drums / bass / other)</li>
+        </ul>
+      </Card>
+
       <Card title="Credit costs (per action)">
         {costRows.length ? (
           <ul className="divide-y divide-border/60">
@@ -176,13 +195,6 @@ export default function SettingsBillingPage() {
           <p className="text-sm text-muted-foreground">Costs will appear once billing is configured.</p>
         )}
       </Card>
-
-      {!billing?.stripeConfigured ? (
-        <p className="text-xs text-muted-foreground">
-          Pro checkout is not configured yet (Stripe secrets on the backend). Free-tier credits still apply when the
-          database migration is applied.
-        </p>
-      ) : null}
     </div>
   );
 }
