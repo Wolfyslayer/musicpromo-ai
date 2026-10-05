@@ -120,7 +120,7 @@ export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<st
     if (res.status === 401 && /invalid_api_key|Invalid API Key|API key not valid/i.test(raw)) {
       throw new Error(
         resolveAiProvider() === "gemini"
-          ? "AI API key rejected (401). In Supabase → Edge Functions → Secrets, set a valid GEMINI_API_KEY from Google AI Studio (https://aistudio.google.com/apikey). If you use Groq/OpenAI instead, set AI_PROVIDER=openai and OPENAI_API_KEY + OPENAI_BASE_URL. See docs/FREE_AI.md."
+          ? "AI API key rejected (401). Set GEMINI_API_KEY (AIza…) in Supabase Edge Function secrets. Delete or replace any old OPENAI_API_KEY (sk-…) and unset OPENAI_BASE_URL unless you use Groq with AI_PROVIDER=openai. See docs/FREE_AI.md."
           : "AI API key rejected (401). Check OPENAI_API_KEY and OPENAI_BASE_URL in Supabase Edge Function secrets. See docs/FREE_AI.md."
       );
     }
