@@ -12,13 +12,30 @@ async function handler(req: Request): Promise<Response> {
     }
 
     const admin = serviceClient();
-    const { data: profile } = await admin
+    const profileRes = await admin
       .from("users")
       .select(
         "daily_stats_email_enabled, daily_stats_push_enabled, daily_stats_last_sent_at, daily_stats_notify_time, timezone, email, display_name"
       )
       .eq("id", user.id)
       .maybeSingle();
+
+    let profile = profileRes.data;
+    let schemaReady = true;
+    if (profileRes.error) {
+      const msg = profileRes.error.message || "";
+      if (/daily_stats_|column users\.(daily_stats|timezone)/i.test(msg)) {
+        schemaReady = false;
+        const fallback = await admin
+          .from("users")
+          .select("email, display_name")
+          .eq("id", user.id)
+          .maybeSingle();
+        profile = fallback.data;
+      } else {
+        throw profileRes.error;
+      }
+    }
 
     const timeZone = normalizeTimeZone(profile?.timezone);
     const targetDate = yesterdayForUserTimeZone(timeZone);
@@ -45,6 +62,10 @@ async function handler(req: Request): Promise<Response> {
         emailEnabled: profile?.daily_stats_email_enabled === true,
         pushEnabled: profile?.daily_stats_push_enabled === true,
         lastSentAt: profile?.daily_stats_last_sent_at || null,
+        schemaReady,
+        schemaHint: schemaReady
+          ? null
+          : "Run supabase/migrations/20261005_daily_stats_full.sql in Supabase SQL editor.",
       },
     });
   } catch (error) {
