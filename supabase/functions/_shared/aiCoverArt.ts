@@ -11,7 +11,7 @@
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { hasLlmConfigured, resolveGeminiApiKey } from "./aiProvider.ts";
-import { geminiGenerateImage, resolveGeminiImageModel } from "./geminiImages.ts";
+import { geminiGenerateImage, resolveGeminiImageModelResolved } from "./geminiImages.ts";
 import { invokeLlm } from "./invokeLlm.ts";
 
 const BUCKET = "music-promo-assets";
@@ -61,7 +61,7 @@ export function coverArtProviderStatus() {
     provider,
     configured: provider !== "off",
     supportsImageEdit: provider === "gemini" || provider === "openai",
-    geminiImageModel: resolveGeminiImageModel(),
+    geminiImageModel: resolveGeminiImageModelResolved(),
     openAiImageModel: Deno.env.get("OPENAI_IMAGE_MODEL") || DEFAULT_OPENAI_IMAGE_MODEL,
     openAiImageEditModel: Deno.env.get("OPENAI_IMAGE_EDIT_MODEL") || DEFAULT_OPENAI_IMAGE_EDIT_MODEL,
     falModel: Deno.env.get("FAL_COVER_MODEL") || DEFAULT_FAL_COVER,
@@ -103,6 +103,8 @@ export async function expandCoverPromptWithLlm(input: {
 
   try {
     const result = (await invokeLlm({
+      provider: "gemini",
+      modelSlot: "cover_prompt",
       prompt: `Write ONE detailed image generation prompt for a square MUSIC ALBUM COVER (3000×3000 style).
 Rules: no on-image text, titles, logos, or watermarks; strong composition; print-ready; describe visuals only.
 ${base}`,
@@ -146,6 +148,8 @@ export async function expandCoverEditPromptWithLlm(input: {
 
   try {
     const result = (await invokeLlm({
+      provider: "gemini",
+      modelSlot: "cover_prompt",
       prompt: `Rewrite as ONE clear instruction for an image-editing model (Image 1 = uploaded album cover).
 User edit request: ${instruction}
 ${context}

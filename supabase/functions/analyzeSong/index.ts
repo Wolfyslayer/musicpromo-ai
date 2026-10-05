@@ -24,6 +24,7 @@ async function handler(req: Request) {
           prompt,
           response_json_schema: schema,
           provider: "gemini",
+          modelSlot: "analyze_song",
         });
       });
       return jsonWithCors(req, {

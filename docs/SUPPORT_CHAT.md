@@ -28,7 +28,8 @@ Same secrets as [FREE_AI.md](./FREE_AI.md):
 | Secret | Value |
 |--------|--------|
 | `GEMINI_API_KEY` | [AI Studio](https://aistudio.google.com/apikey) key |
-| `GEMINI_MODEL` | Optional — default `gemini-3.8-flash` |
+| `GEMINI_MODEL` | Optional — default chat fallback (`gemini-3.8-flash`) |
+| `GEMINI_MODEL_SUPPORT_CHAT` | Optional — override model for support chat only |
 
 Then deploy:
 
