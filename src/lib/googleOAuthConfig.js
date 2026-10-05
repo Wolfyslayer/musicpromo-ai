@@ -14,3 +14,8 @@ export function getGoogleSignInRedirectUri() {
 export function getGoogleClientId() {
   return String(import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
 }
+
+/** Optional Android OAuth client (Play Services). Falls back to Web client in plugin config. */
+export function getGoogleAndroidClientId() {
+  return String(import.meta.env.VITE_GOOGLE_ANDROID_CLIENT_ID || "").trim();
+}

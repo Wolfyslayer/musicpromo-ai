@@ -1,5 +1,8 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
+const googleWebClientId = String(process.env.VITE_GOOGLE_CLIENT_ID || "").trim();
+const googleAndroidClientId = String(process.env.VITE_GOOGLE_ANDROID_CLIENT_ID || "").trim();
+
 const config: CapacitorConfig = {
   appId: "site.musicpromoai.app",
   appName: "MusicPromo AI",
@@ -28,6 +31,16 @@ const config: CapacitorConfig = {
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
     },
+    ...(googleWebClientId
+      ? {
+          GoogleAuth: {
+            scopes: ["profile", "email"],
+            serverClientId: googleWebClientId,
+            clientId: googleWebClientId,
+            ...(googleAndroidClientId ? { androidClientId: googleAndroidClientId } : {}),
+          },
+        }
+      : {}),
   },
 };
 

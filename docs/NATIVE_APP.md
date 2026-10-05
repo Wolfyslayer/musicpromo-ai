@@ -340,44 +340,45 @@ Registration works without FCM server secrets; **sending** does not.
 
 ---
 
-## Google sign-in on Android (in-app + App Links)
+## Google sign-in on Android (native account picker)
 
-The native app opens Google in a **Chrome Custom Tab** (in-app sheet, not your default browser). After you pick an account, Android must return to the app with the callback URL — not Brave/Chrome.
+The Android app uses **Google Play Services** (`@codetrix-studio/capacitor-google-auth`): tap **Continue with Google** → system account sheet → Supabase session via `signInWithIdToken`. No browser, Custom Tab, or redirect for login.
 
-**One-time — Digital App Links**
+**GitHub Actions / local build**
 
-1. Run **Build Android debug APK** once after merging native auth fixes.
-2. Open the workflow run **Summary** and copy the **SHA-256** fingerprint.
-3. Paste it into **`public/.well-known/assetlinks.json`** → `sha256_cert_fingerprints` (replace the placeholder).
-4. Merge to `main` and wait for **Deploy** (GitHub Pages must serve `https://musicpromoai.site/.well-known/assetlinks.json`).
-5. Rebuild and reinstall the APK.
+- Set repository variable **`VITE_GOOGLE_CLIENT_ID`** to your **Web application** OAuth client (same as the website).
+- Optional **`VITE_GOOGLE_ANDROID_CLIENT_ID`** — Android OAuth client ID if you create a separate Android credential.
 
-Until `assetlinks.json` matches your APK signing certificate (colon-separated SHA-256, no `sha256:` prefix), App Links may not return to the app.
+CI writes **`server_client_id`** into `android/app/src/main/res/values/strings.xml` during branding (from `VITE_GOOGLE_CLIENT_ID`).
 
-Also run **`supabase/migrations/20261005_google_oauth_pkce.sql`** and deploy **`registerGoogleOAuthPkce`** so sign-in completes even if the callback loads outside the app WebView.
+**Google Cloud Console**
 
-**Native sign-in** uses the **in-app WebView** (not Chrome Custom Tabs) so you stay inside MusicPromo AI instead of a browser bar.
+1. **Web client** (for `VITE_GOOGLE_CLIENT_ID` / Supabase Google provider):
+   - Authorized JavaScript origins: `https://musicpromoai.site`
+   - Authorized redirect URIs: `https://musicpromoai.site/auth/google/callback` (website + fallback flows only)
+2. **Android client** (required for native sign-in):
+   - Application type: **Android**
+   - Package name: **`site.musicpromoai.app`**
+   - SHA-1: debug keystore for CI APK (see workflow Summary) and your **upload/release** keystore for Play builds
+3. Link the same project in **Firebase** → download **`google-services.json`** → secret **`GOOGLE_SERVICES_JSON_BASE64`**.
 
-## Google sign-in on Android (redirect_uri_mismatch)
+**Supabase:** enable Google provider with the same Web client ID; no Edge Function needed for native ID-token login.
 
-Bundled Capacitor apps used to report origin **`https://localhost`**, so Google rejected login. The app now sets **`server.hostname: musicpromoai.site`** in `capacitor.config.ts` and uses the same redirect URI as the website.
+### Website Google sign-in (unchanged)
 
-**Google Cloud Console** (same **Web client** as `VITE_GOOGLE_CLIENT_ID`):
+The web app still uses PKCE + **`googleAuthExchange`**. Run **`supabase/migrations/20261005_google_oauth_pkce.sql`** and deploy **`registerGoogleOAuthPkce`**. Set **`GOOGLE_LOGIN_CLIENT_SECRET`** on **`googleAuthExchange`**.
 
-1. [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials) → your **Web application** OAuth client.
-2. **Authorized JavaScript origins** — include:
-   - `https://musicpromoai.site`
-3. **Authorized redirect URIs** — include **exactly**:
-   - `https://musicpromoai.site/auth/google/callback`
-4. Save. Wait a few minutes, then **rebuild the APK** (Actions → **Build Android debug APK**) and reinstall.
+### App Links (social OAuth + legacy fallback)
 
-If you still see **redirect_uri_mismatch**, open the error screen or Logcat and note the URI Google shows — add that exact string to redirect URIs (no trailing slash unless the app sends one).
+App Links for `/auth/*` are still useful for Instagram/TikTok/YouTube callbacks and any OAuth callback that opens via deep link. For **Google login on current Android builds**, native SDK is primary.
 
-**Supabase:** Edge Function **`googleAuthExchange`** needs **`GOOGLE_LOGIN_CLIENT_SECRET`** (or `GOOGLE_CLIENT_SECRET`) for that same Web client.
+1. Run **Build Android debug APK** → copy **SHA-256** from the workflow Summary.
+2. Update **`public/.well-known/assetlinks.json`** (colon-separated fingerprint, no `sha256:` prefix).
+3. Deploy to **musicpromoai.site**, rebuild APK.
 
 ## OAuth / deep links (social connect)
 
-Register App Links for social callback paths when connecting Instagram/TikTok/YouTube inside the app. Google login uses the hostname + redirect URI above, not a separate scheme.
+Register App Links for social callback paths when connecting Instagram/TikTok/YouTube inside the app.
 
 ---
 
