@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Loader2, Rocket, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import ReleasePickOrCreateStep from "@/components/releases/ReleasePickOrCreateSt
 import ReleaseInfoStep from "@/components/releases/ReleaseInfoStep";
 import ReleaseTracksUploadStep from "@/components/releases/ReleaseTracksUploadStep";
 import { loadArtists, loadRelease } from "@/services/data";
-import { allSongsHaveAudio, releaseDetailsReady } from "@/services/releaseDefaults";
+import { allSongsHaveAudio } from "@/services/releaseDefaults";
 import { CAMPAIGN_DURATIONS, CAMPAIGN_GOALS } from "@/services/constants";
 import { generateCampaignForAlbum, generateCampaignForSong } from "@/services/createCampaignCore";
 import { resolveReleaseCampaignState } from "@/services/releaseCampaignMode";
@@ -38,6 +38,8 @@ export default function ReleaseCampaignPlanner() {
   const [generating, setGenerating] = useState(false);
   const [stage, setStage] = useState("");
   const [results, setResults] = useState([]);
+  const [savingDetails, setSavingDetails] = useState(false);
+  const detailsStepRef = useRef(null);
 
   const stepLabels = releaseId ? STEPS_WITH_RELEASE : STEPS_WITHOUT_RELEASE;
   const detailsStepIndex = releaseId ? 0 : 1;
@@ -93,8 +95,19 @@ export default function ReleaseCampaignPlanner() {
     [data?.release, songs, campaigns]
   );
   const { isAlbum, needsGeneration, pendingTrackCount, tracksNeedingCampaign } = campaignState;
-  const detailsReady = releaseDetailsReady(data?.release);
   const uploadsReady = allSongsHaveAudio(songs);
+
+  const continueFromDetails = async () => {
+    setSavingDetails(true);
+    try {
+      const ok = await detailsStepRef.current?.saveAll?.({ quiet: false });
+      if (!ok) return;
+      await reload();
+      setStep((s) => s + 1);
+    } finally {
+      setSavingDetails(false);
+    }
+  };
 
   const toggleGoal = (g) =>
     setRollout((r) => ({
@@ -137,6 +150,8 @@ export default function ReleaseCampaignPlanner() {
           const { campaign } = await generateCampaignForSong({
             song,
             artist: data.artist,
+            release: data.release,
+            songs,
             releaseId,
             goals: rollout.goals,
             durationDays: rollout.durationDays,
@@ -214,7 +229,7 @@ export default function ReleaseCampaignPlanner() {
         ) : null}
 
         {releaseId && !loading && data?.release && step === detailsStepIndex ? (
-          <ReleaseInfoStep release={data.release} artists={artists} onSaved={reload} />
+          <ReleaseInfoStep ref={detailsStepRef} release={data.release} artists={artists} onSaved={reload} />
         ) : null}
 
         {releaseId && !loading && data?.release && step === uploadStepIndex ? (
@@ -268,12 +283,23 @@ export default function ReleaseCampaignPlanner() {
                 type="button"
                 className="rounded-full"
                 disabled={
-                  (step === detailsStepIndex && (!songs.length || !detailsReady)) ||
+                  savingDetails ||
                   (step === uploadStepIndex && !uploadsReady)
                 }
-                onClick={() => setStep((s) => s + 1)}
+                onClick={() => {
+                  if (step === detailsStepIndex) {
+                    requireAuth(continueFromDetails);
+                    return;
+                  }
+                  setStep((s) => s + 1);
+                }}
               >
-                Continue <ArrowRight className="ml-1.5 h-4 w-4" />
+                {savingDetails ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowRight className="ml-1.5 h-4 w-4" />
+                )}
+                Continue
               </Button>
             )}
             {step === generateStepIndex && !generating && (

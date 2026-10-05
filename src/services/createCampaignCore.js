@@ -9,7 +9,8 @@ import {
 import { linkDraftProjectsToCampaignDays } from "@/services/campaignVideoBridge";
 import { normalizePromoStyleChoice } from "@/services/promoStylePresets";
 import { addDaysISO, todayISO } from "@/services/format";
-import { buildAlbumSongForAI, pickAnchorSong } from "@/services/releaseCampaignMode";
+import { buildAlbumSongForAI, buildTrackSongForAI, pickAnchorSong } from "@/services/releaseCampaignMode";
+import { sortReleaseTracks } from "@/services/releaseTracks";
 
 async function createCampaignPlanFromAI({
   song,
@@ -22,10 +23,14 @@ async function createCampaignPlanFromAI({
   userId = "",
   campaignNameOverride = "",
   releaseScope = "track",
+  release = null,
+  allSongs = null,
   onStage,
 }) {
   const stage = (msg) => onStage?.(msg);
   const artistName = artist?.name || "Artist";
+  const orderedSongs = allSongs ? sortReleaseTracks(allSongs) : [];
+  const trackTitles = orderedSongs.map((s) => s.title).filter(Boolean);
   const songForAI = {
     ...song,
     language: song.language || "English",
@@ -37,7 +42,15 @@ async function createCampaignPlanFromAI({
   const analysis = {
     ...(generated && typeof generated === "object" ? generated : {}),
     assetProfile: song.analysis?.assetProfile || null,
-    releaseContext: releaseId ? { releaseId, scope: releaseScope } : null,
+    releaseContext: releaseId
+      ? {
+          releaseId,
+          scope: releaseScope,
+          releaseTitle: release?.title || "",
+          trackTitles,
+          focusTrackTitle: song.title || "",
+        }
+      : null,
   };
   await db.entities.Song.update(song.id, { analysis });
 
@@ -170,6 +183,8 @@ export async function generateCampaignForAlbum({
 export async function generateCampaignForSong({
   song,
   artist,
+  release = null,
+  songs = null,
   releaseId = "",
   goals = [],
   durationDays = 14,
@@ -179,16 +194,22 @@ export async function generateCampaignForSong({
   campaignNameSuffix = "",
   onStage,
 }) {
+  const artistName = artist?.name || "Artist";
+  const songForAI = release
+    ? buildTrackSongForAI(release, song, songs || [song], artistName)
+    : song;
   const result = await createCampaignPlanFromAI({
-    song,
+    song: { ...song, ...songForAI, artist_id: song.artist_id },
     artist,
-    releaseId,
+    releaseId: releaseId || release?.id || "",
     goals,
     durationDays,
     startDate,
     promoStylePreset,
     userId,
     releaseScope: "track",
+    release,
+    allSongs: songs,
     onStage,
   });
   if (campaignNameSuffix && result.campaign) {

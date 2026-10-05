@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { db } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -16,9 +16,10 @@ import { useAuth } from "@/lib/AuthContext";
 /**
  * Release metadata + tracklist (genre & language apply to every track).
  */
-export default function ReleaseInfoStep({ release, artists, onSaved }) {
+function ReleaseInfoStepInner({ release, artists, onSaved }, ref) {
   const { toast } = useToast();
   const { requireAuth } = useAuth();
+  const tracklistRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     title: release.title || "",
@@ -32,16 +33,36 @@ export default function ReleaseInfoStep({ release, artists, onSaved }) {
     language: release.language || "English",
   });
 
+  useEffect(() => {
+    setForm({
+      title: release.title || "",
+      artist_id: release.artist_id || "",
+      release_type: release.release_type || "single",
+      release_date: release.release_date || "",
+      artwork_url: release.artwork_url || "",
+      presave_url: release.presave_url || "",
+      description: release.description || "",
+      genre: release.genre || "",
+      language: release.language || "English",
+    });
+  }, [release]);
+
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  const saveRelease = async () => {
+  const saveRelease = async ({ quiet = false } = {}) => {
     if (!form.title.trim() || !form.artist_id) {
-      toast({ variant: "destructive", title: "Title and artist required" });
-      return;
+      if (!quiet) toast({ variant: "destructive", title: "Title and artist required" });
+      return false;
     }
     if (!form.genre || !form.language) {
-      toast({ variant: "destructive", title: "Genre and language required", description: "These apply to every song on the release." });
-      return;
+      if (!quiet) {
+        toast({
+          variant: "destructive",
+          title: "Genre and language required",
+          description: "These apply to every song on the release.",
+        });
+      }
+      return false;
     }
     setBusy(true);
     try {
@@ -71,20 +92,34 @@ export default function ReleaseInfoStep({ release, artists, onSaved }) {
           })
         )
       );
-      toast({ title: "Release details saved" });
+      if (!quiet) toast({ title: "Release details saved" });
       onSaved?.();
+      return true;
     } catch (e) {
-      toast({ variant: "destructive", title: "Save failed", description: e.message });
+      if (!quiet) toast({ variant: "destructive", title: "Save failed", description: e.message });
+      return false;
     } finally {
       setBusy(false);
     }
   };
 
+  const saveAll = async ({ quiet = true } = {}) => {
+    if (!tracklistRef.current?.hasTitles?.()) {
+      if (!quiet) toast({ variant: "destructive", title: "Add at least one track name" });
+      return false;
+    }
+    const releaseOk = await saveRelease({ quiet });
+    if (!releaseOk) return false;
+    return tracklistRef.current?.save?.({ quiet }) ?? false;
+  };
+
+  useImperativeHandle(ref, () => ({ saveAll }));
+
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted-foreground">
-        Set release info once — <strong>genre</strong> and <strong>language</strong> apply to every track. Next you will
-        upload audio (and optional lyrics) per song, then generate the campaign plan.
+        Set release info once — <strong>genre</strong> and <strong>language</strong> apply to every track. Name each
+        song on the tracklist; those names are used in your campaign hooks and posts. Next: upload audio per track.
       </p>
 
       <div className="space-y-1.5">
@@ -176,6 +211,7 @@ export default function ReleaseInfoStep({ release, artists, onSaved }) {
       </div>
 
       <ReleaseTracklistEditor
+        ref={tracklistRef}
         releaseId={release.id}
         artistId={form.artist_id || release.artist_id}
         releaseArtworkUrl={form.artwork_url}
@@ -183,12 +219,16 @@ export default function ReleaseInfoStep({ release, artists, onSaved }) {
         releaseGenre={form.genre}
         releaseLanguage={form.language}
         onSaved={onSaved}
+        hideSaveButton
       />
 
-      <Button type="button" className="rounded-full" disabled={busy} onClick={() => requireAuth(saveRelease)}>
+      <Button type="button" className="rounded-full" disabled={busy} onClick={() => requireAuth(() => saveAll({ quiet: false }))}>
         {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         Save release details
       </Button>
     </div>
   );
 }
+
+const ReleaseInfoStep = forwardRef(ReleaseInfoStepInner);
+export default ReleaseInfoStep;

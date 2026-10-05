@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { db } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/use-toast";
 import ArtworkUpload from "@/components/ArtworkUpload";
 import { loadArtists, loadReleases } from "@/services/data";
 import { GENRES, LANGUAGES, RELEASE_TYPES } from "@/services/constants";
+import { resolveTrackTitlesFromInput } from "@/services/releaseDefaults";
 import { todayISO } from "@/services/format";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -47,6 +48,18 @@ export default function ReleasePickOrCreateStep({ onReleaseReady }) {
   }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const prevTitleRef = useRef(form.title);
+
+  useEffect(() => {
+    if (form.release_type !== "single") return;
+    const prev = prevTitleRef.current;
+    prevTitleRef.current = form.title;
+    const track = form.trackTitles.trim();
+    if (!form.title.trim()) return;
+    if (!track || track === "Track 1" || track === prev) {
+      setForm((f) => (f.trackTitles === form.title ? f : { ...f, trackTitles: form.title }));
+    }
+  }, [form.release_type, form.title, form.trackTitles]);
 
   const continueWithExisting = () => {
     if (!selectedId) {
@@ -61,12 +74,9 @@ export default function ReleasePickOrCreateStep({ onReleaseReady }) {
       toast({ variant: "destructive", title: "Release title and artist required" });
       return;
     }
-    const titles = form.trackTitles
-      .split("\n")
-      .map((t) => t.trim())
-      .filter(Boolean);
+    const titles = resolveTrackTitlesFromInput(form.release_type, form.title, form.trackTitles);
     if (!titles.length) {
-      toast({ variant: "destructive", title: "Add at least one track title" });
+      toast({ variant: "destructive", title: "Add at least one track name" });
       return;
     }
     if (!form.genre || !form.language) {
@@ -250,7 +260,7 @@ export default function ReleasePickOrCreateStep({ onReleaseReady }) {
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Track titles (one per line)</Label>
+            <Label className="text-xs text-muted-foreground">Song names (one per line)</Label>
             <Textarea
               value={form.trackTitles}
               onChange={(e) => set("trackTitles", e.target.value)}
