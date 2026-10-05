@@ -12,9 +12,15 @@ const LOGIN_SCOPES = ["openid", "email", "profile"];
 
 /**
  * Start Google sign-in on your app domain (not *.supabase.co).
- * Native: same WebView (no Custom Tab chrome) + server-stored PKCE for callback safety.
+ * Native Android/iOS: Play Services / Google Sign-In SDK (no browser redirect).
+ * Web: PKCE redirect to /auth/google/callback.
  */
 export async function startGoogleSignIn(returnTo = "/") {
+  if (isNativeApp()) {
+    const { completeNativeGoogleSignIn } = await import("@/lib/googleAuthNativeSdk");
+    return completeNativeGoogleSignIn(returnTo);
+  }
+
   const clientId = getGoogleClientId();
   if (!clientId) {
     throw new Error(
@@ -34,11 +40,6 @@ export async function startGoogleSignIn(returnTo = "/") {
     await registerGoogleOAuthPkce({ state, codeVerifier: verifier, returnTo: safeReturn });
   } catch (e) {
     console.warn("[googleAuth] server PKCE register", e);
-    if (isNativeApp()) {
-      throw new Error(
-        "Could not start sign-in. Run supabase/migrations/20261005_google_oauth_pkce.sql and deploy registerGoogleOAuthPkce."
-      );
-    }
   }
 
   const params = new URLSearchParams({

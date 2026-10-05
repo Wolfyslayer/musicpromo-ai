@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Lock, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ export function AuthSuccessPulse() {
 }
 
 export default function AuthModal() {
+  const navigate = useNavigate();
   const { isLoginModalOpen, onLoginModalOpenChange, finishLogin, signInWithPassword, signUp } = useAuth();
   const [tab, setTab] = useState("login");
   const [email, setEmail] = useState("");
@@ -55,10 +56,20 @@ export default function AuthModal() {
 
   const handleGoogle = async () => {
     setError("");
+    setLoading(true);
     try {
-      await signInWithGoogle(`${window.location.pathname}${window.location.search}`);
+      const returnPath = `${window.location.pathname}${window.location.search}`;
+      const result = await signInWithGoogle(returnPath);
+      if (result?.destination) {
+        await finishLogin();
+        if (result.destination !== returnPath) {
+          navigate(result.destination, { replace: true });
+        }
+      }
     } catch (err) {
       setError(err?.message || "Google sign-in failed");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -203,7 +214,13 @@ export default function AuthModal() {
               </button>
             </div>
 
-            <Button type="button" variant="outline" className="h-12 w-full rounded-xl text-sm font-600" onClick={handleGoogle}>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 w-full rounded-xl text-sm font-600"
+              onClick={handleGoogle}
+              disabled={loading}
+            >
               <GoogleIcon className="mr-2 h-5 w-5" />
               Continue with Google
             </Button>

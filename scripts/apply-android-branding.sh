@@ -38,6 +38,14 @@ STRINGS=android/app/src/main/res/values/strings.xml
 if [[ -f "$STRINGS" ]]; then
   sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">MusicPromo AI<\/string>/' "$STRINGS"
   sed -i 's/<string name="title_activity_main">.*<\/string>/<string name="title_activity_main">MusicPromo AI<\/string>/' "$STRINGS"
+  SERVER_CLIENT_ID="${VITE_GOOGLE_CLIENT_ID:-}"
+  if [[ -n "$SERVER_CLIENT_ID" ]]; then
+    if grep -q 'name="server_client_id"' "$STRINGS"; then
+      sed -i "s|<string name=\"server_client_id\">.*</string>|<string name=\"server_client_id\">${SERVER_CLIENT_ID}</string>|" "$STRINGS"
+    else
+      sed -i "s|</resources>|  <string name=\"server_client_id\">${SERVER_CLIENT_ID}</string>\n</resources>|" "$STRINGS"
+    fi
+  fi
 fi
 
 MANIFEST=android/app/src/main/AndroidManifest.xml

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { initNativeShell } from "@/lib/nativeApp";
 import { syncNativePushRegistration, unregisterNativePushToken } from "@/services/pushNotifications";
+import { initializeNativeGoogleAuth } from "@/lib/googleAuthNativeSdk";
 import { installNativeGoogleAuthListener } from "@/lib/googleAuthNative";
 
 /** Initializes Capacitor chrome and push token sync when running as a native app. */
@@ -12,6 +13,8 @@ export default function NativeAppBootstrap() {
 
   useEffect(() => {
     initNativeShell();
+    initializeNativeGoogleAuth();
+    // Fallback if an OAuth callback still opens via App Link (older builds / webView tests).
     installNativeGoogleAuthListener(navigate);
   }, [navigate]);
 
