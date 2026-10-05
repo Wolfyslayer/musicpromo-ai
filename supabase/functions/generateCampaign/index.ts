@@ -1,6 +1,6 @@
 import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
 import { buildGenerateCampaignPrompt } from "../_shared/aiPrompts.ts";
-import { billingErrorResponse, spendCredits } from "../_shared/billing.ts";
+import { billingErrorResponse, withCreditCharge } from "../_shared/billing.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
 
 async function handler(req: Request) {
@@ -18,29 +18,32 @@ async function handler(req: Request) {
       return jsonWithCors(req, { error: "durationDays must be 7, 14 or 30" }, 400);
     }
 
-    let creditsRemaining: number | undefined;
+    const admin = serviceClient();
+    const uid = String(user.id);
     try {
-      const spend = await spendCredits(serviceClient(), String(user.id), "generate_campaign");
-      creditsRemaining = spend.balanceAfter;
+      const { result, spend } = await withCreditCharge(admin, uid, "generate_campaign", {}, async () => {
+        const { prompt, schema } = buildGenerateCampaignPrompt({
+          song: body.song,
+          analysis: body.analysis,
+          goals: body.goals,
+          durationDays,
+          startDate: body.startDate,
+          promoStyle: body.promoStyle,
+        });
+        return base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt,
+          response_json_schema: schema,
+        });
+      });
+      return jsonWithCors(req, {
+        ...(typeof result === "object" ? result : { result }),
+        creditsRemaining: spend.balanceAfter,
+      });
     } catch (creditErr) {
       const billed = billingErrorResponse(creditErr);
       if (billed) return jsonWithCors(req, billed.body, billed.status);
       throw creditErr;
     }
-
-    const { prompt, schema } = buildGenerateCampaignPrompt({
-      song: body.song,
-      analysis: body.analysis,
-      goals: body.goals,
-      durationDays,
-      startDate: body.startDate,
-      promoStyle: body.promoStyle,
-    });
-    const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt,
-      response_json_schema: schema,
-    });
-    return jsonWithCors(req, { ...(typeof result === "object" ? result : { result }), creditsRemaining });
   } catch (error) {
     const billed = billingErrorResponse(error);
     if (billed) return jsonWithCors(req, billed.body, billed.status);

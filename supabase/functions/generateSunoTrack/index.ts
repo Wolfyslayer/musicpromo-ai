@@ -1,5 +1,5 @@
 import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
-import { billingErrorResponse, spendCredits } from "../_shared/billing.ts";
+import { billingErrorResponse, withCreditCharge } from "../_shared/billing.ts";
 import { assertPremiumFeature, premiumErrorResponse } from "../_shared/premiumFeatures.ts";
 import { generateSunoTrack, sunoProviderStatus } from "../_shared/sunoGenerate.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
@@ -29,29 +29,32 @@ async function handler(req: Request) {
     const prompt = String(body?.prompt || "").trim();
     if (!prompt) return jsonWithCors(req, { error: "prompt is required" }, 400);
 
-    let creditsRemaining: number | undefined;
     try {
-      const spend = await spendCredits(admin, uid, "suno_generation", { prompt: prompt.slice(0, 120) });
-      creditsRemaining = spend.balanceAfter;
+      const { result: generated, spend } = await withCreditCharge(
+        admin,
+        uid,
+        "suno_generation",
+        { prompt: prompt.slice(0, 120) },
+        () =>
+          generateSunoTrack({
+            prompt,
+            lyrics: String(body?.lyrics || ""),
+            title: String(body?.title || ""),
+            instrumental: body?.instrumental === true,
+          })
+      );
+
+      return jsonWithCors(req, {
+        ok: true,
+        audioUrl: generated.audioUrl,
+        taskId: generated.taskId,
+        creditsRemaining: spend.balanceAfter,
+      });
     } catch (creditErr) {
       const billed = billingErrorResponse(creditErr);
       if (billed) return jsonWithCors(req, billed.body, billed.status);
       throw creditErr;
     }
-
-    const generated = await generateSunoTrack({
-      prompt,
-      lyrics: String(body?.lyrics || ""),
-      title: String(body?.title || ""),
-      instrumental: body?.instrumental === true,
-    });
-
-    return jsonWithCors(req, {
-      ok: true,
-      audioUrl: generated.audioUrl,
-      taskId: generated.taskId,
-      creditsRemaining,
-    });
   } catch (error) {
     const billed = billingErrorResponse(error);
     if (billed) return jsonWithCors(req, billed.body, billed.status);

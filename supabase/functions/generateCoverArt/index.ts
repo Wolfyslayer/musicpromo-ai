@@ -6,7 +6,7 @@ import {
   persistCoverArtFromBytes,
   persistCoverArtToStorage,
 } from "../_shared/aiCoverArt.ts";
-import { billingErrorResponse, spendCredits } from "../_shared/billing.ts";
+import { billingErrorResponse, withCreditCharge } from "../_shared/billing.ts";
 
 function decodeReferenceImageBase64(raw: unknown): Uint8Array | undefined {
   const b64 = String(raw || "").trim();
@@ -40,48 +40,46 @@ async function handler(req: Request) {
     const referenceImageBytes = decodeReferenceImageBase64(body?.referenceImageBase64);
 
     const admin = serviceClient();
-    let creditsRemaining: number | undefined;
+    const uid = String(user.id);
+    const creditAction = referenceImageBytes?.byteLength ? "cover_art_edit" : "cover_art";
+
     try {
-      const spend = await spendCredits(
-        admin,
-        String(user.id),
-        referenceImageBytes?.byteLength ? "cover_art_edit" : "cover_art"
-      );
-      creditsRemaining = spend.balanceAfter;
+      const { result: payload, spend } = await withCreditCharge(admin, uid, creditAction, {}, async () => {
+        const generated = await generateCloudCoverArt({
+          prompt,
+          title,
+          artistName,
+          genre,
+          mood,
+          useLlmPrompt,
+          referenceImageBytes,
+        });
+
+        const publicUrl = generated.imageBytes?.byteLength
+          ? await persistCoverArtFromBytes(admin, user.id, generated.imageBytes)
+          : generated.sourceUrl
+            ? await persistCoverArtToStorage(admin, user.id, generated.sourceUrl)
+            : "";
+
+        if (!publicUrl) throw new Error("Could not save generated cover.");
+
+        return {
+          ok: true as const,
+          imageUrl: publicUrl,
+          sourceUrl: generated.sourceUrl || publicUrl,
+          provider: generated.provider,
+          imagePrompt: generated.imagePrompt,
+          billingNote: generated.billingNote,
+          mode: generated.mode,
+        };
+      });
+
+      return jsonWithCors(req, { ...payload, creditsRemaining: spend.balanceAfter });
     } catch (creditErr) {
       const billed = billingErrorResponse(creditErr);
       if (billed) return jsonWithCors(req, billed.body, billed.status);
       throw creditErr;
     }
-
-    const generated = await generateCloudCoverArt({
-      prompt,
-      title,
-      artistName,
-      genre,
-      mood,
-      useLlmPrompt,
-      referenceImageBytes,
-    });
-
-    const publicUrl = generated.imageBytes?.byteLength
-      ? await persistCoverArtFromBytes(admin, user.id, generated.imageBytes)
-      : generated.sourceUrl
-        ? await persistCoverArtToStorage(admin, user.id, generated.sourceUrl)
-        : "";
-
-    if (!publicUrl) throw new Error("Could not save generated cover.");
-
-    return jsonWithCors(req, {
-      ok: true,
-      imageUrl: publicUrl,
-      sourceUrl: generated.sourceUrl || publicUrl,
-      provider: generated.provider,
-      imagePrompt: generated.imagePrompt,
-      billingNote: generated.billingNote,
-      mode: generated.mode,
-      creditsRemaining,
-    });
   } catch (error) {
     const billed = billingErrorResponse(error);
     if (billed) return jsonWithCors(req, billed.body, billed.status);

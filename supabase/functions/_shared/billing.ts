@@ -296,7 +296,27 @@ export async function grantCreditPackPurchase(
   return { alreadyProcessed: false as const, creditsAdded: amount, creditsBalance: balanceAfter };
 }
 
-/** Deduct credits before an AI call. Refund manually if the call fails after deduct (optional). */
+/** Deduct credits, run work, and refund the charge if work throws (failed AI / persistence). */
+export async function withCreditCharge<T>(
+  admin: SupabaseClient,
+  userId: string,
+  action: CreditAction,
+  metadata: Record<string, unknown>,
+  work: () => Promise<T>
+): Promise<{ result: T; spend: { cost: number; balanceAfter: number; plan: BillingPlan; billingExempt?: boolean } }> {
+  const spend = await spendCredits(admin, userId, action, metadata);
+  try {
+    const result = await work();
+    return { result, spend };
+  } catch (err) {
+    if (spend.cost > 0) {
+      await refundCredits(admin, userId, spend.cost, (err as Error).message).catch(() => {});
+    }
+    throw err;
+  }
+}
+
+/** Deduct credits before an AI call. Prefer {@link withCreditCharge} so failures refund automatically. */
 export async function spendCredits(
   admin: SupabaseClient,
   userId: string,
