@@ -1,5 +1,3 @@
-import { db } from '@/api/base44Client';
-
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Plus, Filter } from "lucide-react";
@@ -8,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 
-import { loadCampaigns } from "@/services/data";
+import { deleteCampaign, loadCampaigns } from "@/services/data";
 import { CAMPAIGN_STATUSES } from "@/services/constants";
 import CampaignCard from "@/components/CampaignCard";
 import EmptyState from "@/components/EmptyState";
@@ -40,11 +38,18 @@ export default function Campaigns() {
   });
 
   const remove = async (c) => {
-    await db.entities.CampaignDay.deleteMany({ campaign_id: c.id });
-    await db.entities.Campaign.delete(c.id);
-    setConfirm(null);
-    toast({ title: "Campaign deleted" });
-    reload();
+    try {
+      await deleteCampaign(c.id);
+      setConfirm(null);
+      toast({ title: "Campaign deleted", description: "Queued auto-publish posts were cancelled." });
+      reload();
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "Could not delete campaign",
+        description: e?.message || "Try again after redeploying campaignCancelAutoPublish.",
+      });
+    }
   };
 
   return (
@@ -99,7 +104,7 @@ export default function Campaigns() {
         open={!!confirm}
         onOpenChange={(o) => !o && setConfirm(null)}
         title="Delete this campaign?"
-        description="This removes the campaign and its day-by-day plan. This cannot be undone."
+        description="This removes the campaign and its day-by-day plan and cancels any queued auto-publish. This cannot be undone."
         confirmLabel="Delete"
         destructive
         onConfirm={() => confirm && remove(confirm.camp)}

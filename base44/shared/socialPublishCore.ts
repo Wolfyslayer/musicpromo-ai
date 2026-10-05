@@ -205,6 +205,57 @@ export async function publishSocialPostCore(params: {
       };
     }
 
+    if (allowScheduled && String(post.status) === "scheduled") {
+      const campaignId = post.campaign_id ? String(post.campaign_id) : "";
+      if (campaignId) {
+        let campaign: Record<string, unknown> | null = null;
+        try {
+          campaign = await base44.asServiceRole.entities.Campaign.get(campaignId);
+        } catch {
+          campaign = null;
+        }
+        if (!campaign) {
+          const updated = await base44.asServiceRole.entities.SocialPost.update(postId, {
+            status: "draft",
+            scheduled_at: "",
+            error_code: "CAMPAIGN_CANCELLED",
+            error_message: "Campaign no longer exists.",
+          });
+          return {
+            ok: false,
+            code: "CAMPAIGN_CANCELLED",
+            message: "Campaign no longer exists — auto-publish cancelled.",
+            status: 410,
+            post: safeSocialPost({ ...post, ...updated }),
+          };
+        }
+      }
+      const dayId = post.campaign_day_id ? String(post.campaign_day_id) : "";
+      if (dayId) {
+        let day: Record<string, unknown> | null = null;
+        try {
+          day = await base44.asServiceRole.entities.CampaignDay.get(dayId);
+        } catch {
+          day = null;
+        }
+        if (!day) {
+          const updated = await base44.asServiceRole.entities.SocialPost.update(postId, {
+            status: "draft",
+            scheduled_at: "",
+            error_code: "CAMPAIGN_CANCELLED",
+            error_message: "Campaign day no longer exists.",
+          });
+          return {
+            ok: false,
+            code: "CAMPAIGN_CANCELLED",
+            message: "Campaign day no longer exists — auto-publish cancelled.",
+            status: 410,
+            post: safeSocialPost({ ...post, ...updated }),
+          };
+        }
+      }
+    }
+
     const accounts = await base44.asServiceRole.entities.SocialAccount.filter(
       { user_id: post.user_id, provider },
       "-connected_at",

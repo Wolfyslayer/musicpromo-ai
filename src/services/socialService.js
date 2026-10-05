@@ -242,6 +242,11 @@ export async function scheduleCampaignDay(payload) {
   return result;
 }
 
+/** Cancel queued SocialPosts and scheduled plan days before removing a campaign. */
+export async function cancelCampaignAutoPublish(campaignId) {
+  return invoke("campaignCancelAutoPublish", { campaignId: String(campaignId || "") });
+}
+
 /** Process due scheduled posts now (posts remain queued until scheduled_at). */
 export async function kickCampaignWorker(payload) {
   return invoke("kickCampaignWorker", payload || {});
