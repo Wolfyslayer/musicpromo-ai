@@ -21,6 +21,20 @@ export async function startSubscriptionCheckout(plan = "creator", interval = "mo
   return { billingExempt: false };
 }
 
+export async function startCreditPackCheckout(packId) {
+  const res = await db.functions.invoke("createSubscriptionCheckout", {
+    checkoutType: "credit_pack",
+    packId,
+  });
+  if (res.data?.billingExempt) {
+    return { billingExempt: true, message: res.data.message };
+  }
+  const url = res.data?.url;
+  if (!url) throw new Error(res.data?.error || "Could not start checkout.");
+  window.location.assign(url);
+  return { billingExempt: false };
+}
+
 /** Human-readable labels for credit cost keys returned by the API. */
 /** @deprecated use startSubscriptionCheckout */
 export async function startProCheckout() {

@@ -11,7 +11,7 @@ export class PremiumFeatureRequiredError extends Error {
     public plan: BillingPlanId
   ) {
     super(
-      `This feature requires a Creator plan or higher. Upgrade in Settings → Plan & credits (from $15/mo).`
+      `This feature requires a Creator plan or higher. Upgrade in Settings → Plan & credits (from $9/mo).`
     );
     this.name = "PremiumFeatureRequiredError";
   }

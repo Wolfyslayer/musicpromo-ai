@@ -11,9 +11,11 @@ export type PlanCatalogEntry = {
   id: PaidPlanId;
   name: string;
   tagline: string;
-  /** USD list price for marketing UI */
+  /** USD list price for marketing UI (set matching amounts in Stripe). */
   priceMonthlyUsd: number;
   priceYearlyUsd: number;
+  /** Typical standalone AI music / promo apps (display-only comparison). */
+  compareAtMonthlyUsd: number;
   monthlyCredits: number;
   premiumFeatures: PremiumFeature[];
   highlights: string[];
@@ -23,44 +25,47 @@ export const PAID_PLANS: PlanCatalogEntry[] = [
   {
     id: "creator",
     name: "Creator",
-    tagline: "Suno-style songs + stems for indie releases",
-    priceMonthlyUsd: 15,
-    priceYearlyUsd: 144,
-    monthlyCredits: 450,
+    tagline: "Songs + stems + promo — less than a Suno-style plan alone",
+    priceMonthlyUsd: 9,
+    priceYearlyUsd: 86,
+    compareAtMonthlyUsd: 18,
+    monthlyCredits: 500,
     premiumFeatures: ["suno_generation", "stem_split"],
     highlights: [
-      "450 AI credits / month",
+      "500 AI credits / month",
       "AI song generation (Suno)",
       "Stem splitter (vocals / drums / bass / other)",
-      "Campaign plans & video clips included",
+      "Free campaign plans & video clips",
     ],
   },
   {
     id: "pro",
     name: "Pro",
-    tagline: "More credits for weekly content + covers",
-    priceMonthlyUsd: 29,
-    priceYearlyUsd: 278,
-    monthlyCredits: 1200,
+    tagline: "Weekly drops + cover art without the $30+ tool stack",
+    priceMonthlyUsd: 18,
+    priceYearlyUsd: 172,
+    compareAtMonthlyUsd: 32,
+    monthlyCredits: 1400,
     premiumFeatures: ["suno_generation", "stem_split"],
     highlights: [
-      "1,200 AI credits / month",
+      "1,400 AI credits / month",
       "Everything in Creator",
-      "Best for multiple releases / month",
+      "Built for artists posting every week",
     ],
   },
   {
     id: "studio",
     name: "Studio",
-    tagline: "Label-style volume — compete with full AI suites",
-    priceMonthlyUsd: 49,
-    priceYearlyUsd: 470,
-    monthlyCredits: 3500,
+    tagline: "Roster volume — under typical label SaaS pricing",
+    priceMonthlyUsd: 32,
+    priceYearlyUsd: 306,
+    compareAtMonthlyUsd: 55,
+    monthlyCredits: 4000,
     premiumFeatures: ["suno_generation", "stem_split"],
     highlights: [
-      "3,500 AI credits / month",
+      "4,000 AI credits / month",
       "Everything in Pro",
-      "Lowest cost per credit for power users",
+      "Best $/credit for managers & small labels",
     ],
   },
 ];
@@ -143,6 +148,78 @@ export function stripePlansConfigured(): boolean {
   );
 }
 
+export type PlanComparisonRow = {
+  key: string;
+  label: string;
+  free: string | boolean;
+  creator: string | boolean;
+  pro: string | boolean;
+  studio: string | boolean;
+};
+
+/** Feature matrix for the plan picker "Compare" tab. */
+export function publicPlanComparison(): PlanComparisonRow[] {
+  const freeCredits = monthlyCreditsForPlan("free");
+  return [
+    {
+      key: "monthly_credits",
+      label: "Monthly AI credits",
+      free: String(freeCredits),
+      creator: String(monthlyCreditsForPlan("creator")),
+      pro: String(monthlyCreditsForPlan("pro")),
+      studio: String(monthlyCreditsForPlan("studio")),
+    },
+    {
+      key: "campaign",
+      label: "Campaign plan generation",
+      free: true,
+      creator: true,
+      pro: true,
+      studio: true,
+    },
+    {
+      key: "video_clip",
+      label: "Cloud AI video clips",
+      free: true,
+      creator: true,
+      pro: true,
+      studio: true,
+    },
+    {
+      key: "suno",
+      label: "AI song generation (Suno)",
+      free: false,
+      creator: true,
+      pro: true,
+      studio: true,
+    },
+    {
+      key: "stems",
+      label: "Stem splitter",
+      free: false,
+      creator: true,
+      pro: true,
+      studio: true,
+    },
+    {
+      key: "daily_claim",
+      label: "Daily 🎁 credit streak",
+      free: true,
+      creator: true,
+      pro: true,
+      studio: true,
+    },
+    {
+      key: "credit_packs",
+      label: "Buy extra credits anytime",
+      free: true,
+      creator: true,
+      pro: true,
+      studio: true,
+    },
+  ];
+}
+
 export function publicPlanCatalog() {
   return PAID_PLANS.map((p) => ({
     id: p.id,
@@ -150,6 +227,8 @@ export function publicPlanCatalog() {
     tagline: p.tagline,
     priceMonthlyUsd: p.priceMonthlyUsd,
     priceYearlyUsd: p.priceYearlyUsd,
+    compareAtMonthlyUsd: p.compareAtMonthlyUsd,
+    savingsVsTypicalMonthlyUsd: Math.max(0, p.compareAtMonthlyUsd - p.priceMonthlyUsd),
     yearlySavingsUsd: Math.max(0, p.priceMonthlyUsd * 12 - p.priceYearlyUsd),
     monthlyCredits: monthlyCreditsForPlan(p.id),
     premiumFeatures: p.premiumFeatures,

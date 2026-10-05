@@ -1,90 +1,87 @@
 # Plans, credits & Stripe
 
-**Free tier:** monthly credits, campaign plans and cloud video clips always free, daily 🎁 claims in the header.
+**Free tier:** 120 monthly credits, free campaign plans & cloud video clips, daily 🎁 claims.
 
-**Paid tiers (monthly or yearly via Stripe):**
+**Paid tiers** — priced **below** typical standalone AI music apps (Suno-class ~$10–30/mo) while bundling **promo campaigns, covers, and social tools**:
 
-| Plan | Target price | Credits / month | Premium |
-|------|----------------|-----------------|--------|
-| **Creator** | $15/mo · $144/yr | 450 | Suno songs + stem splitter |
-| **Pro** | $29/mo · $278/yr | 1,200 | Same premium tools, more credits |
-| **Studio** | $49/mo · $470/yr | 3,500 | Power-user volume |
+| Plan | Our price | Typical stack* | Credits / mo | Premium |
+|------|-----------|----------------|--------------|---------|
+| **Creator** | **$9/mo** · $86/yr | ~$18/mo | 500 | Suno + stems |
+| **Pro** | **$18/mo** · $172/yr | ~$32/mo | 1,400 | Same |
+| **Studio** | **$32/mo** · $306/yr | ~$55/mo | 4,000 | Same |
 
-Premium tools live at **`/premium`** (AI songs & stems). Requires active **Creator, Pro, or Studio** subscription (or staff `dev`/`admin`).
+\*Display comparison only — “elsewhere” = common Suno/UGC/design subscriptions combined, not a specific competitor.
 
-## Database migrations
+Set **Stripe Prices** to these USD amounts (or lower for promos). The app catalog is in `subscriptionPlans.ts`.
 
-Run in **Supabase → SQL editor**:
+Premium: **`/premium`** (AI songs & stems). Requires Creator, Pro, or Studio (or staff `dev`/`admin`).
 
-- `supabase/migrations/20261005_user_billing.sql`
-- `supabase/migrations/20261006_daily_credit_claim.sql`
-- `supabase/migrations/20261006_subscription_tiers.sql`
-- `supabase/migrations/20261005_user_role_guard.sql` (staff roles)
+## Migrations
 
-## Stripe products & secrets
+- `20261005_user_billing.sql`
+- `20261006_daily_credit_claim.sql`
+- `20261006_subscription_tiers.sql`
+- `20261005_user_role_guard.sql`
 
-Create **6 recurring Prices** in Stripe (or 3 products with monthly + yearly). Map each to Supabase secrets:
+## Stripe secrets
 
-| Secret | Plan |
-|--------|------|
-| `STRIPE_CREATOR_MONTHLY_PRICE_ID` | Creator monthly (~$15) |
-| `STRIPE_CREATOR_YEARLY_PRICE_ID` | Creator yearly (~$144) |
-| `STRIPE_PRO_MONTHLY_PRICE_ID` | Pro monthly (~$29) — legacy alias: `STRIPE_PRO_PRICE_ID` |
-| `STRIPE_PRO_YEARLY_PRICE_ID` | Pro yearly (~$278) |
-| `STRIPE_STUDIO_MONTHLY_PRICE_ID` | Studio monthly (~$49) |
-| `STRIPE_STUDIO_YEARLY_PRICE_ID` | Studio yearly (~$470) |
+| Secret | Target USD |
+|--------|------------|
+| `STRIPE_CREATOR_MONTHLY_PRICE_ID` | $9/mo |
+| `STRIPE_CREATOR_YEARLY_PRICE_ID` | $86/yr |
+| `STRIPE_PRO_MONTHLY_PRICE_ID` | $18/mo (legacy: `STRIPE_PRO_PRICE_ID`) |
+| `STRIPE_PRO_YEARLY_PRICE_ID` | $172/yr |
+| `STRIPE_STUDIO_MONTHLY_PRICE_ID` | $32/mo |
+| `STRIPE_STUDIO_YEARLY_PRICE_ID` | $306/yr |
 
-Also required:
+Plus `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PUBLIC_APP_URL`.
 
-| Secret | Purpose |
-|--------|---------|
-| `STRIPE_SECRET_KEY` | Stripe API |
-| `STRIPE_WEBHOOK_SECRET` | Webhook signing (`whsec_…`) |
-| `PUBLIC_APP_URL` | Checkout return URLs |
+Checkout (subscription): `{ "plan": "creator"|"pro"|"studio", "interval": "month"|"year" }`.
 
-Checkout body: `{ "plan": "creator"|"pro"|"studio", "interval": "month"|"year" }` → `createSubscriptionCheckout`.
+### One-time credit packs
 
-Webhook maps **Price id → plan tier** and sets `user_billing.plan` to `creator` | `pro` | `studio`.
+| Pack ID | Credits | Target USD |
+|---------|---------|------------|
+| `boost_100` | 100 | $5 |
+| `boost_300` | 300 | $12 |
+| `boost_800` | 800 | $28 |
+| `boost_2000` | 2000 | $60 |
 
-## Premium AI backends
+| Secret | Target USD |
+|--------|------------|
+| `STRIPE_CREDIT_PACK_BOOST_100_PRICE_ID` | $5 |
+| `STRIPE_CREDIT_PACK_BOOST_300_PRICE_ID` | $12 |
+| `STRIPE_CREDIT_PACK_BOOST_800_PRICE_ID` | $28 |
+| `STRIPE_CREDIT_PACK_BOOST_2000_PRICE_ID` | $60 |
+
+Optional credit overrides: `CREDIT_PACK_100_CREDITS`, `CREDIT_PACK_300_CREDITS`, etc.
+
+Checkout (pack): `{ "checkoutType": "credit_pack", "packId": "boost_100"|"boost_300"|"boost_800"|"boost_2000" }`.
+
+Credits are granted on `checkout.session.completed` (webhook). Catalog in `creditPacks.ts`.
+
+## Premium backends
 
 | Secret | Feature |
 |--------|---------|
-| `SUNO_API_BASE_URL` + `SUNO_API_KEY` | Suno-compatible song API (`generateSunoTrack`) |
-| `REPLICATE_API_TOKEN` | Stem splitter via Demucs (`splitAudioStems`) |
+| `SUNO_API_BASE_URL` + `SUNO_API_KEY` | `generateSunoTrack` |
+| `REPLICATE_API_TOKEN` | `splitAudioStems` |
 
-Credit costs (defaults): `suno_generation` 25, `stem_split` 18. Premium gate returns **403** `PREMIUM_REQUIRED` on free tier.
+Credit defaults: `suno_generation` 25, `stem_split` 18.
 
-## Credits & claims
+## Credit env overrides
 
 | Secret | Default |
 |--------|---------|
 | `BILLING_FREE_MONTHLY_CREDITS` | 120 |
-| `BILLING_CREATOR_MONTHLY_CREDITS` | 450 |
-| `BILLING_PRO_MONTHLY_CREDITS` | 1200 |
-| `BILLING_STUDIO_MONTHLY_CREDITS` | 3500 |
-| `DAILY_CLAIM_BASE_CREDITS` | 2 (day 3 = 2×, day 7 = 4×) |
+| `BILLING_CREATOR_MONTHLY_CREDITS` | 500 |
+| `BILLING_PRO_MONTHLY_CREDITS` | 1400 |
+| `BILLING_STUDIO_MONTHLY_CREDITS` | 4000 |
 
-Always-free actions: `generate_campaign`, `ai_video_clip`.
+Always free: campaign plan, cloud AI video clip. Daily claim via header 🎁.
 
-Daily claim: `getUserBilling` `{ "action": "claim" }` or header 🎁 UI.
+## Deploy
 
-## Deploy functions
+`getUserBilling`, `createSubscriptionCheckout`, `stripeBillingWebhook`, `generateSunoTrack`, `splitAudioStems`, plus existing AI functions.
 
-- `getUserBilling`, `createSubscriptionCheckout`, `stripeBillingWebhook`
-- `generateSunoTrack`, `splitAudioStems`
-- Updated billing on existing AI functions
-
-Webhook URL: `https://<project-ref>.supabase.co/functions/v1/stripeBillingWebhook`
-
-## Staff roles
-
-`dev` / `admin` on `public.users.role` or JWT `app_metadata.role` — unlimited credits and all premium features. See earlier migration for self-service role guard.
-
-## App UX
-
-- **Settings → Plan & credits** — tier picker (monthly/yearly), balance, costs
-- **Header 🎁** — daily claim streak
-- **`/premium`** — Suno + stem splitter
-
-Manage billing in [Stripe Customer Portal](https://dashboard.stripe.com/settings/billing/portal) when enabled.
+Webhook: `https://<project-ref>.supabase.co/functions/v1/stripeBillingWebhook`

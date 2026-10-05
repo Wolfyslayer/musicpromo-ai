@@ -89,11 +89,11 @@ export default function PremiumAiStudio() {
       <PageHeader
         eyebrow="Premium AI"
         title="Songs & stems"
-        description="Creator plan and above — competitive with dedicated AI music apps. Uses credits per generation."
+        description="Creator plan and above — full promo stack plus Suno & stems, priced below most AI-only apps."
         actions={
           !hasSuno || !hasStem ? (
             <Button type="button" className="rounded-full" asChild>
-              <Link to="/settings/billing">Upgrade from $15/mo</Link>
+              <Link to="/settings/billing">Upgrade from $9/mo</Link>
             </Button>
           ) : null
         }

@@ -1,5 +1,7 @@
 import { serviceClient } from "../_shared/runtime.ts";
 import { verifyStripeWebhookSignature } from "../_shared/stripeWebhookVerify.ts";
+import { grantCreditPackPurchase } from "../_shared/billing.ts";
+import { creditPackFromStripePriceId, normalizeCreditPackId } from "../_shared/creditPacks.ts";
 import {
   monthlyCreditsForPlan,
   planFromStripePriceId,
@@ -110,7 +112,38 @@ Deno.serve(async (req) => {
     const obj = event.data?.object || {};
 
     if (type === "checkout.session.completed") {
-      const userId = String((obj.metadata as Record<string, string>)?.user_id || "");
+      const meta = (obj.metadata as Record<string, string>) || {};
+      const userId = String(meta.user_id || "");
+      const sessionId = String(obj.id || "");
+      const checkoutType = String(meta.checkout_type || "");
+      const mode = String(obj.mode || "");
+
+      if (userId && (checkoutType === "credit_pack" || mode === "payment")) {
+        let packId = normalizeCreditPackId(meta.credit_pack_id);
+        if (!packId) {
+          const lineItems = obj.line_items as { data?: Array<{ price?: { id?: string } }> } | undefined;
+          const priceFromExpand = String(lineItems?.data?.[0]?.price?.id || "");
+          const priceFromMeta = String(obj.display_items || "");
+          void priceFromMeta;
+          if (priceFromExpand) packId = creditPackFromStripePriceId(priceFromExpand);
+        }
+        if (!packId && sessionId) {
+          const secret = Deno.env.get("STRIPE_SECRET_KEY") || "";
+          const sessRes = await fetch(
+            `https://api.stripe.com/v1/checkout/sessions/${sessionId}?expand[]=line_items.data.price`,
+            { headers: { Authorization: `Bearer ${secret}` } }
+          );
+          const sess = await sessRes.json();
+          if (sessRes.ok) {
+            const pid = String(sess?.line_items?.data?.[0]?.price?.id || "");
+            packId = creditPackFromStripePriceId(pid) || normalizeCreditPackId(sess?.metadata?.credit_pack_id);
+          }
+        }
+        if (packId && sessionId) {
+          await grantCreditPackPurchase(serviceClient(), userId, packId, sessionId);
+        }
+      }
+
       const subId = String(obj.subscription || "");
       if (userId && subId) {
         const secret = Deno.env.get("STRIPE_SECRET_KEY") || "";
