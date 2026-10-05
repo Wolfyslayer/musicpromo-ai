@@ -32,6 +32,10 @@ export default function SubscriptionPlanPicker({ catalog, currentPlan, stripeCon
 
   return (
     <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        All paid tiers include AI songs, stem splitting, and promo tools. Prices are below what most artists pay for
+        separate Suno-style + design subscriptions — match these amounts to your Stripe Prices.
+      </p>
       <div className="inline-flex rounded-full bg-muted/50 p-1">
         <button
           type="button"
@@ -70,12 +74,24 @@ export default function SubscriptionPlanPicker({ catalog, currentPlan, stripeCon
             >
               <p className="font-heading text-lg font-semibold">{p.name}</p>
               <p className="mt-1 text-xs text-muted-foreground">{p.tagline}</p>
-              <p className="mt-3 text-2xl font-bold tabular-nums">
-                ${price}
-                <span className="text-sm font-normal text-muted-foreground">/{interval === "year" ? "yr" : "mo"}</span>
+              <p className="mt-3 flex flex-wrap items-baseline gap-2">
+                <span className="text-2xl font-bold tabular-nums">
+                  ${price}
+                  <span className="text-sm font-normal text-muted-foreground">/{interval === "year" ? "yr" : "mo"}</span>
+                </span>
+                {interval === "month" && p.compareAtMonthlyUsd > p.priceMonthlyUsd ? (
+                  <span className="text-sm text-muted-foreground line-through tabular-nums">
+                    ${p.compareAtMonthlyUsd}/mo elsewhere
+                  </span>
+                ) : null}
               </p>
+              {interval === "month" && p.savingsVsTypicalMonthlyUsd > 0 ? (
+                <p className="text-xs text-emerald-500">
+                  About ${p.savingsVsTypicalMonthlyUsd}/mo less than typical AI music stacks
+                </p>
+              ) : null}
               {interval === "year" && p.yearlySavingsUsd > 0 ? (
-                <p className="text-xs text-emerald-500">Save ${p.yearlySavingsUsd}/yr vs monthly</p>
+                <p className="text-xs text-emerald-500">Save ${p.yearlySavingsUsd}/yr vs paying monthly</p>
               ) : null}
               <ul className="mt-3 flex-1 space-y-1.5 text-xs text-muted-foreground">
                 {p.highlights?.map((h) => (
