@@ -10,6 +10,7 @@ import { linkDraftProjectsToCampaignDays } from "@/services/campaignVideoBridge"
 import { normalizePromoStyleChoice } from "@/services/promoStylePresets";
 import { addDaysISO, todayISO } from "@/services/format";
 import { buildAlbumSongForAI, buildTrackSongForAI, pickAnchorSong } from "@/services/releaseCampaignMode";
+import { buildAiSongPayload } from "@/services/aiSongPayload";
 import { sortReleaseTracks } from "@/services/releaseTracks";
 
 async function createCampaignPlanFromAI({
@@ -31,17 +32,19 @@ async function createCampaignPlanFromAI({
   const artistName = artist?.name || "Artist";
   const orderedSongs = allSongs ? sortReleaseTracks(allSongs) : [];
   const trackTitles = orderedSongs.map((s) => s.title).filter(Boolean);
-  const songForAI = {
-    ...song,
-    language: song.language || "English",
+  const songForAI = buildAiSongPayload({
+    song,
     artistName,
-  };
+    release,
+    allSongs: orderedSongs.length ? orderedSongs : null,
+  });
 
   stage?.("Analyzing song with AI…");
   const generated = await aiService.analyzeSong(songForAI);
   const analysis = {
     ...(generated && typeof generated === "object" ? generated : {}),
-    assetProfile: song.analysis?.assetProfile || null,
+    assetProfile: song.analysis?.assetProfile || songForAI.assetProfile || null,
+    mediaContext: generated?.mediaContext || null,
     releaseContext: releaseId
       ? {
           releaseId,
@@ -164,6 +167,8 @@ export async function generateCampaignForAlbum({
   return createCampaignPlanFromAI({
     song: { ...anchor, ...songForAI, artist_id: anchor.artist_id },
     artist,
+    release,
+    allSongs: songs,
     releaseId: release.id,
     goals,
     durationDays,

@@ -19,6 +19,22 @@ const SONG_SUMMARY = (song) => {
     `Language: ${song.language || "Unspecified"}`,
     `Release date: ${song.release_date || "Not set"}`,
   ];
+  if (song.release_title || song.releaseTitle) {
+    parts.push(`Release: ${song.release_title || song.releaseTitle}`);
+  }
+  if (song.release_type || song.releaseType) {
+    parts.push(`Release type: ${song.release_type || song.releaseType}`);
+  }
+  if (Array.isArray(song.tracks) && song.tracks.length > 1) {
+    const list = song.tracks
+      .map((t) => String(t?.title || "Untitled").trim())
+      .filter(Boolean)
+      .join(", ");
+    parts.push(`Tracklist (${song.tracks.length} tracks): ${list}`);
+  }
+  if (song.assetProfile?.label) {
+    parts.push(`On-device visual read (from artwork colors): ${song.assetProfile.label}`);
+  }
   if (song.description) parts.push(`Description: ${song.description}`);
   if (song.lyrics && song.lyrics.trim()) {
     parts.push(`Lyrics:\n${song.lyrics.slice(0, 4000)}`);
