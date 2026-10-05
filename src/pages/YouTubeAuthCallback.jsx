@@ -33,7 +33,7 @@ export default function YouTubeAuthCallback() {
         if (!data?.ok) throw new Error(data?.error || "Could not finish YouTube connection.");
 
         if (!cancelled) {
-          window.location.replace("/social?social_connected=youtube");
+          window.location.replace("/social/connect?social_connected=youtube");
         }
       } catch (err) {
         if (!cancelled) setError(err?.message || "YouTube connection failed.");
@@ -49,7 +49,7 @@ export default function YouTubeAuthCallback() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-destructive">{error}</p>
-        <Link to="/social" className="text-sm text-primary underline">
+        <Link to="/social/connect" className="text-sm text-primary underline">
           Back to Social Hub
         </Link>
       </div>

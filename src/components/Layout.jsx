@@ -41,7 +41,7 @@ const SECONDARY = [
   { to: "/premium", label: "AI songs", icon: Music2 },
   { to: "/artists", label: "Artists", icon: Users },
   { to: "/releases", label: "Releases", icon: Disc3 },
-  { to: "/social", label: "Social", icon: Share2 },
+  { to: "/social/connect", label: "Social", icon: Share2 },
 ];
 
 function SideLink({ item, active }) {

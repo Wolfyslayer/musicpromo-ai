@@ -51,7 +51,7 @@ function requirePublicAppUrl(): string | null {
 }
 
 function redirectToSocial(home: string, query: Record<string, string>): Response {
-  return Response.redirect(`${home}/social?${new URLSearchParams(query)}`, 302);
+  return Response.redirect(`${home}/social/connect?${new URLSearchParams(query)}`, 302);
 }
 
 function configurationErrorResponse(): Response {
@@ -107,7 +107,7 @@ function debugFailureResponse(params: {
     social_debug_type: params.errorType,
   };
   if (params.provider) query.provider = params.provider;
-  return Response.redirect(`${params.home}/social?${new URLSearchParams(query)}`, 302);
+  return Response.redirect(`${params.home}/social/connect?${new URLSearchParams(query)}`, 302);
 }
 
 function sleep(ms: number): Promise<void> {

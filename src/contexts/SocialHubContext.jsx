@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import {
   startOAuth,
@@ -51,6 +51,8 @@ const SocialHubContext = createContext(null);
 
 export function SocialHubProvider({ children }) {
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { requireAuth, isAuthenticated } = useAuth();
   const [providers, setProviders] = useState(() => mergeProvidersWithConnections([], {}));
@@ -135,6 +137,10 @@ export function SocialHubProvider({ children }) {
     const debugStack = params.get("social_debug_stack");
     if (!err && !ok && !warn && !details && !debugType) return;
 
+    if (location.pathname === "/social") {
+      navigate(`/social/connect${location.search}`, { replace: true });
+    }
+
     if (err || details || meta || debugType) {
       const debugPayload = {
         success: false,
@@ -197,7 +203,7 @@ export function SocialHubProvider({ children }) {
       "provider",
     ].forEach((k) => next.delete(k));
     setParams(next, { replace: true });
-  }, [params, setParams, toast, reload]);
+  }, [params, setParams, toast, reload, location.pathname, location.search, navigate]);
 
   const beginConnect = async (providerIdOrObj) => {
     const providerId = String(
