@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { isBillingExempt, resolveAppRole, roleBypassesBilling } from "./appRoles.ts";
+import { getDailyClaimStatus } from "./dailyClaims.ts";
 
 export type BillingPlan = "free" | "pro";
 
@@ -14,16 +15,19 @@ export type CreditAction =
 /** Credits charged per premium AI call (tune via env CREDIT_COST_<ACTION>). */
 export const CREDIT_COSTS: Record<CreditAction, number> = {
   analyze_song: 3,
-  generate_campaign: 12,
+  generate_campaign: 0,
   generate_content: 2,
   cover_art: 8,
   cover_art_edit: 10,
-  ai_video_clip: 20,
+  ai_video_clip: 0,
 };
 
+/** Shown in API/docs — always free regardless of env overrides for these actions. */
+export const ALWAYS_FREE_CREDIT_ACTIONS = new Set<CreditAction>(["generate_campaign", "ai_video_clip"]);
+
 const PLAN_MONTHLY_GRANT: Record<BillingPlan, number> = {
-  free: 40,
-  pro: 400,
+  free: 120,
+  pro: 1200,
 };
 
 export class InsufficientCreditsError extends Error {
@@ -42,6 +46,7 @@ export class InsufficientCreditsError extends Error {
 }
 
 function costForAction(action: CreditAction): number {
+  if (ALWAYS_FREE_CREDIT_ACTIONS.has(action)) return 0;
   const envKey = `CREDIT_COST_${action.toUpperCase()}`;
   const raw = Deno.env.get(envKey);
   if (raw != null && raw !== "") {
@@ -49,6 +54,14 @@ function costForAction(action: CreditAction): number {
     if (Number.isFinite(n) && n >= 0) return Math.floor(n);
   }
   return CREDIT_COSTS[action];
+}
+
+export function publicCreditCosts(): Record<CreditAction, number> {
+  const out = { ...CREDIT_COSTS };
+  for (const action of ALWAYS_FREE_CREDIT_ACTIONS) {
+    out[action] = 0;
+  }
+  return out;
 }
 
 function monthlyGrant(plan: BillingPlan): number {
@@ -116,6 +129,9 @@ async function refreshPeriodCredits(
       plan,
       credits_balance: grant,
       credits_period_start: periodStart.toISOString(),
+      claim_month_start: periodStart.toISOString(),
+      claim_days_completed: 0,
+      last_claim_utc_date: null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" }
@@ -178,7 +194,8 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
       subscriptionStatus: null,
       subscriptionRenewsAt: null,
       stripeConfigured: Boolean(Deno.env.get("STRIPE_SECRET_KEY") && Deno.env.get("STRIPE_PRO_PRICE_ID")),
-      costs: CREDIT_COSTS,
+      costs: publicCreditCosts(),
+      freeFeatures: ["generate_campaign", "ai_video_clip"],
     };
   }
 
@@ -202,7 +219,9 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
     subscriptionStatus: row?.subscription_status || null,
     subscriptionRenewsAt: row?.subscription_current_period_end || null,
     stripeConfigured: Boolean(Deno.env.get("STRIPE_SECRET_KEY") && Deno.env.get("STRIPE_PRO_PRICE_ID")),
-    costs: CREDIT_COSTS,
+    costs: publicCreditCosts(),
+    freeFeatures: ["generate_campaign", "ai_video_clip"],
+    dailyClaim: await getDailyClaimStatus(admin, userId),
   };
 }
 

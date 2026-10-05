@@ -7,7 +7,7 @@ function proGrant(): number {
     const n = Number(raw);
     if (Number.isFinite(n) && n >= 0) return Math.floor(n);
   }
-  return 400;
+  return 1200;
 }
 
 async function applyProSubscription(userId: string, subscription: Record<string, unknown>) {
