@@ -12,7 +12,7 @@ import { loadCampaign } from "@/services/data";
 import { saveCampaignLyrics, saveVideoProject, selectCampaignDay, selectVideoProject } from "@/services/studioRecords";
 import { videoService, resolvePlayableAudioUrl } from "@/services/videoService";
 import { getSettings } from "@/services/settings";
-import { DEMO_AUDIO_URL, createDemoProject } from "@/services/demoMedia";
+import { DEMO_AUDIO_URL, createDemoProject, createEmptyStudioProject } from "@/services/demoMedia";
 import { useAuth } from "@/lib/AuthContext";
 import RemotionPlayerPreview from "@/remotion/PlayerPreview";
 import VideoRenderProgress from "@/components/VideoRenderProgress";
@@ -136,9 +136,33 @@ export default function VideoGenerator() {
       setPreviewAudioUrl(DEMO_AUDIO_URL);
       setExportedFp("");
       setPreviewLive(false);
+      setChooseType(false);
+    };
+    const initStandaloneStudio = () => {
+      const videoType = requestedType;
+      if (!videoType) {
+        if (!cancelled) {
+          setProject(null);
+          setChooseType(true);
+        }
+        return;
+      }
+      if (!cancelled) setChooseType(false);
+      const duration = resolveStudioDuration(
+        videoType,
+        videoType === "promo" ? requestedSeconds : getSettings().defaultVideoDuration,
+        0
+      );
+      const empty = createEmptyStudioProject(videoType, duration, 0);
+      setSong({ title: "", artwork_url: "", audio_url: "" });
+      setProject(empty);
+      setPreviewAudioUrl("");
+      setExportedFp("");
+      setPreviewLive(false);
     };
     if (!id) {
-      applyDemo();
+      if (user?.id) initStandaloneStudio();
+      else applyDemo();
       return undefined;
     }
     (async () => {
@@ -240,13 +264,23 @@ export default function VideoGenerator() {
       } catch (err) {
         console.error(err);
         if (cancelled) return;
-        applyDemo();
+        if (user?.id) {
+          setProject(null);
+          setChooseType(false);
+          toast({
+            variant: "destructive",
+            title: "Could not open studio",
+            description: err?.message || "Try again from your campaign.",
+          });
+        } else {
+          applyDemo();
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [id, projectId, dayId, wantRemake, refreshTick, requestedType, requestedSeconds, requestedText]);
+  }, [id, projectId, dayId, wantRemake, refreshTick, requestedType, requestedSeconds, requestedText, user?.id, toast]);
 
   useEffect(() => {
     let cancelled = false;
