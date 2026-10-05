@@ -7,7 +7,7 @@ export type AiProviderMode = "gemini" | "openai";
 
 const GEMINI_OPENAI_COMPAT_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
 const OPENAI_DEFAULT_BASE = "https://api.openai.com/v1";
-const DEFAULT_GEMINI_CHAT_MODEL = "gemini-2.5-flash";
+const DEFAULT_GEMINI_CHAT_MODEL = "gemini-3.8-flash";
 const DEFAULT_OPENAI_CHAT_MODEL = "gpt-4o-mini";
 
 /** Gemini AI Studio / Google API keys — not OpenAI `sk-` keys. */

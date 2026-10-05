@@ -28,7 +28,7 @@ Same secrets as [FREE_AI.md](./FREE_AI.md):
 | Secret | Value |
 |--------|--------|
 | `GEMINI_API_KEY` | [AI Studio](https://aistudio.google.com/apikey) key |
-| `GEMINI_MODEL` | Optional — default `gemini-2.5-flash` |
+| `GEMINI_MODEL` | Optional — default `gemini-3.8-flash` |
 
 Then deploy:
 

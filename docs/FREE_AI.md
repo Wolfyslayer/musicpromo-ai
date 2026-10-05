@@ -12,7 +12,7 @@ Campaign **analyze**, **plan**, **support chat**, cover **prompt polish**, and o
 | Secret | Value |
 |--------|--------|
 | `GEMINI_API_KEY` | Your AI Studio API key |
-| `GEMINI_MODEL` | Optional — default `gemini-2.5-flash` |
+| `GEMINI_MODEL` | Optional — default `gemini-3.8-flash` |
 | `GEMINI_IMAGE_MODEL` | Optional — default `gemini-2.5-flash-image` (cover lab) |
 | `AI_PROVIDER` | Optional — default `gemini` |
 
@@ -60,6 +60,16 @@ Keep **`GEMINI_API_KEY`** for cover lab, or set `AI_COVER_PROVIDER=openai` with 
 | `OPENAI_IMAGE_API_KEY` | Optional — OpenAI Images only when using Groq for chat |
 | `OPENAI_IMAGE_MODEL` / `OPENAI_IMAGE_EDIT_MODEL` | Optional — DALL·E / gpt-image when `AI_COVER_PROVIDER=openai` |
 
+## Troubleshooting: model `404` / “no longer available”
+
+Google retired **`gemini-2.5-flash`** for new API keys. Set in Supabase secrets:
+
+```bash
+supabase secrets set GEMINI_MODEL=gemini-3.8-flash --project-ref YOUR_REF
+```
+
+Then redeploy edge functions. Latest app code defaults to `gemini-3.8-flash` if `GEMINI_MODEL` is unset.
+
 ## Troubleshooting: `Invalid API Key` (401) when generating campaigns
 
 If the app shows **AI request failed (401)** or **invalid_api_key** on **Generate campaign**:
@@ -84,6 +94,6 @@ Never put API keys in GitHub `VITE_*` vars or the frontend bundle.
 
 ```bash
 supabase secrets set GEMINI_API_KEY="AIza..." --project-ref YOUR_REF
-supabase secrets set GEMINI_MODEL="gemini-2.5-flash" --project-ref YOUR_REF
+supabase secrets set GEMINI_MODEL="gemini-3.8-flash" --project-ref YOUR_REF
 supabase secrets set GEMINI_IMAGE_MODEL="gemini-2.5-flash-image" --project-ref YOUR_REF
 ```
