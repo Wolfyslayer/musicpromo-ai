@@ -12,6 +12,7 @@ import {
   generateCoverArtWithAi,
   urlToCoverReferencePng,
 } from "@/services/artworkStudioService";
+import { billingFailureToast } from "@/lib/billingErrors";
 
 export default function ArtworkAiPanel({ onImageReady, requireAuth }) {
   const { toast } = useToast();
@@ -108,7 +109,8 @@ export default function ArtworkAiPanel({ onImageReady, requireAuth }) {
           description: data.billingNote || "Saved to your library URL.",
         });
       } catch (e) {
-        toast({ variant: "destructive", title: "Generation failed", description: e.message });
+        const fail = billingFailureToast(e);
+        toast({ variant: "destructive", title: fail.title, description: fail.description });
       } finally {
         setBusy(false);
       }

@@ -1,4 +1,5 @@
 import { db } from '@/api/base44Client';
+import { insufficientCreditsMessage, isInsufficientCreditsError } from '@/lib/billingErrors';
 
 /**
  * AI service interface for the frontend.
@@ -14,8 +15,18 @@ import { db } from '@/api/base44Client';
  */
 
 const invoke = async (name, payload) => {
-  const res = await db.functions.invoke(name, payload);
-  return res.data;
+  try {
+    const res = await db.functions.invoke(name, payload);
+    return res.data;
+  } catch (err) {
+    if (isInsufficientCreditsError(err)) {
+      const wrapped = new Error(insufficientCreditsMessage(err));
+      wrapped.status = 402;
+      wrapped.data = err.data;
+      throw wrapped;
+    }
+    throw err;
+  }
 };
 
 const content = (contentType, { song, analysis, platform, campaignGoals }) =>

@@ -14,15 +14,22 @@ function raise(error) {
   throw err;
 }
 
+function normalizeAppRole(raw) {
+  const r = String(raw || "artist").trim().toLowerCase();
+  if (r === "dev" || r === "admin") return r;
+  return "artist";
+}
+
 export function mapUser(sessionUser) {
   if (!sessionUser) return null;
   const meta = sessionUser.user_metadata || {};
+  const appMeta = sessionUser.app_metadata || {};
   return {
     id: sessionUser.id,
     email: sessionUser.email || "",
     full_name: meta.full_name || meta.name || "",
     avatar_url: meta.avatar_url || meta.picture || "",
-    role: "artist",
+    role: normalizeAppRole(appMeta.role),
   };
 }
 
@@ -46,7 +53,7 @@ export async function upsertUserProfile(user, sessionUser) {
 
   const { data: existing } = await supabase
     .from("users")
-    .select("avatar_override, avatar_url")
+    .select("avatar_override, avatar_url, role")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -54,8 +61,10 @@ export async function upsertUserProfile(user, sessionUser) {
     id: user.id,
     email: user.email || "",
     full_name: user.full_name || "",
-    role: user.role || "artist",
   };
+  if (!existing) {
+    payload.role = user.role || "artist";
+  }
   if (googleAvatar && !existing?.avatar_override) {
     payload.avatar_url = googleAvatar;
     payload.avatar_override = false;

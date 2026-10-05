@@ -9,6 +9,7 @@ import { aiService } from "@/services/aiService";
 import { normalizeSongForAI } from "@/services/songLanguage";
 import { PLATFORMS } from "@/services/constants";
 import { useToast } from "@/components/ui/use-toast";
+import { billingFailureToast } from "@/lib/billingErrors";
 import ContentItem from "@/components/campaign/ContentItem";
 import CreateVideoButton from "@/components/video/CreateVideoButton";
 
@@ -52,7 +53,10 @@ export default function ContentLibrary({ campaign, song, content = [], onRefresh
         content: h.text, metadata: { videoConcept: h.videoConcept, reason: h.reason, platform: h.platform },
       })));
       toast({ title: `${(res.hooks || []).length} hooks generated` });
-    } catch (e) { toast({ variant: "destructive", title: "Failed", description: e.message }); }
+    } catch (e) {
+      const fail = billingFailureToast(e);
+      toast({ variant: "destructive", title: fail.title, description: fail.description });
+    }
     finally { setLoading(null); }
   };
 
@@ -65,7 +69,10 @@ export default function ContentLibrary({ campaign, song, content = [], onRefresh
         content: c.text, metadata: { variation: c.variation },
       })));
       toast({ title: "3 captions generated" });
-    } catch (e) { toast({ variant: "destructive", title: "Failed", description: e.message }); }
+    } catch (e) {
+      const fail = billingFailureToast(e);
+      toast({ variant: "destructive", title: fail.title, description: fail.description });
+    }
     finally { setLoading(null); }
   };
 
@@ -78,7 +85,10 @@ export default function ContentLibrary({ campaign, song, content = [], onRefresh
         content: (c.tags || []).join(" "), metadata: { category: c.category, tags: c.tags },
       })));
       toast({ title: "Hashtags generated" });
-    } catch (e) { toast({ variant: "destructive", title: "Failed", description: e.message }); }
+    } catch (e) {
+      const fail = billingFailureToast(e);
+      toast({ variant: "destructive", title: fail.title, description: fail.description });
+    }
     finally { setLoading(null); }
   };
 
@@ -90,7 +100,10 @@ export default function ContentLibrary({ campaign, song, content = [], onRefresh
         campaign_id: campaign.id, type: "cta", content: c.text, metadata: { goal: c.goal },
       })));
       toast({ title: "CTAs generated" });
-    } catch (e) { toast({ variant: "destructive", title: "Failed", description: e.message }); }
+    } catch (e) {
+      const fail = billingFailureToast(e);
+      toast({ variant: "destructive", title: fail.title, description: fail.description });
+    }
     finally { setLoading(null); }
   };
 
@@ -103,7 +116,10 @@ export default function ContentLibrary({ campaign, song, content = [], onRefresh
         content: c.description, metadata: { title: c.title, conceptType: c.conceptType, template: c.template, hookText: c.hookText, duration: c.duration },
       })));
       toast({ title: `${(res.concepts || []).length} video concepts generated` });
-    } catch (e) { toast({ variant: "destructive", title: "Failed", description: e.message }); }
+    } catch (e) {
+      const fail = billingFailureToast(e);
+      toast({ variant: "destructive", title: fail.title, description: fail.description });
+    }
     finally { setLoading(null); }
   };
 
@@ -133,7 +149,10 @@ export default function ContentLibrary({ campaign, song, content = [], onRefresh
         if (first) await updateRecord(item, { content: first.description, metadata: { title: first.title, conceptType: first.conceptType, template: first.template, hookText: first.hookText, duration: first.duration } });
       }
       toast({ title: "Regenerated" });
-    } catch (e) { toast({ variant: "destructive", title: "Failed", description: e.message }); }
+    } catch (e) {
+      const fail = billingFailureToast(e);
+      toast({ variant: "destructive", title: fail.title, description: fail.description });
+    }
     finally { setLoading(null); }
   };
 

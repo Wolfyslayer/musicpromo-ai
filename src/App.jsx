@@ -55,6 +55,7 @@ import {
   SettingsPreferencesPage,
   SettingsTeamPage,
 } from '@/pages/settings/SettingsSectionPages';
+import SettingsBillingPage from '@/pages/settings/SettingsBillingPage';
 import SocialCompose from '@/pages/SocialCompose';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import TermsOfService from '@/pages/TermsOfService';
@@ -145,6 +146,7 @@ const AuthenticatedApp = () => {
           <Route path="/settings" element={<SettingsShell />}>
             <Route index element={<SettingsIndexRedirect />} />
             <Route path="account" element={<SettingsAccountPage />} />
+            <Route path="billing" element={<SettingsBillingPage />} />
             <Route path="team" element={<SettingsTeamPage />} />
             <Route path="studio" element={<SettingsStudioPage />} />
             <Route path="preferences" element={<SettingsPreferencesPage />} />

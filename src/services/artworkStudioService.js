@@ -12,12 +12,20 @@ export async function fetchCoverArtAiStatus() {
   return unwrap(res);
 }
 
-export { fileToCoverReferencePng, urlToCoverReferencePng } from "@/lib/coverReferenceImage";
-
 export async function generateCoverArtWithAi(payload) {
-  const res = await db.functions.invoke("generateCoverArt", payload);
-  if (res?.error) throw new Error(await messageFromFunctionInvokeError(res.error));
-  const data = unwrap(res);
-  if (data?.error) throw new Error(data.error);
-  return data;
+  try {
+    const res = await db.functions.invoke("generateCoverArt", payload);
+    if (res?.error) throw new Error(await messageFromFunctionInvokeError(res.error));
+    const data = unwrap(res);
+    if (data?.error) throw new Error(data.error);
+    return data;
+  } catch (err) {
+    if (err?.data?.code === "INSUFFICIENT_CREDITS" || err?.status === 402) {
+      const e = new Error(err.message);
+      e.status = 402;
+      e.data = err.data;
+      throw e;
+    }
+    throw err;
+  }
 }

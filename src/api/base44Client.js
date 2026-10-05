@@ -77,7 +77,7 @@ export const db = {
           /* keep the client message */
         }
         const err = new Error(message);
-        err.status = error.status || 500;
+        err.status = error.status || (body?.code === "INSUFFICIENT_CREDITS" ? 402 : 500);
         err.data = body;
         throw err;
       }

@@ -1,5 +1,6 @@
-import { createClientFromRequest } from "../_shared/runtime.ts";
+import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
 import { buildGenerateCampaignPrompt } from "../_shared/aiPrompts.ts";
+import { billingErrorResponse, spendCredits } from "../_shared/billing.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
 
 async function handler(req: Request) {
@@ -17,6 +18,16 @@ async function handler(req: Request) {
       return jsonWithCors(req, { error: "durationDays must be 7, 14 or 30" }, 400);
     }
 
+    let creditsRemaining: number | undefined;
+    try {
+      const spend = await spendCredits(serviceClient(), String(user.id), "generate_campaign");
+      creditsRemaining = spend.balanceAfter;
+    } catch (creditErr) {
+      const billed = billingErrorResponse(creditErr);
+      if (billed) return jsonWithCors(req, billed.body, billed.status);
+      throw creditErr;
+    }
+
     const { prompt, schema } = buildGenerateCampaignPrompt({
       song: body.song,
       analysis: body.analysis,
@@ -29,8 +40,10 @@ async function handler(req: Request) {
       prompt,
       response_json_schema: schema,
     });
-    return jsonWithCors(req, result);
+    return jsonWithCors(req, { ...(typeof result === "object" ? result : { result }), creditsRemaining });
   } catch (error) {
+    const billed = billingErrorResponse(error);
+    if (billed) return jsonWithCors(req, billed.body, billed.status);
     return jsonWithCors(req, { error: (error as Error).message }, 500);
   }
 }

@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { invokeLlm } from "./invokeLlm.ts";
+import { normalizeAppRole, resolveAppRole } from "./appRoles.ts";
 
 /**
  * Drop-in stand-in for the Base44 request client and secrets runtime.
@@ -191,10 +192,15 @@ export function createClientFromRequest(req: Request) {
     if (!token) return null;
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data.user) return null;
+    const metaRole = data.user.app_metadata?.role;
+    let role = normalizeAppRole(metaRole);
+    if (!metaRole) {
+      role = await resolveAppRole(supabase, data.user.id);
+    }
     return {
       id: data.user.id,
       email: data.user.email || "",
-      role: "artist",
+      role,
     };
   })();
 
