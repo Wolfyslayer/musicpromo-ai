@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CreditCard, Gift, Loader2, Sparkles } from "lucide-react";
+import { CreditCard, Loader2, Sparkles } from "lucide-react";
+import DailyClaimPanel from "@/components/billing/DailyClaimPanel";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import {
   CREDIT_ACTION_LABELS,
-  claimDailyCredits,
   fetchBillingStatus,
   startProCheckout,
 } from "@/services/billingService";
@@ -24,7 +24,6 @@ export default function SettingsBillingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
-  const [claimBusy, setClaimBusy] = useState(false);
   const [billing, setBilling] = useState(null);
 
   const load = () => {
@@ -62,27 +61,6 @@ export default function SettingsBillingPage() {
       .filter(([, n]) => Number(n) > 0)
       .sort((a, b) => Number(b[1]) - Number(a[1]));
   }, [billing?.costs]);
-
-  const onClaim = async () => {
-    setClaimBusy(true);
-    try {
-      const data = await claimDailyCredits();
-      if (data?.billingExempt) {
-        toast({ title: "Staff account", description: data.message });
-        return;
-      }
-      setBilling((prev) => ({ ...prev, ...data, creditsBalance: data.creditsBalance ?? prev?.creditsBalance }));
-      toast({
-        title: `+${data.reward} credits`,
-        description: `Day ${data.streakDay} of 7 this month${data.streakDay === 3 ? " (2× bonus)" : data.streakDay === 7 ? " (4× bonus)" : ""}.`,
-      });
-      load();
-    } catch (e) {
-      toast({ variant: "destructive", title: "Could not claim", description: e.message });
-    } finally {
-      setClaimBusy(false);
-    }
-  };
 
   const onUpgrade = async () => {
     setCheckoutBusy(true);
@@ -162,46 +140,17 @@ export default function SettingsBillingPage() {
         </p>
       </Card>
 
-      {!exempt && billing?.dailyClaim ? (
-        <Card title="7-day monthly claim">
+      {!exempt ? (
+        <Card title="Daily credits">
           <p className="text-sm text-muted-foreground">
-            Claim once per UTC day. Miss a day and the streak restarts. Day 3 pays 2×, day 7 pays 4× (base{" "}
-            {billing.dailyClaim.baseCreditsPerDay} credits). Resets when your monthly credits reset.
+            Tap <span aria-hidden>🎁</span> in the header on any page to claim your 7-day streak.
           </p>
-          <div className="grid grid-cols-7 gap-1.5 pt-2">
-            {(billing.dailyClaim.schedule || []).map((d) => (
-              <div
-                key={d.day}
-                className={`rounded-xl border px-1 py-2 text-center text-[11px] leading-tight ${
-                  d.claimed
-                    ? "border-primary/40 bg-primary/15 text-foreground"
-                    : d.isBonusDay
-                      ? "border-amber-500/35 bg-amber-500/10"
-                      : "border-border/60 bg-muted/20 text-muted-foreground"
-                }`}
-              >
-                <div className="font-semibold">D{d.day}</div>
-                <div className="tabular-nums">{d.credits}</div>
-              </div>
-            ))}
-          </div>
-          <Button
-            type="button"
-            className="mt-3 w-full rounded-full sm:w-auto"
-            disabled={claimBusy || !billing.dailyClaim.canClaimToday}
-            onClick={onClaim}
-          >
-            {claimBusy ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Gift className="mr-2 h-4 w-4" />
-            )}
-            {billing.dailyClaim.canClaimToday
-              ? `Claim ${billing.dailyClaim.nextReward ?? ""} credits`
-              : billing.dailyClaim.allClaimedThisMonth
-                ? "All claims used this month"
-                : "Claimed today — back tomorrow"}
-          </Button>
+          <DailyClaimPanel
+            dailyClaim={billing?.dailyClaim}
+            creditsBalance={billing?.creditsBalance}
+            billingExempt={false}
+            showPlanLink={false}
+          />
         </Card>
       ) : null}
 
