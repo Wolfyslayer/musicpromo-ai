@@ -12,7 +12,8 @@ import ArtworkImage from "@/components/ArtworkImage";
 import ReleasePickOrCreateStep from "@/components/releases/ReleasePickOrCreateStep";
 import { loadRelease } from "@/services/data";
 import { CAMPAIGN_DURATIONS, CAMPAIGN_GOALS } from "@/services/constants";
-import { generateCampaignForSong } from "@/services/createCampaignCore";
+import { generateCampaignForAlbum, generateCampaignForSong } from "@/services/createCampaignCore";
+import { resolveReleaseCampaignState } from "@/services/releaseCampaignMode";
 import { sortReleaseTracks, staggeredStartDate } from "@/services/releaseTracks";
 import { todayISO } from "@/services/format";
 import { billingFailureToast } from "@/lib/billingErrors";
@@ -72,11 +73,12 @@ export default function ReleaseCampaignPlanner() {
 
   const songs = useMemo(() => sortReleaseTracks(data?.songs || []), [data?.songs]);
   const campaigns = data?.campaigns || [];
-  const campaignBySong = useMemo(
-    () => Object.fromEntries(campaigns.map((c) => [c.song_id, c])),
-    [campaigns]
+  const campaignState = useMemo(
+    () => resolveReleaseCampaignState(data?.release, songs, campaigns),
+    [data?.release, songs, campaigns]
   );
-  const needsCampaign = songs.filter((s) => !campaignBySong[s.id]);
+  const { isAlbum, albumCampaign, campaignBySong, needsGeneration, pendingTrackCount, tracksNeedingCampaign } =
+    campaignState;
 
   const toggleGoal = (g) =>
     setRollout((r) => ({
@@ -95,27 +97,50 @@ export default function ReleaseCampaignPlanner() {
     setResults([]);
     const out = [];
     try {
-      for (let i = 0; i < needsCampaign.length; i++) {
-        const song = needsCampaign[i];
-        const trackIndex = songs.findIndex((s) => s.id === song.id);
-        const startDate = staggeredStartDate(rollout.startDate, trackIndex, rollout.daysBetweenTracks);
-        setStage(`Track ${trackIndex + 1}/${songs.length}: ${song.title}`);
-        const { campaign } = await generateCampaignForSong({
-          song,
+      if (isAlbum) {
+        setStage(`Album: ${data.release.title}`);
+        const { campaign } = await generateCampaignForAlbum({
+          release: data.release,
+          songs,
           artist: data.artist,
-          releaseId,
           goals: rollout.goals,
           durationDays: rollout.durationDays,
-          startDate,
+          startDate: rollout.startDate,
           promoStylePreset: rollout.promoStylePreset,
           userId: user?.id || "",
           onStage: setStage,
         });
-        out.push({ songId: song.id, campaignId: campaign.id, title: song.title });
+        out.push({ campaignId: campaign.id, title: data.release.title });
+      } else {
+        const queue = tracksNeedingCampaign || [];
+        for (let i = 0; i < queue.length; i++) {
+          const song = queue[i];
+          const trackIndex = songs.findIndex((s) => s.id === song.id);
+          const startDate = staggeredStartDate(rollout.startDate, trackIndex, rollout.daysBetweenTracks);
+          setStage(`Track ${trackIndex + 1}/${songs.length}: ${song.title}`);
+          const { campaign } = await generateCampaignForSong({
+            song,
+            artist: data.artist,
+            releaseId,
+            goals: rollout.goals,
+            durationDays: rollout.durationDays,
+            startDate,
+            promoStylePreset: rollout.promoStylePreset,
+            userId: user?.id || "",
+            onStage: setStage,
+          });
+          out.push({ songId: song.id, campaignId: campaign.id, title: song.title });
+        }
       }
       setResults(out);
       toast({
-        title: out.length ? `${out.length} campaign plan${out.length === 1 ? "" : "s"} created` : "All tracks already had campaigns",
+        title: out.length
+          ? isAlbum
+            ? "Album campaign plan created"
+            : `${out.length} campaign plan${out.length === 1 ? "" : "s"} created`
+          : isAlbum
+            ? "Album already has a campaign"
+            : "All tracks already had campaigns",
       });
       await reload();
       setStep(socialStepIndex);
@@ -178,17 +203,25 @@ export default function ReleaseCampaignPlanner() {
             artist={data.artist}
             releaseId={releaseId}
             songs={songs}
+            isAlbum={isAlbum}
+            albumCampaign={albumCampaign}
             campaignBySong={campaignBySong}
             navigate={navigate}
           />
         ) : null}
 
         {releaseId && data?.release && step === rolloutStepIndex ? (
-          <RolloutStep rollout={rollout} setRollout={setRollout} toggleGoal={toggleGoal} />
+          <RolloutStep rollout={rollout} setRollout={setRollout} toggleGoal={toggleGoal} isAlbum={isAlbum} />
         ) : null}
 
         {releaseId && data?.release && step === generateStepIndex ? (
-          <GenerateStep generating={generating} stage={stage} needsCampaign={needsCampaign} />
+          <GenerateStep
+            generating={generating}
+            stage={stage}
+            isAlbum={isAlbum}
+            needsGeneration={needsGeneration}
+            pendingTrackCount={pendingTrackCount}
+          />
         ) : null}
 
         {releaseId && data?.release && step === socialStepIndex ? (
@@ -227,9 +260,9 @@ export default function ReleaseCampaignPlanner() {
               <Button
                 type="button"
                 className="rounded-full"
-                onClick={() => requireAuth(needsCampaign.length ? runBatch : () => setStep(socialStepIndex))}
+                onClick={() => requireAuth(needsGeneration ? runBatch : () => setStep(socialStepIndex))}
               >
-                {needsCampaign.length ? "Generate campaigns" : "Continue"}
+                {needsGeneration ? (isAlbum ? "Generate album campaign" : "Generate campaigns") : "Continue"}
               </Button>
             )}
             {step === socialStepIndex ? (
@@ -244,7 +277,7 @@ export default function ReleaseCampaignPlanner() {
   );
 }
 
-function TracksStep({ release, artist, releaseId, songs, campaignBySong, navigate }) {
+function TracksStep({ release, artist, releaseId, songs, isAlbum, albumCampaign, campaignBySong, navigate }) {
   return (
     <div className="space-y-4">
       <div className="flex gap-4">
@@ -255,6 +288,26 @@ function TracksStep({ release, artist, releaseId, songs, campaignBySong, navigat
             {artist?.name}
             {release.release_type ? ` · ${release.release_type}` : ""}
           </p>
+          {isAlbum ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Albums get <strong className="font-medium text-foreground">one campaign</strong> for the whole release.
+              {albumCampaign ? (
+                <>
+                  {" "}
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto p-0 text-xs"
+                    onClick={() => navigate(`/campaigns/${albumCampaign.id}/plan`)}
+                  >
+                    Open album plan
+                  </Button>
+                </>
+              ) : (
+                " Generate it in the next steps."
+              )}
+            </p>
+          ) : null}
         </div>
       </div>
       {!songs.length ? (
@@ -275,7 +328,13 @@ function TracksStep({ release, artist, releaseId, songs, campaignBySong, navigat
                   {s.title}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {camp ? "Campaign ready" : "Needs campaign"}
+                  {isAlbum
+                    ? albumCampaign
+                      ? "Included in album campaign"
+                      : "Included when you generate the album plan"
+                    : camp
+                      ? "Campaign ready"
+                      : "Needs campaign"}
                   {!s.audio_url ? " · add audio in track setup" : ""}
                 </span>
                 <Button
@@ -283,15 +342,19 @@ function TracksStep({ release, artist, releaseId, songs, campaignBySong, navigat
                   size="sm"
                   variant="outline"
                   className="rounded-full"
-                  onClick={() =>
-                    navigate(
-                      camp
-                        ? `/campaigns/${camp.id}/plan`
-                        : `/create/track?release=${releaseId}&song=${s.id}`
-                    )
-                  }
+                  onClick={() => {
+                    if (isAlbum && albumCampaign) {
+                      navigate(`/campaigns/${albumCampaign.id}/plan`);
+                      return;
+                    }
+                    if (!isAlbum && camp) {
+                      navigate(`/campaigns/${camp.id}/plan`);
+                      return;
+                    }
+                    navigate(`/create/track?release=${releaseId}&song=${s.id}`);
+                  }}
                 >
-                  {camp ? "Open plan" : "Full track setup"}
+                  {isAlbum && albumCampaign ? "Open album plan" : !isAlbum && camp ? "Open plan" : "Full track setup"}
                 </Button>
               </li>
             );
@@ -302,15 +365,17 @@ function TracksStep({ release, artist, releaseId, songs, campaignBySong, navigat
   );
 }
 
-function RolloutStep({ rollout, setRollout, toggleGoal }) {
+function RolloutStep({ rollout, setRollout, toggleGoal, isAlbum }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Shared plan settings for each new campaign. Stagger start dates so singles can drop before the full release day.
+        {isAlbum
+          ? "One album-wide plan: teases, tracklist moments, release day, and post-launch posts in a single timeline."
+          : "Shared plan settings for each new campaign. Stagger start dates so singles can drop before the full release day."}
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Campaign start (track 1)</Label>
+          <Label className="text-xs text-muted-foreground">{isAlbum ? "Campaign start" : "Campaign start (track 1)"}</Label>
           <Input
             type="date"
             value={rollout.startDate}
@@ -318,20 +383,22 @@ function RolloutStep({ rollout, setRollout, toggleGoal }) {
             className="rounded-xl"
           />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Days between track campaigns</Label>
-          <Input
-            type="number"
-            min={0}
-            max={30}
-            value={rollout.daysBetweenTracks}
-            onChange={(e) => setRollout((r) => ({ ...r, daysBetweenTracks: Number(e.target.value) }))}
-            className="rounded-xl"
-          />
-          <p className="text-xs text-muted-foreground">0 = all tracks share the same start date.</p>
-        </div>
+        {!isAlbum ? (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Days between track campaigns</Label>
+            <Input
+              type="number"
+              min={0}
+              max={30}
+              value={rollout.daysBetweenTracks}
+              onChange={(e) => setRollout((r) => ({ ...r, daysBetweenTracks: Number(e.target.value) }))}
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">0 = all tracks share the same start date.</p>
+          </div>
+        ) : null}
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs text-muted-foreground">Plan length (per track)</Label>
+          <Label className="text-xs text-muted-foreground">{isAlbum ? "Plan length" : "Plan length (per track)"}</Label>
           <div className="flex flex-wrap gap-2">
             {CAMPAIGN_DURATIONS.map((d) => (
               <button
@@ -369,7 +436,7 @@ function RolloutStep({ rollout, setRollout, toggleGoal }) {
   );
 }
 
-function GenerateStep({ generating, stage, needsCampaign }) {
+function GenerateStep({ generating, stage, isAlbum, needsGeneration, pendingTrackCount }) {
   return (
     <div className="space-y-4">
       {generating ? (
@@ -380,11 +447,27 @@ function GenerateStep({ generating, stage, needsCampaign }) {
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            Creates AI campaign plans for <strong>{needsCampaign.length}</strong> track
-            {needsCampaign.length === 1 ? "" : "s"} without campaigns. Tracks that already have campaigns are skipped.
+            {isAlbum ? (
+              <>
+                Creates <strong>one</strong> AI campaign plan for the full album
+                {pendingTrackCount ? (
+                  <>
+                    {" "}
+                    ({pendingTrackCount} track{pendingTrackCount === 1 ? "" : "s"} on the release).
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <>
+                Creates AI campaign plans for <strong>{pendingTrackCount}</strong> track
+                {pendingTrackCount === 1 ? "" : "s"} without campaigns. Tracks that already have campaigns are skipped.
+              </>
+            )}
           </p>
-          {needsCampaign.length === 0 ? (
-            <p className="text-sm text-primary">Every track already has a campaign — continue to social setup.</p>
+          {!needsGeneration ? (
+            <p className="text-sm text-primary">
+              {isAlbum ? "This album already has a campaign — continue to social setup." : "Every track already has a campaign — continue to social setup."}
+            </p>
           ) : null}
         </>
       )}

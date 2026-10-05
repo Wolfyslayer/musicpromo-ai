@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast";
 
 import { loadRelease } from "@/services/data";
+import { isAlbumRelease } from "@/services/releaseCampaignMode";
 import { fmtDate } from "@/services/format";
 import ArtworkImage from "@/components/ArtworkImage";
 import StatusBadge from "@/components/StatusBadge";
@@ -59,6 +60,8 @@ export default function ReleaseDetail() {
   if (!data) return <div className="h-64 animate-shimmer rounded-2xl" />;
 
   const { release, artist, songs, campaigns, contentCount, videosCount, daysCount, unassignedSongs } = data;
+  const isAlbum = isAlbumRelease(release);
+  const albumCampaign = isAlbum ? campaigns.find((c) => c.release_id === release.id) : null;
 
   return (
     <div className="space-y-6">
@@ -179,14 +182,16 @@ export default function ReleaseDetail() {
         {songs.length ? (
           <div className="space-y-2">
             {songs.map((s) => {
-              const related = campaigns.find((c) => c.song_id === s.id);
+              const related = isAlbum ? albumCampaign : campaigns.find((c) => c.song_id === s.id);
               return (
                 <button
                   key={s.id}
                   onClick={() =>
-                    related
-                      ? navigate(`/campaigns/${related.id}/plan`)
-                      : navigate(`/create/track?release=${id}&song=${s.id}`)
+                    isAlbum && albumCampaign
+                      ? navigate(`/campaigns/${albumCampaign.id}/plan`)
+                      : related
+                        ? navigate(`/campaigns/${related.id}/plan`)
+                        : navigate(`/create/track?release=${id}&song=${s.id}`)
                   }
                   className="flex w-full items-center gap-3 rounded-xl border border-border/50 bg-card/40 p-3 text-left transition hover:border-primary/40"
                 >
@@ -194,7 +199,13 @@ export default function ReleaseDetail() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-600">{s.title}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {related ? "Open campaign" : "No campaign yet — create one"}
+                      {isAlbum
+                        ? albumCampaign
+                          ? "Part of album campaign — add audio via track setup"
+                          : "Plan album campaign from rollout wizard"
+                        : related
+                          ? "Open campaign"
+                          : "No campaign yet — create one"}
                     </p>
                   </div>
                 </button>
