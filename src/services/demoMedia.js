@@ -1,4 +1,4 @@
-import { buildLyricCues, normalizeEditorLook, normalizeExportDuration } from "@/remotion/styles";
+import { buildLyricCues, normalizeEditorLook, normalizeExportDuration, normalizeVideoType, resolveStudioDuration } from "@/remotion/styles";
 
 /** Same-origin demo media so guests can preview without an account. */
 export const DEMO_ARTWORK_URL = "/demo/cover.jpg";
@@ -10,6 +10,29 @@ export const DEMO_LYRICS = [
   "Turn it up and let it move",
   "Hold the chorus in the light",
 ].join("\n");
+
+/** Blank studio session for signed-in users (no demo media). */
+export function createEmptyStudioProject(videoType = "promo", durationSec = 15, audioSeconds = 0) {
+  const type = normalizeVideoType(videoType) || "promo";
+  const duration = resolveStudioDuration(type, durationSec, audioSeconds);
+  return {
+    template: "LYRICS",
+    title: "",
+    artist_name: "",
+    text: "",
+    artwork_url: "",
+    audio_url: "",
+    lyrics: "",
+    visual_style: "pop",
+    particle_effect: "stardust",
+    editor_look: normalizeEditorLook(null),
+    lyric_cues: buildLyricCues("", duration, []),
+    audioStartTimeOffset: 0,
+    duration,
+    video_type: type,
+    is_demo_preview: false,
+  };
+}
 
 export function createDemoProject(durationSec = 15) {
   const duration = normalizeExportDuration(durationSec);
