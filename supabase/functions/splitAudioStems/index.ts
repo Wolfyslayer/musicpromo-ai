@@ -1,6 +1,7 @@
 import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
 import { billingErrorResponse, refundCredits, spendCredits } from "../_shared/billing.ts";
 import { assertPremiumFeature, premiumErrorResponse } from "../_shared/premiumFeatures.ts";
+import { recordOwnedByUser } from "../_shared/ownership.ts";
 import { splitAudioToStems, stemSplitProviderStatus } from "../_shared/stemSplit.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
 
@@ -26,8 +27,28 @@ async function handler(req: Request) {
       throw e;
     }
 
-    const audioUrl = String(body?.audioUrl || body?.audio_url || "").trim();
-    if (!audioUrl) return jsonWithCors(req, { error: "audioUrl is required" }, 400);
+    const songId = String(body?.songId || body?.song_id || "").trim();
+    let audioUrl = String(body?.audioUrl || body?.audio_url || "").trim();
+
+    if (songId) {
+      let song: Record<string, unknown> | null = null;
+      try {
+        song = await base44.asServiceRole.entities.Song.get(songId);
+      } catch {
+        song = null;
+      }
+      if (!song || !recordOwnedByUser(song, user)) {
+        return jsonWithCors(req, { error: "Song not found." }, 404);
+      }
+      audioUrl = String(song.audio_url || "").trim();
+      if (!audioUrl) {
+        return jsonWithCors(req, { error: "That song has no uploaded audio yet." }, 400);
+      }
+    }
+
+    if (!audioUrl) {
+      return jsonWithCors(req, { error: "Choose a catalog song or paste a public audio URL." }, 400);
+    }
 
     let spendResult: { cost: number; balanceAfter: number };
     try {
