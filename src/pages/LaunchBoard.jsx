@@ -14,6 +14,7 @@ import ReleaseLaunchTour from "@/components/onboarding/ReleaseLaunchTour";
 import SocialConnectionStrip from "@/components/ux/SocialConnectionStrip";
 import ReleaseChecklist from "@/components/ux/ReleaseChecklist";
 import LaunchWeekDigestBar from "@/components/ux/LaunchWeekDigestBar";
+import LaunchBoardAutoPublish from "@/components/launch/LaunchBoardAutoPublish";
 import ArtworkImage from "@/components/ArtworkImage";
 import EmptyState from "@/components/EmptyState";
 import PageHeader from "@/components/PageHeader";
@@ -154,6 +155,7 @@ export default function LaunchBoard() {
                 <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Social health
               </Link>
             </Button>
+            <LaunchBoardAutoPublish days={data.entries} onComplete={reload} />
           </>
         }
       />
