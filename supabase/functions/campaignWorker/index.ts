@@ -336,8 +336,21 @@ export async function handleCampaignWorkerRequest(req: Request): Promise<Respons
             20
           )) || [];
         const campaignArtistId = campaign?.artist_id ? String(campaign.artist_id) : "";
+        if (!campaignArtistId) {
+          await base44.asServiceRole.entities.CampaignDay.update(day.id, {
+            status: "failed",
+            publish_error: "Campaign has no artist — cannot auto-publish to social.",
+          });
+          continue;
+        }
         const account = pickSocialAccountForArtist(accounts, provider, campaignArtistId);
-        if (!account) continue;
+        if (!account) {
+          await base44.asServiceRole.entities.CampaignDay.update(day.id, {
+            status: "failed",
+            publish_error: `Connect ${provider} for this artist in Social Hub, then reschedule.`,
+          });
+          continue;
+        }
 
         if ((provider === "tiktok" || provider === "youtube") && mediaType !== "REELS") {
           continue;

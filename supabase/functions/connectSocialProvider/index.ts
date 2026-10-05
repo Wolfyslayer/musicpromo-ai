@@ -1,6 +1,7 @@
 import { serveWithCors } from "../_shared/cors.ts";
 import { createClientFromRequest } from "../_shared/runtime.ts";
 import { secrets } from "../_shared/runtime.ts";
+import { recordOwnedByUser } from "../_shared/ownership.ts";
 import { generateOAuthState, generatePkcePair } from "../_shared/socialCrypto.ts";
 import {
   buildInstagramAuthorizeUrl,
@@ -203,6 +204,28 @@ async function handler (req: Request): Promise<Response> {
     const state = generateOAuthState();
     const expiresAt = new Date(Date.now() + STATE_TTL_MS).toISOString();
     const artistId = body?.artistId ? String(body.artistId).trim() : "";
+    if (!artistId) {
+      return Response.json(
+        {
+          error: "artistId is required. Select an artist in Social Hub before connecting.",
+          code: "ARTIST_REQUIRED",
+        },
+        { status: 400 }
+      );
+    }
+    let artistRow: Record<string, unknown> | null = null;
+    try {
+      artistRow = await base44.asServiceRole.entities.Artist.get(artistId);
+    } catch {
+      artistRow = null;
+    }
+    if (!artistRow || !recordOwnedByUser(artistRow, user)) {
+      return Response.json(
+        { error: "Artist not found or access denied.", code: "VALIDATION" },
+        { status: 403 }
+      );
+    }
+
     let oauthCodeVerifier = "";
     let oauthCodeChallenge = "";
     if (provider === "x") {

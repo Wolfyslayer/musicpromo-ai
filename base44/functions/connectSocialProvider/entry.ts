@@ -1,5 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.52";
 import { secrets } from "base44:runtime";
+import { recordOwnedByUser } from "../../shared/ownership.ts";
 import { generateOAuthState, generatePkcePair } from "../../shared/socialCrypto.ts";
 import {
   buildInstagramAuthorizeUrl,
@@ -202,6 +203,28 @@ export default async function (req: Request): Promise<Response> {
     const state = generateOAuthState();
     const expiresAt = new Date(Date.now() + STATE_TTL_MS).toISOString();
     const artistId = body?.artistId ? String(body.artistId).trim() : "";
+    if (!artistId) {
+      return Response.json(
+        {
+          error: "artistId is required. Select an artist in Social Hub before connecting.",
+          code: "ARTIST_REQUIRED",
+        },
+        { status: 400 }
+      );
+    }
+    let artistRow: Record<string, unknown> | null = null;
+    try {
+      artistRow = await base44.asServiceRole.entities.Artist.get(artistId);
+    } catch {
+      artistRow = null;
+    }
+    if (!artistRow || !recordOwnedByUser(artistRow, user)) {
+      return Response.json(
+        { error: "Artist not found or access denied.", code: "VALIDATION" },
+        { status: 403 }
+      );
+    }
+
     let oauthCodeVerifier = "";
     let oauthCodeChallenge = "";
     if (provider === "x") {

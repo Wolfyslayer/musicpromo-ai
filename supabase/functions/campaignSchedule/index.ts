@@ -129,6 +129,15 @@ async function handler (req: Request): Promise<Response> {
     const skipped: Array<{ provider: string; reason: string }> = [];
 
     const campaignArtistId = campaign?.artist_id ? String(campaign.artist_id) : "";
+    if (!campaignArtistId) {
+      return Response.json(
+        {
+          error: "This campaign has no artist — link an artist before scheduling social posts.",
+          code: "VALIDATION",
+        },
+        { status: 400 }
+      );
+    }
 
     for (const provider of providers) {
       const accounts =

@@ -75,7 +75,7 @@ export default function ArtistEditor() {
   const refreshConnectionsAndMerge = useCallback(
     async (baseForm, { silent = false } = {}) => {
       if (isNew || !id) return baseForm;
-      const status = await getConnectionStatus().catch(() => null);
+      const status = await getConnectionStatus(id).catch(() => null);
       const list = status?.connections || [];
       setConnections(list);
       const merged = syncArtistFormFromConnections(baseForm, list, id);

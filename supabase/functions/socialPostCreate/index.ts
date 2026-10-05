@@ -3,6 +3,7 @@ import { createClientFromRequest } from "../_shared/runtime.ts";
 import { INSTAGRAM_CAPTION_MAX } from "../_shared/instagramPublishing.ts";
 import { recordOwnedByUser } from "../_shared/ownership.ts";
 import { mapDayPlatformToProviders } from "../_shared/socialPublishCore.ts";
+import { pickSocialAccountForArtist } from "../_shared/socialAccountScope.ts";
 
 function buildSuggestedCaption(day: Record<string, unknown> | null): string {
   if (!day) return "";
@@ -86,11 +87,38 @@ async function handler (req: Request): Promise<Response> {
       return Response.json({ error: "Unsupported provider.", code: "VALIDATION" }, { status: 400 });
     }
 
+    let campaignArtistId = body?.artistId ? String(body.artistId).trim() : "";
+    let campaign: Record<string, unknown> | null = null;
+    if (campaignId) {
+      try {
+        campaign = await base44.asServiceRole.entities.Campaign.get(campaignId);
+        if (!campaign || !recordOwnedByUser(campaign, user)) {
+          return Response.json({ error: "Forbidden" }, { status: 403 });
+        }
+        if (!releaseId && campaign.release_id) releaseId = String(campaign.release_id);
+        if (!campaignArtistId && campaign.artist_id) {
+          campaignArtistId = String(campaign.artist_id).trim();
+        }
+      } catch {
+        return Response.json({ error: "Campaign not found." }, { status: 404 });
+      }
+    }
+
+    if (!campaignArtistId) {
+      return Response.json(
+        {
+          error: "artistId is required (or open compose from a campaign with an artist).",
+          code: "ARTIST_REQUIRED",
+        },
+        { status: 400 }
+      );
+    }
+
     let socialAccountId = "";
     const accounts = await base44.asServiceRole.entities.SocialAccount.filter(
       { user_id: user.id, provider, status: "connected" },
       "-connected_at",
-      10
+      20
     );
     const requestedId = body?.socialAccountId ? String(body.socialAccountId) : "";
     if (requestedId) {
@@ -98,21 +126,28 @@ async function handler (req: Request): Promise<Response> {
       if (!match) {
         return Response.json({ error: "Social account not found.", code: "VALIDATION" }, { status: 400 });
       }
-      socialAccountId = match.id;
-    } else if ((accounts || []).length) {
-      socialAccountId = accounts[0].id;
-    }
-
-    if (campaignId) {
-      try {
-        const campaign = await base44.asServiceRole.entities.Campaign.get(campaignId);
-        if (!campaign || !recordOwnedByUser(campaign, user)) {
-          return Response.json({ error: "Forbidden" }, { status: 403 });
-        }
-        if (!releaseId && campaign.release_id) releaseId = String(campaign.release_id);
-      } catch {
-        return Response.json({ error: "Campaign not found." }, { status: 404 });
+      if (String(match.artist_id || "").trim() !== campaignArtistId) {
+        return Response.json(
+          {
+            error: "That social account belongs to a different artist.",
+            code: "VALIDATION",
+          },
+          { status: 400 }
+        );
       }
+      socialAccountId = match.id;
+    } else {
+      const picked = pickSocialAccountForArtist(accounts, provider, campaignArtistId);
+      if (!picked?.id) {
+        return Response.json(
+          {
+            error: `Connect ${provider} for this artist in Social Hub first.`,
+            code: "NOT_CONNECTED",
+          },
+          { status: 400 }
+        );
+      }
+      socialAccountId = String(picked.id);
     }
 
     if (campaignDayId && day && !recordOwnedByUser(day, user) && campaignId) {
