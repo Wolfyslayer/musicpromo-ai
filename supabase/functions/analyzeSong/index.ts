@@ -2,6 +2,7 @@ import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
 import { buildAnalyzeSongPrompt } from "../_shared/aiPrompts.ts";
 import { billingErrorResponse, withCreditCharge } from "../_shared/billing.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
+import { invokeLlm } from "../_shared/invokeLlm.ts";
 
 async function handler(req: Request) {
   try {
@@ -19,9 +20,10 @@ async function handler(req: Request) {
     try {
       const { result, spend } = await withCreditCharge(admin, uid, "analyze_song", {}, async () => {
         const { prompt, schema } = buildAnalyzeSongPrompt(body);
-        return base44.asServiceRole.integrations.Core.InvokeLLM({
+        return invokeLlm({
           prompt,
           response_json_schema: schema,
+          provider: "gemini",
         });
       });
       return jsonWithCors(req, {

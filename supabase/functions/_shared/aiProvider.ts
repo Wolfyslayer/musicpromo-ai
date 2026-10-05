@@ -60,14 +60,63 @@ export function resolveLlmBaseUrl(): string {
   return resolveAiProvider() === "gemini" ? GEMINI_OPENAI_COMPAT_BASE : OPENAI_DEFAULT_BASE;
 }
 
-export function resolveLlmModel(): string {
-  const custom = (Deno.env.get("OPENAI_MODEL") || Deno.env.get("AI_MODEL") || "").trim();
-  if (custom) return custom;
+export function resolveGeminiChatModel(): string {
   const geminiModel = (Deno.env.get("GEMINI_MODEL") || "").trim();
-  if (resolveAiProvider() === "gemini") {
-    return geminiModel || DEFAULT_GEMINI_CHAT_MODEL;
+  return geminiModel || DEFAULT_GEMINI_CHAT_MODEL;
+}
+
+/** Gemini chat key only (never Groq/OpenAI sk- keys). */
+export function resolveGeminiLlmApiKey(): string {
+  const gemini = normalizeSecret(Deno.env.get("GEMINI_API_KEY") || "");
+  if (gemini) return gemini;
+  const legacy = normalizeSecret(
+    Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY") || ""
+  );
+  if (legacy && looksLikeGeminiApiKey(legacy)) return legacy;
+  return "";
+}
+
+export function resolveLlmModelForProvider(provider: AiProviderMode): string {
+  if (provider === "gemini") {
+    return resolveGeminiChatModel();
   }
-  return DEFAULT_OPENAI_CHAT_MODEL;
+  const custom = (Deno.env.get("OPENAI_MODEL") || Deno.env.get("AI_MODEL") || "").trim();
+  return custom || DEFAULT_OPENAI_CHAT_MODEL;
+}
+
+export function resolveLlmModel(): string {
+  return resolveLlmModelForProvider(resolveAiProvider());
+}
+
+export type LlmRuntimeConfig = {
+  provider: AiProviderMode;
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+};
+
+/** Resolved API key, host, and model for one chat completion request. */
+export function resolveLlmRuntime(providerOverride?: AiProviderMode): LlmRuntimeConfig {
+  const provider = providerOverride ?? resolveAiProvider();
+  if (provider === "gemini") {
+    return {
+      provider,
+      apiKey: resolveGeminiLlmApiKey(),
+      baseUrl: GEMINI_OPENAI_COMPAT_BASE,
+      model: resolveGeminiChatModel(),
+    };
+  }
+  const custom = normalizeSecret(Deno.env.get("OPENAI_BASE_URL") || "");
+  return {
+    provider,
+    apiKey: resolveLlmApiKey(),
+    baseUrl: custom ? custom.replace(/\/+$/, "") : OPENAI_DEFAULT_BASE,
+    model: resolveLlmModelForProvider("openai"),
+  };
+}
+
+export function geminiLlmSetupHint(): string {
+  return "Song analysis uses Google Gemini. Set GEMINI_API_KEY from Google AI Studio (https://aistudio.google.com/apikey) in Supabase Edge Function secrets (even when AI_PROVIDER=openai for other features).";
 }
 
 export function llmSetupHint(): string {
