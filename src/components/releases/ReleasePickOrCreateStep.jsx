@@ -218,7 +218,9 @@ export default function ReleasePickOrCreateStep({ onReleaseReady }) {
               className="rounded-xl font-mono text-sm"
               placeholder={"Intro\nSingle name\nOutro"}
             />
-            <p className="text-xs text-muted-foreground">Singles: one line. Albums: list every song — you can add audio per track next.</p>
+            <p className="text-xs text-muted-foreground">
+              Singles & EPs: one campaign per track. Albums: one line per song, then one shared album campaign in the next steps.
+            </p>
           </div>
           <Button type="button" className="rounded-full" disabled={busy} onClick={() => requireAuth(createAndContinue)}>
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

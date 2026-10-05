@@ -9,12 +9,9 @@ import {
 import { linkDraftProjectsToCampaignDays } from "@/services/campaignVideoBridge";
 import { normalizePromoStyleChoice } from "@/services/promoStylePresets";
 import { addDaysISO, todayISO } from "@/services/format";
+import { buildAlbumSongForAI, pickAnchorSong } from "@/services/releaseCampaignMode";
 
-/**
- * Create or refresh one song + AI campaign plan (no on-device video render).
- * Used by /create/track and release rollout batch generate.
- */
-export async function generateCampaignForSong({
+async function createCampaignPlanFromAI({
   song,
   artist,
   releaseId = "",
@@ -23,7 +20,8 @@ export async function generateCampaignForSong({
   startDate = todayISO(),
   promoStylePreset = "viral-pop",
   userId = "",
-  campaignNameSuffix = "",
+  campaignNameOverride = "",
+  releaseScope = "track",
   onStage,
 }) {
   const stage = (msg) => onStage?.(msg);
@@ -39,7 +37,7 @@ export async function generateCampaignForSong({
   const analysis = {
     ...(generated && typeof generated === "object" ? generated : {}),
     assetProfile: song.analysis?.assetProfile || null,
-    releaseContext: releaseId ? { releaseId } : null,
+    releaseContext: releaseId ? { releaseId, scope: releaseScope } : null,
   };
   await db.entities.Song.update(song.id, { analysis });
 
@@ -71,11 +69,11 @@ export async function generateCampaignForSong({
   );
 
   const endDate = addDaysISO(startDate, durationDays - 1);
-  const baseName = result.campaignName || `${song.title} Campaign`;
+  const baseName = campaignNameOverride || result.campaignName || `${song.title} Campaign`;
   const campaignPayload = {
     song_id: song.id,
     artist_id: song.artist_id,
-    name: campaignNameSuffix ? `${baseName} ${campaignNameSuffix}`.trim() : baseName,
+    name: baseName,
     status: startDate <= todayISO() ? "active" : "scheduled",
     duration_days: durationDays,
     goals,
@@ -126,4 +124,77 @@ export async function generateCampaignForSong({
   }
 
   return { campaign, song: { ...song, analysis }, dayProjects, enrichedDays };
+}
+
+/**
+ * One album-wide campaign (single plan for the full release).
+ */
+export async function generateCampaignForAlbum({
+  release,
+  songs,
+  artist,
+  goals = [],
+  durationDays = 14,
+  startDate = todayISO(),
+  promoStylePreset = "viral-pop",
+  userId = "",
+  onStage,
+}) {
+  const anchor = pickAnchorSong(release, songs);
+  if (!anchor) {
+    throw new Error("Add at least one track before generating an album campaign.");
+  }
+  const artistName = artist?.name || "Artist";
+  const songForAI = buildAlbumSongForAI(release, songs, artistName);
+  const campaignName = `${release.title || "Album"} Campaign`;
+
+  return createCampaignPlanFromAI({
+    song: { ...anchor, ...songForAI, artist_id: anchor.artist_id },
+    artist,
+    releaseId: release.id,
+    goals,
+    durationDays,
+    startDate,
+    promoStylePreset,
+    userId,
+    campaignNameOverride: campaignName,
+    releaseScope: "album",
+    onStage,
+  });
+}
+
+/**
+ * Create or refresh one song + AI campaign plan (no on-device video render).
+ * Used by /create/track and release rollout batch generate.
+ */
+export async function generateCampaignForSong({
+  song,
+  artist,
+  releaseId = "",
+  goals = [],
+  durationDays = 14,
+  startDate = todayISO(),
+  promoStylePreset = "viral-pop",
+  userId = "",
+  campaignNameSuffix = "",
+  onStage,
+}) {
+  const result = await createCampaignPlanFromAI({
+    song,
+    artist,
+    releaseId,
+    goals,
+    durationDays,
+    startDate,
+    promoStylePreset,
+    userId,
+    releaseScope: "track",
+    onStage,
+  });
+  if (campaignNameSuffix && result.campaign) {
+    const name = `${result.campaign.name} ${campaignNameSuffix}`.trim();
+    await db.entities.Campaign.update(result.campaign.id, { name });
+    result.campaign = { ...result.campaign, name };
+  }
+  return result;
 }

@@ -276,6 +276,29 @@ export default function CreateCampaign() {
         song = await db.entities.Song.create(songPayload);
       }
 
+      if (form.releaseId) {
+        const release = await db.entities.Release.get(form.releaseId).catch(() => null);
+        if (release?.release_type === "album") {
+          const allCampaigns = await db.entities.Campaign.list("-created_date", 300).catch(() => []);
+          const albumCamp = (allCampaigns || []).find((c) => c.release_id === form.releaseId && !c.is_demo);
+          if (albumCamp) {
+            toast({
+              title: "Track saved",
+              description: "Albums use one shared campaign — open the album plan to schedule posts.",
+            });
+            navigate(`/campaigns/${albumCamp.id}/plan`);
+            return;
+          }
+          toast({
+            variant: "destructive",
+            title: "Create the album campaign first",
+            description: "From the release, choose Plan campaigns to generate one album-wide plan.",
+          });
+          navigate(`/create?release=${form.releaseId}`);
+          return;
+        }
+      }
+
       const songForAI = {
         ...song,
         language: form.language,
