@@ -47,8 +47,12 @@ export const db = {
       if (!supabase) {
         throw new Error("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before calling a function.");
       }
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+      let { data: sessionData } = await supabase.auth.getSession();
+      let accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        const refreshed = await supabase.auth.refreshSession().catch(() => ({ data: null }));
+        accessToken = refreshed?.data?.session?.access_token || null;
+      }
 
       const invokeOptions = { body: payload || {} };
       if (accessToken) {

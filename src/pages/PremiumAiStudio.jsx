@@ -189,11 +189,13 @@ export default function PremiumAiStudio() {
         </div>
         {!sunoStatus?.configured ? (
           <p className="text-sm text-amber-200/90">
-            Backend: TemPolor — set <code className="text-xs">SUNO_API_KEY</code> (platform API key),{" "}
-            <code className="text-xs">PUBLIC_APP_URL</code>, optional{" "}
-            <code className="text-xs">SUNO_API_BASE_URL</code> (default https://api.tempolor.com) and{" "}
-            <code className="text-xs">SUNO_API_MODEL</code> (default tempolor-latest).
+            Backend: TemPolor — set <code className="text-xs">SUNO_API_KEY</code> (raw key in TemPolor console, not
+            Bearer), <code className="text-xs">PUBLIC_APP_URL</code> (e.g. https://musicpromoai.site), optional{" "}
+            <code className="text-xs">SUNO_API_BASE_URL</code> (must include https:// — default
+            https://api.tempolor.com), and <code className="text-xs">SUNO_API_MODEL</code> (tempolor-latest).
           </p>
+        ) : sunoStatus?.provider === "tempolor" ? (
+          <p className="text-xs text-muted-foreground">{sunoStatus.note}</p>
         ) : null}
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1.5 md:col-span-2">
@@ -243,7 +245,10 @@ export default function PremiumAiStudio() {
           <h2 className="font-heading text-lg font-semibold">Stem splitter</h2>
         </div>
         {!stemStatus?.configured ? (
-          <p className="text-sm text-amber-200/90">Backend: set REPLICATE_API_TOKEN (Demucs model).</p>
+          <p className="text-sm text-amber-200/90">
+            Backend: set <code className="text-xs">REPLICATE_API_TOKEN</code> (r8_… API token from Replicate — this is
+            separate from TemPolor / Suno song generation).
+          </p>
         ) : null}
         <div className="space-y-3">
           <div className="space-y-1.5">

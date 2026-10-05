@@ -1,9 +1,26 @@
 /** Vocal / drum / bass / other stems via Replicate (Demucs-class models). */
 
+import { normalizeApiKey } from "./externalUrl.ts";
+
 const DEFAULT_MODEL = "cjwbw/demucs:6716f1a542e14b634e3c20c006b1b685173fb2d285088a5e794436a440a0a6f3";
 
+function replicateToken(): string {
+  return normalizeApiKey(Deno.env.get("REPLICATE_API_TOKEN") || "");
+}
+
+function mapReplicateError(message: unknown, status?: number): string {
+  const m = String(message || "").trim();
+  if (!m && status === 401) {
+    return "Replicate rejected the API token. Add REPLICATE_API_TOKEN (r8_… from replicate.com/account/api-tokens) to Supabase secrets and redeploy splitAudioStems.";
+  }
+  if (/valid authentication token|unauthenticated|401/i.test(m) || status === 401) {
+    return "Replicate rejected the API token. Set REPLICATE_API_TOKEN in Supabase secrets (r8_… from replicate.com/account/api-tokens) and redeploy splitAudioStems.";
+  }
+  return m || `Replicate error (${status ?? "unknown"})`;
+}
+
 async function replicateFetch(path: string, init: RequestInit = {}) {
-  const token = (Deno.env.get("REPLICATE_API_TOKEN") || "").trim();
+  const token = replicateToken();
   if (!token) throw new Error("Stem splitter needs REPLICATE_API_TOKEN in Supabase secrets.");
   const res = await fetch(`https://api.replicate.com/v1${path}`, {
     ...init,
@@ -14,12 +31,15 @@ async function replicateFetch(path: string, init: RequestInit = {}) {
     },
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.detail || data?.error || `Replicate error (${res.status})`);
+  if (!res.ok) {
+    const detail = data?.detail ?? data?.error ?? data?.title;
+    throw new Error(mapReplicateError(detail, res.status));
+  }
   return data;
 }
 
 export function stemSplitProviderStatus() {
-  const configured = Boolean((Deno.env.get("REPLICATE_API_TOKEN") || "").trim());
+  const configured = Boolean(replicateToken());
   return {
     configured,
     provider: configured ? "replicate" : "off",

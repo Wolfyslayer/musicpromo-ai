@@ -4,6 +4,8 @@
  * TemPolor also requires PUBLIC_APP_URL for callback_url (see tempolorSongCallback).
  */
 
+import { normalizeApiKey, normalizeExternalBaseUrl } from "./externalUrl.ts";
+
 const TEMPOLOR_DEFAULT_BASE = "https://api.tempolor.com";
 const TEMPOLOR_SUCCESS = 200000;
 const POLL_MS = 4000;
@@ -18,19 +20,32 @@ type SunoGenerateInput = {
 
 type SunoGenerateResult = { audioUrl: string; taskId?: string; raw?: unknown };
 
-function trimBase(raw: string): string {
-  return String(raw || "").trim().replace(/\/$/, "");
-}
-
 function readConfig() {
-  const key = (Deno.env.get("SUNO_API_KEY") || "").trim();
-  const base = trimBase(Deno.env.get("SUNO_API_BASE_URL") || TEMPOLOR_DEFAULT_BASE);
-  const model = (Deno.env.get("SUNO_API_MODEL") || "tempolor-latest").trim();
-  const publicApp = trimBase(
-    Deno.env.get("PUBLIC_APP_URL") || Deno.env.get("APP_PUBLIC_URL") || ""
+  const key = normalizeApiKey(Deno.env.get("SUNO_API_KEY") || "");
+  const base = normalizeExternalBaseUrl(
+    Deno.env.get("SUNO_API_BASE_URL") || "",
+    TEMPOLOR_DEFAULT_BASE
   );
+  const model = (Deno.env.get("SUNO_API_MODEL") || "tempolor-latest").trim();
+  const publicAppRaw = Deno.env.get("PUBLIC_APP_URL") || Deno.env.get("APP_PUBLIC_URL") || "";
+  const publicApp = publicAppRaw ? normalizeExternalBaseUrl(publicAppRaw) : "";
   const legacy = Deno.env.get("SUNO_API_LEGACY") === "true";
   return { key, base, model, publicApp, legacy };
+}
+
+function mapTempolorError(message: string, status?: number): string {
+  const m = String(message || "").trim();
+  if (/valid authentication token|unauthorized|invalid.*key|401/i.test(m) || status === 401) {
+    return (
+      "TemPolor rejected the API key. Set SUNO_API_KEY to your TemPolor platform key (Authorization header value, not Bearer) from platform.tempolor.com."
+    );
+  }
+  if (/Invalid URL/i.test(m)) {
+    return (
+      "TemPolor API URL is invalid. Set SUNO_API_BASE_URL to https://api.tempolor.com (include https://)."
+    );
+  }
+  return m || "TemPolor API request failed.";
 }
 
 function isTempolorApi(base: string, legacy: boolean): boolean {
@@ -67,23 +82,29 @@ async function tempolorRequest<T = Record<string, unknown>>(
   path: string,
   body: Record<string, unknown>
 ): Promise<T> {
-  const res = await fetch(`${base}${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: key,
-      "Content-Type": "application/json; charset=utf-8",
-    },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: key,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    const msg = (err as Error).message || String(err);
+    throw new Error(mapTempolorError(msg));
+  }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
     throw new Error(
-      String(data?.message || data?.error || `TemPolor API HTTP ${res.status}`)
+      mapTempolorError(String(data?.message || data?.error || `TemPolor API HTTP ${res.status}`), res.status)
     );
   }
   const status = Number(data?.status);
   if (status && status !== TEMPOLOR_SUCCESS) {
-    throw new Error(String(data?.message || `TemPolor API error (${status})`));
+    throw new Error(mapTempolorError(String(data?.message || `TemPolor API error (${status})`)));
   }
   return data as T;
 }
