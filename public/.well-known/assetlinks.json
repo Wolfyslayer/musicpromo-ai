@@ -5,7 +5,7 @@
       "namespace": "android_app",
       "package_name": "site.musicpromoai.app",
       "sha256_cert_fingerprints": [
-        "REPLACE_AFTER_FIRST_APK_BUILD_SEE_ACTIONS_SUMMARY"
+        "sha256:b26ab4b8bde9abdc222d3bb522e5432a0c0bfbd358706c53afa25c5970b36d46"
       ]
     }
   }
