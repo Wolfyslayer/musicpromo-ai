@@ -34,7 +34,9 @@ Premium: **`/premium`** (AI songs & stems). Requires Creator, Pro, or Studio (or
 | `STRIPE_STUDIO_MONTHLY_PRICE_ID` | $32/mo |
 | `STRIPE_STUDIO_YEARLY_PRICE_ID` | $306/yr |
 
-Plus `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PUBLIC_APP_URL`.
+Plus `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY` (`pk_test_…` / `pk_live_…`, same mode as the secret key), `STRIPE_WEBHOOK_SECRET`, `PUBLIC_APP_URL`.
+
+Checkout opens **in-app** (Stripe Embedded Checkout modal). The publishable key is returned by `getUserBilling` and can also be set at build time as `VITE_STRIPE_PUBLISHABLE_KEY` for GitHub Pages.
 
 Checkout (subscription): `{ "plan": "creator"|"pro"|"studio", "interval": "month"|"year" }`.
 

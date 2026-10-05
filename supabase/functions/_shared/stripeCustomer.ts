@@ -1,5 +1,13 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
+export function stripePublishableKey(): string {
+  return (Deno.env.get("STRIPE_PUBLISHABLE_KEY") || Deno.env.get("VITE_STRIPE_PUBLISHABLE_KEY") || "").trim();
+}
+
+export function stripeEmbeddedCheckoutReady(): boolean {
+  return Boolean((Deno.env.get("STRIPE_SECRET_KEY") || "").trim() && stripePublishableKey());
+}
+
 /** Checkout line_items require a Price id (`price_…`), not a Product id (`prod_…`). */
 export function assertCheckoutPriceId(raw: string, secretName: string): string {
   const id = String(raw || "").trim();
