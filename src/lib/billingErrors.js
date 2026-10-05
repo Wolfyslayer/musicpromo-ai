@@ -1,3 +1,4 @@
+/** @deprecated Plans open from header credits; kept for deep links that redirect. */
 export const BILLING_SETTINGS_PATH = "/settings/billing";
 
 export function isInsufficientCreditsError(err) {
@@ -24,13 +25,13 @@ export function billingFailureToast(err) {
   if (isPremiumRequiredError(err)) {
     return {
       title: "Creator plan required",
-      description: `${err?.message || "Upgrade to unlock Suno songs and stem splitting."} Settings → Plan & credits.`,
+      description: `${err?.message || "Upgrade to unlock Suno songs and stem splitting."} Tap your credit balance in the header to upgrade.`,
     };
   }
   if (isInsufficientCreditsError(err)) {
     return {
       title: "Not enough credits",
-      description: `${insufficientCreditsMessage(err)} Open Settings → Plan & credits to see your balance or upgrade to Pro.`,
+      description: `${insufficientCreditsMessage(err)} Tap credits in the header for plans and top-ups.`,
     };
   }
   return {

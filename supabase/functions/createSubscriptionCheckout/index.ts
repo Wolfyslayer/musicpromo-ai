@@ -17,7 +17,7 @@ import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
 
 function embeddedReturnUrl(appOrigin: string, query: Record<string, string>): string {
   const params = new URLSearchParams({ checkout: "complete", ...query });
-  return `${appOrigin}/settings/billing?${params.toString()}&session_id={CHECKOUT_SESSION_ID}`;
+  return `${appOrigin}/?${params.toString()}&session_id={CHECKOUT_SESSION_ID}`;
 }
 
 function embeddedSessionFields(appOrigin: string, returnQuery: Record<string, string>): URLSearchParams {

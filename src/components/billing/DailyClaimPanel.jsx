@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { dispatchOpenBillingPlans } from "@/lib/billingEvents";
 
 /**
  * 7-day streak UI — used in header gift sheet and settings.
@@ -71,8 +71,13 @@ export default function DailyClaimPanel({
         </Button>
       ) : null}
       {showPlanLink ? (
-        <Button type="button" variant="link" className="h-auto w-full p-0 text-xs text-muted-foreground" asChild>
-          <Link to="/settings/billing">Plan, costs & Pro upgrade</Link>
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto w-full p-0 text-xs text-muted-foreground"
+          onClick={() => dispatchOpenBillingPlans()}
+        >
+          Plans, costs & upgrades
         </Button>
       ) : null}
     </div>
