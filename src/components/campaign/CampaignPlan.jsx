@@ -45,6 +45,8 @@ import CampaignPlanInsights from "@/components/campaign/CampaignPlanInsights";
 import { normalizeSongForAI } from "@/services/songLanguage";
 import SwipeDayCard from "@/components/campaign/SwipeDayCard";
 import DayActionDrawer from "@/components/ux/DayActionDrawer";
+import CampaignGenerateVideosButton from "@/components/campaign/CampaignGenerateVideosButton";
+import { countVideosNeedingExport } from "@/services/campaignVideoOneClick";
 
 const DAY_STATUSES = [
   { id: "planned", label: "Planned", color: "#8b8b9a" },
@@ -174,6 +176,7 @@ function DayScheduleMeta({ day, posts, onRefresh }) {
 export default function CampaignPlan({
   campaign,
   days,
+  videos = [],
   song,
   release,
   artistName,
@@ -239,6 +242,11 @@ export default function CampaignPlan({
     }
     return map;
   }, [posts]);
+
+  const videosNeedingExport = useMemo(
+    () => countVideosNeedingExport(days, videos).total,
+    [days, videos]
+  );
 
   const setStatus = async (day, status) => {
     await db.entities.CampaignDay.update(day.id, { status });
@@ -339,6 +347,28 @@ export default function CampaignPlan({
   return (
     <div className="space-y-3">
       {campaign?.id ? <CampaignPlanInsights campaignId={campaign.id} /> : null}
+      {videosNeedingExport > 0 ? (
+        <div className="flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-600">Promo videos needed for scheduling</p>
+            <p className="text-xs text-muted-foreground">
+              TikTok, Reels, and Shorts need an exported MP4. One click builds drafts (if missing), picks the best hook
+              clip, and encodes on this device.
+            </p>
+          </div>
+          <CampaignGenerateVideosButton
+            campaign={campaign}
+            days={days}
+            videos={videos}
+            song={song}
+            artistName={artistName}
+            release={release}
+            onComplete={refreshPlan}
+            size="sm"
+            className="shrink-0"
+          />
+        </div>
+      ) : null}
       <p className="text-xs text-muted-foreground">
         Use <span className="text-foreground">Schedule auto-publish</span> to queue Instagram, TikTok, YouTube, and X.
         Due posts publish automatically every few minutes (or tap Publish now when overdue).

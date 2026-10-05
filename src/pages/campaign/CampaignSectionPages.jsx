@@ -14,7 +14,7 @@ import CampaignAnalytics from "@/components/campaign/CampaignAnalytics";
 import { campaignSectionPath } from "@/lib/campaignNav";
 
 export function CampaignPlanPage() {
-  const { campaign, days, song, artist, release, reload } = useCampaign();
+  const { campaign, days, song, artist, release, videos, reload } = useCampaign();
   const [params, setParams] = useSearchParams();
   const [providers, setProviders] = useState([]);
   const initialManageDayId = params.get("day") || "";
@@ -55,6 +55,7 @@ export function CampaignPlanPage() {
       <CampaignPlan
         campaign={campaign}
         days={days}
+        videos={videos}
         song={{ ...song, artistName: artist?.name }}
         release={release}
         artistName={artist?.name}
@@ -101,8 +102,18 @@ export function CampaignLibraryPage() {
 }
 
 export function CampaignVideosPage() {
-  const { campaign, videos, song, reload } = useCampaign();
-  return <CampaignVideos campaign={campaign} videos={videos} song={song} onRefresh={reload} />;
+  const { campaign, days, videos, song, artist, release, reload } = useCampaign();
+  return (
+    <CampaignVideos
+      campaign={campaign}
+      days={days}
+      videos={videos}
+      song={song}
+      artistName={artist?.name}
+      release={release}
+      onRefresh={reload}
+    />
+  );
 }
 
 export function CampaignAnalyticsPage() {
