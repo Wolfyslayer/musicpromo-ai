@@ -36,6 +36,8 @@ async function handler(req: Request) {
     const mood = String(body?.mood || "").trim();
     const useLlmPrompt = body?.useLlmPrompt !== false;
 
+    const referenceImageBytes = decodeReferenceImageBase64(body?.referenceImageBase64);
+
     const generated = await generateCloudCoverArt({
       prompt,
       title,
@@ -43,7 +45,7 @@ async function handler(req: Request) {
       genre,
       mood,
       useLlmPrompt,
-      referenceImageBytes: decodeReferenceImageBase64(body?.referenceImageBase64),
+      referenceImageBytes,
     });
 
     const admin = serviceClient();
@@ -62,6 +64,7 @@ async function handler(req: Request) {
       provider: generated.provider,
       imagePrompt: generated.imagePrompt,
       billingNote: generated.billingNote,
+      mode: generated.mode,
     });
   } catch (error) {
     return jsonWithCors(req, { error: (error as Error).message }, 500);

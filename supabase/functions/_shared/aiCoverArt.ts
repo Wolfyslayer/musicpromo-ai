@@ -18,6 +18,7 @@ const BUCKET = "music-promo-assets";
 const DEFAULT_FAL_COVER = "fal-ai/flux/dev";
 const DEFAULT_REPLICATE_COVER = "black-forest-labs/flux-schnell";
 const DEFAULT_OPENAI_IMAGE_MODEL = "dall-e-3";
+const DEFAULT_OPENAI_IMAGE_EDIT_MODEL = "gpt-image-1";
 const DEFAULT_OPENAI_IMAGE_SIZE = "1024x1024";
 
 export type CoverArtProvider = "gemini" | "openai" | "fal" | "replicate" | "off";
@@ -62,6 +63,7 @@ export function coverArtProviderStatus() {
     supportsImageEdit: provider === "gemini" || provider === "openai",
     geminiImageModel: resolveGeminiImageModel(),
     openAiImageModel: Deno.env.get("OPENAI_IMAGE_MODEL") || DEFAULT_OPENAI_IMAGE_MODEL,
+    openAiImageEditModel: Deno.env.get("OPENAI_IMAGE_EDIT_MODEL") || DEFAULT_OPENAI_IMAGE_EDIT_MODEL,
     falModel: Deno.env.get("FAL_COVER_MODEL") || DEFAULT_FAL_COVER,
     replicateModel: Deno.env.get("REPLICATE_COVER_MODEL") || DEFAULT_REPLICATE_COVER,
     note:
@@ -126,34 +128,47 @@ export async function expandCoverEditPromptWithLlm(input: {
 }): Promise<string> {
   const instruction = String(input.prompt || "").trim();
   if (!instruction) {
-    throw new Error("Describe what to change (e.g. “make the sky purple”).");
+    throw new Error("Describe what to change (e.g. “make the sky purple” or “add neon rain”).");
   }
+
   const context = [
-    input.title ? `Album title (mood only, do not render as text): ${input.title}.` : "",
+    input.title ? `Album title (for mood only, do not render as text): ${input.title}.` : "",
+    input.artistName ? `Artist: ${input.artistName}.` : "",
     input.genre ? `Genre: ${input.genre}.` : "",
     input.mood ? `Mood: ${input.mood}.` : "",
   ]
     .filter(Boolean)
     .join(" ");
 
-  const base = `Edit this square music album cover image. ${instruction}. ${context} Keep a strong cover composition. Do not add text or logos unless the user asked.`;
+  const base = `Image 1: square music album cover artwork. Apply this edit: ${instruction}. ${context} Preserve the overall composition unless the edit requires a big change. Do not add on-image text, logos, or watermarks unless the user explicitly asked for text.`;
 
   if (!hasLlmConfigured()) return base;
 
   try {
     const result = (await invokeLlm({
-      prompt: `Rewrite as ONE instruction for an image-editing model editing Image 1 (album cover).\nUser request: ${instruction}\n${context}`,
+      prompt: `Rewrite as ONE clear instruction for an image-editing model (Image 1 = uploaded album cover).
+User edit request: ${instruction}
+${context}
+Output only the final edit instruction, one paragraph.`,
       response_json_schema: {
         type: "object",
         properties: { prompt: { type: "string" } },
         required: ["prompt"],
       },
     })) as { prompt?: string };
-    return String(result?.prompt || base).trim() || base;
+    const out = String(result?.prompt || base).trim();
+    return out.startsWith("Image 1") ? out : `Image 1: square album cover. ${out}`;
   } catch (err) {
     console.warn("[aiCoverArt] edit prompt assist skipped:", (err as Error).message);
     return base;
   }
+}
+
+function decodeBase64Image(b64: string): Uint8Array {
+  const binary = atob(b64.replace(/\s/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 async function falTextToImage(prompt: string): Promise<{ sourceUrl: string; provider: "fal" }> {
@@ -289,6 +304,59 @@ async function openAiTextToImage(prompt: string): Promise<{ sourceUrl: string; p
   return { sourceUrl: String(imageUrl), provider: "openai" };
 }
 
+type OpenAiImageResult = {
+  sourceUrl?: string;
+  imageBytes?: Uint8Array;
+  provider: "openai";
+};
+
+async function openAiEditImage(prompt: string, imagePng: Uint8Array): Promise<OpenAiImageResult> {
+  const apiKey = openAiImageApiKey();
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY (or OPENAI_IMAGE_API_KEY) is not set.");
+  }
+  if (imagePng.byteLength > 12 * 1024 * 1024) {
+    throw new Error("Reference image is too large after processing (max 12 MB).");
+  }
+
+  const editModel = (Deno.env.get("OPENAI_IMAGE_EDIT_MODEL") || DEFAULT_OPENAI_IMAGE_EDIT_MODEL).trim();
+  const form = new FormData();
+  form.append("model", editModel);
+  form.append("prompt", prompt.slice(0, 4000));
+  form.append("image", new Blob([imagePng], { type: "image/png" }), "cover.png");
+  form.append("size", "1024x1024");
+  form.append("output_format", "png");
+
+  if (editModel.startsWith("gpt-image") || editModel.includes("chatgpt-image")) {
+    form.append("quality", (Deno.env.get("OPENAI_IMAGE_EDIT_QUALITY") || "medium").trim());
+    form.append("input_fidelity", (Deno.env.get("OPENAI_IMAGE_INPUT_FIDELITY") || "high").trim());
+  } else if (editModel.startsWith("dall-e-2")) {
+    form.append("response_format", "url");
+  }
+
+  const res = await fetch(`${openAiImageApiBase()}/images/edits`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error?.message || data?.error || JSON.stringify(data);
+    throw new Error(`OpenAI image edit error (${res.status}): ${msg}`);
+  }
+
+  const item = data?.data?.[0];
+  const url = item?.url;
+  if (url && /^https?:\/\//i.test(String(url))) {
+    return { sourceUrl: String(url), provider: "openai" };
+  }
+  const b64 = item?.b64_json;
+  if (b64) {
+    return { imageBytes: decodeBase64Image(String(b64)), provider: "openai" };
+  }
+  throw new Error("OpenAI edit returned no image.");
+}
+
 export async function generateCloudCoverArt(input: {
   prompt: string;
   title?: string;
@@ -303,6 +371,7 @@ export async function generateCloudCoverArt(input: {
   provider: CoverArtProvider;
   imagePrompt: string;
   billingNote: string;
+  mode: "generate" | "edit";
 }> {
   const provider = resolveCoverArtProvider();
   if (provider === "off") {
@@ -310,29 +379,53 @@ export async function generateCloudCoverArt(input: {
   }
 
   const hasReference = Boolean(input.referenceImageBytes?.byteLength);
-  const imagePrompt = hasReference
-    ? input.useLlmPrompt !== false
-      ? await expandCoverEditPromptWithLlm(input)
-      : `Edit this square album cover: ${String(input.prompt || "").trim()}`
-    : input.useLlmPrompt !== false
+
+  if (hasReference) {
+    const imagePrompt =
+      input.useLlmPrompt !== false
+        ? await expandCoverEditPromptWithLlm(input)
+        : `Image 1: album cover. ${String(input.prompt || "").trim()}`;
+
+    if (provider === "gemini") {
+      const gemini = await geminiGenerateImage({
+        prompt: imagePrompt,
+        referenceImageBytes: input.referenceImageBytes,
+      });
+      return {
+        imageBytes: gemini.imageBytes,
+        provider: "gemini",
+        imagePrompt,
+        billingNote: "Edited with Gemini (Google AI Studio).",
+        mode: "edit",
+      };
+    }
+    if (provider === "openai") {
+      const edited = await openAiEditImage(imagePrompt, input.referenceImageBytes!);
+      return {
+        ...edited,
+        provider: "openai",
+        imagePrompt,
+        billingNote: "Billed by OpenAI (image edit with your upload).",
+        mode: "edit",
+      };
+    }
+    throw new Error("Upload-and-edit requires Gemini or OpenAI Images (not fal/Replicate-only).");
+  }
+
+  const imagePrompt =
+    input.useLlmPrompt !== false
       ? await expandCoverPromptWithLlm(input)
       : String(input.prompt || "").trim() ||
         "Square album cover artwork, cinematic, no text, no logos, music release.";
 
-  if (hasReference && provider !== "gemini") {
-    throw new Error("Upload-and-edit requires Gemini. Set GEMINI_API_KEY (AI_COVER_PROVIDER=gemini).");
-  }
-
   if (provider === "gemini") {
-    const gemini = await geminiGenerateImage({
-      prompt: imagePrompt,
-      referenceImageBytes: input.referenceImageBytes,
-    });
+    const gemini = await geminiGenerateImage({ prompt: imagePrompt });
     return {
       imageBytes: gemini.imageBytes,
       provider: "gemini",
       imagePrompt,
       billingNote: "Generated with Gemini (Google AI Studio).",
+      mode: "generate",
     };
   }
 
@@ -350,7 +443,7 @@ export async function generateCloudCoverArt(input: {
         ? "Billed by fal.ai (Flux image — pay-as-you-go)."
         : "Billed by Replicate (Flux Schnell image).";
 
-  return { ...result, provider: result.provider, imagePrompt, billingNote };
+  return { ...result, provider: result.provider, imagePrompt, billingNote, mode: "generate" };
 }
 
 export async function persistCoverArtFromBytes(
@@ -362,7 +455,7 @@ export async function persistCoverArtFromBytes(
   if (bytes.byteLength > 15 * 1024 * 1024) {
     throw new Error("Cover image is too large to store (>15MB).");
   }
-  const ext = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
+  const ext = contentType.includes("jpeg") ? "jpg" : "png";
   const path = `cover-art/${userId}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, bytes, {
     contentType,

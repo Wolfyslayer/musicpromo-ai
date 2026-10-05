@@ -21,7 +21,7 @@ export default function ArtworkStudio() {
         </div>
         <h1 className="font-heading text-2xl font-bold tracking-tight md:text-3xl">Album art studio</h1>
         <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
-          Generate covers with AI or design your own in a layered editor — then use the URL on a{" "}
+          Generate from a prompt, upload a photo and describe edits, or design in the layered editor — then use the URL on a{" "}
           <Link to="/releases" className="text-primary underline underline-offset-2">
             release
           </Link>

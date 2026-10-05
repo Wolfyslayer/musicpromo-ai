@@ -57,6 +57,8 @@ Keep **`GEMINI_API_KEY`** for cover lab, or set `AI_COVER_PROVIDER=openai` with 
 | `OPENAI_API_KEY` | OpenAI `sk-...` |
 | `OPENAI_BASE_URL` | Optional — default `https://api.openai.com/v1` |
 | `OPENAI_MODEL` | e.g. `gpt-4o-mini` |
+| `OPENAI_IMAGE_API_KEY` | Optional — OpenAI Images only when using Groq for chat |
+| `OPENAI_IMAGE_MODEL` / `OPENAI_IMAGE_EDIT_MODEL` | Optional — DALL·E / gpt-image when `AI_COVER_PROVIDER=openai` |
 
 ## What stays on-device (no LLM bill)
 
