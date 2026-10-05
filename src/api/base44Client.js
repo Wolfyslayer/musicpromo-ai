@@ -67,7 +67,9 @@ export const db = {
           const fnHint =
             name === "submitSupportTicket" || name === "supportChat"
               ? "Deploy submitSupportTicket (and supportChat if using AI) via GitHub Actions → Deploy → Run workflow, or: supabase functions deploy submitSupportTicket. Run support_tickets SQL from supabase/schema.sql."
-              : "Redeploy the Edge Function and confirm VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY match your Supabase project (Settings → API).";
+              : name === "campaignSchedule" || name === "kickCampaignWorker" || name === "campaignWorker"
+                ? "Run GitHub Actions → Deploy → Run workflow (or: supabase functions deploy campaignSchedule campaignWorker). Confirm VITE_SUPABASE_URL matches Supabase → Settings → API."
+                : "Redeploy the Edge Function and confirm VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY match your Supabase project (Settings → API).";
           message = `Could not reach Edge Function “${name}”. ${fnHint}`;
         }
         try {
