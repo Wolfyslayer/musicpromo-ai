@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { dispatchOpenBillingPlans } from "@/lib/billingEvents";
 import { Loader2, Music2, Split, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,8 +92,8 @@ export default function PremiumAiStudio() {
         description="Creator plan and above — full promo stack plus Suno & stems, priced below most AI-only apps."
         actions={
           !hasSuno || !hasStem ? (
-            <Button type="button" className="rounded-full" asChild>
-              <Link to="/settings/billing">Upgrade from $9/mo</Link>
+            <Button type="button" className="rounded-full" onClick={() => dispatchOpenBillingPlans()}>
+              Upgrade from $9/mo
             </Button>
           ) : null
         }
@@ -103,9 +103,9 @@ export default function PremiumAiStudio() {
         <p className="rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm">
           Suno generation and stem splitting require an active <strong>Creator</strong>, <strong>Pro</strong>, or{" "}
           <strong>Studio</strong> subscription.{" "}
-          <Link to="/settings/billing" className="font-semibold text-primary underline">
+          <button type="button" className="font-semibold text-primary underline" onClick={() => dispatchOpenBillingPlans()}>
             Compare plans
-          </Link>
+          </button>
         </p>
       ) : null}
 

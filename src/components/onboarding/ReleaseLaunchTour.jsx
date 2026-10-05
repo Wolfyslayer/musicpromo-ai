@@ -60,7 +60,7 @@ const STEPS = [
   {
     id: "daily-claim",
     title: "Daily credits",
-    body: "Tap the 🎁 in the header any time to claim free AI credits — day 3 and day 7 pay bonus amounts each month.",
+    body: "Your credit balance is in the header — tap it for plans and top-ups. Tap 🎁 to claim free daily credits (day 3 and day 7 pay bonuses each month).",
     icon: Sparkles,
     highlight: "[data-tour='daily-claim-gift']",
   },
