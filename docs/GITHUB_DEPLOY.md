@@ -56,7 +56,7 @@ Then add your domain under **Pages → Custom domain** and configure DNS.
 
 ### 3. Database migrations (not auto-applied by Deploy)
 
-SQL under `supabase/migrations/` (e.g. native **`push_devices`**) is **not** run by GitHub Actions. After merging a migration, open **Supabase → SQL editor**, paste the file, and run it once.
+SQL under `supabase/migrations/` (e.g. native **`push_devices`**, billing **`user_billing`**) is **not** run by GitHub Actions. After merging a migration, open **Supabase → SQL editor**, paste the file, and run it once. See [BILLING.md](./BILLING.md) for Stripe + credits setup.
 
 Optional: add a dedicated workflow with `supabase db push` and a database password secret later.
 

@@ -18,6 +18,7 @@ import {
 } from "@/services/aiVideoService";
 import { resolvePublicArtworkUrl } from "@/services/videoService";
 import { useToast } from "@/components/ui/use-toast";
+import { billingFailureToast } from "@/lib/billingErrors";
 
 export default function AiClipPanel({
   project,
@@ -81,10 +82,14 @@ export default function AiClipPanel({
         });
       } catch (err) {
         onPatch?.({ ai_clip_status: "failed" });
+        const fail = billingFailureToast(err);
         toast({
           variant: "destructive",
-          title: "Cloud clip failed",
-          description: err?.message || "Configure FAL_KEY or use free cinematic motion below.",
+          title: fail.title === "Request failed" ? "Cloud clip failed" : fail.title,
+          description:
+            fail.title === "Request failed"
+              ? err?.message || "Configure FAL_KEY or use free cinematic motion below."
+              : fail.description,
         });
       } finally {
         setGenerating(false);

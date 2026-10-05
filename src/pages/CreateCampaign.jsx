@@ -35,6 +35,7 @@ import { getConnectionStatus, scheduleCampaignDay } from "@/services/socialServi
 import PageHeader from "@/components/PageHeader";
 import SurfacePanel from "@/components/SurfacePanel";
 import { useAuth } from "@/lib/AuthContext";
+import { billingFailureToast } from "@/lib/billingErrors";
 
 const STEPS = [
   { key: "song", label: "Song", icon: Music2 },
@@ -385,7 +386,8 @@ export default function CreateCampaign() {
       setGenerating(false);
       setStage("");
       setRenderProgress(null);
-      toast({ variant: "destructive", title: "Generation failed", description: e.message });
+      const fail = billingFailureToast(e);
+      toast({ variant: "destructive", title: fail.title, description: fail.description });
     }
   };
 

@@ -34,12 +34,22 @@ export async function generateAiVideoClip({
   songTitle,
   useLlmPrompt = true,
 }) {
-  const res = await db.functions.invoke("generateAiVideoClip", {
-    imageUrl,
-    prompt,
-    projectId,
-    songTitle,
-    useLlmPrompt,
-  });
-  return res.data;
+  try {
+    const res = await db.functions.invoke("generateAiVideoClip", {
+      imageUrl,
+      prompt,
+      projectId,
+      songTitle,
+      useLlmPrompt,
+    });
+    return res.data;
+  } catch (err) {
+    if (err?.data?.code === "INSUFFICIENT_CREDITS" || err?.status === 402) {
+      const e = new Error(err.message);
+      e.status = 402;
+      e.data = err.data;
+      throw e;
+    }
+    throw err;
+  }
 }

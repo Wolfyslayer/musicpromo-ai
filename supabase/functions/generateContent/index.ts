@@ -1,5 +1,6 @@
-import { createClientFromRequest } from "../_shared/runtime.ts";
+import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
 import { buildContentPrompt } from "../_shared/aiPrompts.ts";
+import { billingErrorResponse, spendCredits } from "../_shared/billing.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
 
 async function handler(req: Request) {
@@ -13,6 +14,16 @@ async function handler(req: Request) {
       return jsonWithCors(req, { error: "song and contentType are required" }, 400);
     }
 
+    let creditsRemaining: number | undefined;
+    try {
+      const spend = await spendCredits(serviceClient(), String(user.id), "generate_content");
+      creditsRemaining = spend.balanceAfter;
+    } catch (creditErr) {
+      const billed = billingErrorResponse(creditErr);
+      if (billed) return jsonWithCors(req, billed.body, billed.status);
+      throw creditErr;
+    }
+
     const { prompt, schema } = buildContentPrompt({
       song: body.song,
       analysis: body.analysis,
@@ -24,8 +35,10 @@ async function handler(req: Request) {
       prompt,
       response_json_schema: schema,
     });
-    return jsonWithCors(req, result);
+    return jsonWithCors(req, { ...(typeof result === "object" ? result : { result }), creditsRemaining });
   } catch (error) {
+    const billed = billingErrorResponse(error);
+    if (billed) return jsonWithCors(req, billed.body, billed.status);
     return jsonWithCors(req, { error: (error as Error).message }, 500);
   }
 }

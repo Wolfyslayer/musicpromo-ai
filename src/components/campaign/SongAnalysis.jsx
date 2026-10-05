@@ -5,6 +5,7 @@ import { Sparkles, RefreshCw, Loader2, Clock, Film, Lightbulb } from "lucide-rea
 import { Button } from "@/components/ui/button";
 
 import { aiService } from "@/services/aiService";
+import { billingFailureToast } from "@/lib/billingErrors";
 import { normalizeSongForAI } from "@/services/songLanguage";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -31,7 +32,8 @@ export default function SongAnalysis({ song, onRefresh }) {
       toast({ title: "Song analysis generated" });
       onRefresh();
     } catch (e) {
-      toast({ variant: "destructive", title: "Analysis failed", description: e.message });
+      const fail = billingFailureToast(e);
+      toast({ variant: "destructive", title: fail.title === "Request failed" ? "Analysis failed" : fail.title, description: fail.description });
     } finally {
       setLoadingAnalysis(false);
     }
@@ -50,7 +52,8 @@ export default function SongAnalysis({ song, onRefresh }) {
       toast({ title: "Promotional moment estimated" });
       onRefresh();
     } catch (e) {
-      toast({ variant: "destructive", title: "Failed", description: e.message });
+      const fail = billingFailureToast(e);
+      toast({ variant: "destructive", title: fail.title, description: fail.description });
     } finally {
       setLoadingMoment(false);
     }

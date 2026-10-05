@@ -1,4 +1,5 @@
 import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
+import { billingErrorResponse, refundCredits, spendCredits } from "../_shared/billing.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
 import {
   aiVideoProviderStatus,
@@ -28,13 +29,41 @@ async function handler(req: Request) {
       return jsonWithCors(req, { error: "imageUrl is required." }, 400);
     }
 
-    const generated = await generateCloudImageToVideo({
-      imageUrl,
-      prompt,
-      songTitle,
-      useLlmPrompt,
-    });
-    const publicUrl = await persistAiClipToStorage(serviceClient(), user.id, generated.sourceUrl);
+    const admin = serviceClient();
+    const uid = String(user.id);
+    let spendResult: { cost: number; balanceAfter: number };
+    try {
+      spendResult = await spendCredits(admin, uid, "ai_video_clip", { projectId });
+    } catch (creditErr) {
+      const billed = billingErrorResponse(creditErr);
+      if (billed) return jsonWithCors(req, billed.body, billed.status);
+      throw creditErr;
+    }
+
+    let generated;
+    try {
+      generated = await generateCloudImageToVideo({
+        imageUrl,
+        prompt,
+        songTitle,
+        useLlmPrompt,
+      });
+    } catch (genErr) {
+      if (spendResult.cost > 0) {
+        await refundCredits(admin, uid, spendResult.cost, (genErr as Error).message).catch(() => {});
+      }
+      throw genErr;
+    }
+
+    let publicUrl: string;
+    try {
+      publicUrl = await persistAiClipToStorage(admin, user.id, generated.sourceUrl);
+    } catch (persistErr) {
+      if (spendResult.cost > 0) {
+        await refundCredits(admin, uid, spendResult.cost, (persistErr as Error).message).catch(() => {});
+      }
+      throw persistErr;
+    }
 
     if (projectId) {
       try {
@@ -58,12 +87,15 @@ async function handler(req: Request) {
       sourceUrl: generated.sourceUrl,
       provider: generated.provider,
       motionPrompt: generated.motionPrompt,
+      creditsRemaining: spendResult.balanceAfter,
       billingNote: generated.billingNote,
       groqNote: aiVideoProviderStatus().groqPromptAssist
         ? "Motion prompt was refined with Gemini (text only — video pixels still use fal/Replicate if enabled)."
         : "Set GEMINI_API_KEY for free motion prompt wording; video pixels still use fal/Replicate.",
     });
   } catch (error) {
+    const billed = billingErrorResponse(error);
+    if (billed) return jsonWithCors(req, billed.body, billed.status);
     return jsonWithCors(req, { error: (error as Error).message }, 500);
   }
 }

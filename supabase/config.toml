@@ -35,3 +35,6 @@ verify_jwt = false
 # Guest ticket form on /privacy and /terms (no user session required).
 [functions.submitSupportTicket]
 verify_jwt = false
+
+[functions.stripeBillingWebhook]
+verify_jwt = false
