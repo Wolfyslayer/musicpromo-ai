@@ -12,7 +12,7 @@ import { addDaysISO, todayISO } from "@/services/format";
 
 /**
  * Create or refresh one song + AI campaign plan (no on-device video render).
- * Used by /create and album batch rollout.
+ * Used by /create/track and release rollout batch generate.
  */
 export async function generateCampaignForSong({
   song,

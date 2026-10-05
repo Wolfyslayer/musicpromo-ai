@@ -18,6 +18,7 @@ import Layout from '@/components/Layout';
 import Dashboard from '@/pages/Dashboard';
 import Campaigns from '@/pages/Campaigns';
 import CreateCampaign from '@/pages/CreateCampaign';
+import ReleaseCampaignPlanner from '@/pages/ReleaseCampaignPlanner';
 import CampaignContent from '@/pages/CampaignContent';
 import CampaignShell, { CampaignIndexRedirect } from '@/components/campaign/CampaignShell';
 import {
@@ -110,7 +111,8 @@ const AuthenticatedApp = () => {
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/campaigns" element={<Campaigns />} />
-          <Route path="/create" element={<CreateCampaign />} />
+          <Route path="/create" element={<ReleaseCampaignPlanner />} />
+          <Route path="/create/track" element={<CreateCampaign />} />
           <Route path="/studio" element={<VideoGenerator />} />
           <Route path="/artwork" element={<ArtworkStudio />} />
           <Route path="/premium" element={<PremiumAiStudio />} />

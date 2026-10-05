@@ -459,12 +459,19 @@ export default function CreateCampaign() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Studio"
-        title="New campaign"
-        description="Upload assets, set goals, and generate your day-by-day plan."
+        eyebrow="Track setup"
+        title="Full track setup"
+        description="Add artwork, audio, and lyrics for one track — then generate or enrich its campaign plan."
         actions={
-          <Button type="button" variant="ghost" className="rounded-full" onClick={() => navigate("/campaigns")}>
-            Cancel
+          <Button
+            type="button"
+            variant="ghost"
+            className="rounded-full"
+            onClick={() =>
+              navigate(releaseParam ? `/create?release=${releaseParam}` : "/create")
+            }
+          >
+            Back to rollout
           </Button>
         }
       />
