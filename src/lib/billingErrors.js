@@ -4,6 +4,10 @@ export function isInsufficientCreditsError(err) {
   return err?.status === 402 || err?.data?.code === "INSUFFICIENT_CREDITS";
 }
 
+export function isPremiumRequiredError(err) {
+  return err?.status === 403 || err?.data?.code === "PREMIUM_REQUIRED";
+}
+
 export function insufficientCreditsMessage(err) {
   if (!isInsufficientCreditsError(err)) return err?.message || "Something went wrong.";
   const required = err?.data?.creditsRequired;
@@ -17,6 +21,12 @@ export function insufficientCreditsMessage(err) {
 
 /** Toast title + description for billing-related failures. */
 export function billingFailureToast(err) {
+  if (isPremiumRequiredError(err)) {
+    return {
+      title: "Creator plan required",
+      description: `${err?.message || "Upgrade to unlock Suno songs and stem splitting."} Settings → Plan & credits.`,
+    };
+  }
   if (isInsufficientCreditsError(err)) {
     return {
       title: "Not enough credits",
