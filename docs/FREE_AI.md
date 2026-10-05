@@ -66,8 +66,9 @@ If the app shows **AI request failed (401)** or **invalid_api_key** on **Generat
 
 1. Open [Google AI Studio](https://aistudio.google.com/apikey) and create or copy an API key (starts with `AIza…`).
 2. In **Supabase → Project Settings → Edge Functions → Secrets**, set **`GEMINI_API_KEY`** to that value (no quotes). Leave **`AI_PROVIDER`** unset or set to `gemini`.
-3. If you use **Groq** instead: `AI_PROVIDER=openai`, `OPENAI_API_KEY=gsk_…`, `OPENAI_BASE_URL=https://api.groq.com/openai/v1`, `OPENAI_MODEL=llama-3.3-70b-versatile`.
-4. Redeploy functions after changing secrets: `supabase functions deploy --project-ref YOUR_REF` or run the **Deploy** GitHub Action.
+3. **Remove conflicting secrets** (common cause of 401): delete **`OPENAI_API_KEY`** if it is an old `sk-…` OpenAI key, and **delete `OPENAI_BASE_URL`** unless you intentionally use Groq (step 4). With default Gemini, an old Groq/OpenAI base URL sends requests to the wrong host.
+4. If you use **Groq** instead of Gemini: `AI_PROVIDER=openai`, `OPENAI_API_KEY=gsk_…`, `OPENAI_BASE_URL=https://api.groq.com/openai/v1`, `OPENAI_MODEL=llama-3.3-70b-versatile`.
+5. Redeploy functions after changing secrets: `supabase functions deploy --project-ref YOUR_REF` or run the **Deploy** GitHub Action.
 
 Secrets are **not** stored in GitHub; the frontend bundle never contains the LLM key.
 
