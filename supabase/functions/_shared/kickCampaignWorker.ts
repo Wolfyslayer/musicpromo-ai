@@ -1,4 +1,4 @@
-import { handleCampaignWorkerRequest } from "../campaignWorker/index.ts";
+import { handleCampaignWorkerRequest } from "./campaignWorkerHandler.ts";
 
 export type KickCampaignWorkerOptions = {
   skipVideo?: boolean;

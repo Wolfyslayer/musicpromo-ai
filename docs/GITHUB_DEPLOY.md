@@ -9,6 +9,8 @@ Pushes to **`main`** run [`.github/workflows/deploy.yml`](../.github/workflows/d
 
 **Manual run:** **Actions → Deploy → Run workflow** deploys **both** jobs (even when nothing changed in those paths).
 
+If **Auto-publish** / `campaignSchedule` fails with “Could not reach Edge Function”, run **Deploy** manually once so `campaignSchedule` and `campaignWorker` are deployed to your Supabase project.
+
 **Pages still old after a merge?** Open the latest **Deploy** run. If **Frontend (GitHub Pages)** is *Skipped*, the push did not touch frontend paths — run the workflow manually. Changes to `.github/workflows/deploy.yml` now count as frontend changes and trigger a rebuild.
 
 To change which paths trigger a job, edit the `filters` block in the workflow’s **Detect changes** job.
