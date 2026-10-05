@@ -18,6 +18,7 @@ import ArtworkUpload from "@/components/ArtworkUpload";
 import { useAuth } from "@/lib/AuthContext";
 import PageHeader from "@/components/PageHeader";
 import SurfacePanel from "@/components/SurfacePanel";
+import ReleaseDeleteDialog from "@/components/releases/ReleaseDeleteDialog";
 
 export default function ReleaseEditor() {
   const { id } = useParams();
@@ -247,6 +248,28 @@ export default function ReleaseEditor() {
             releaseDate={form.release_date}
             releaseGenre={form.genre}
             releaseLanguage={form.language}
+          />
+        </SurfacePanel>
+      ) : null}
+
+      {!isNew && releaseId ? (
+        <SurfacePanel className="mt-4 border-destructive/30">
+          <p className="mb-3 text-sm text-muted-foreground">
+            Delete this release from your catalog. Songs are unlinked; existing campaign plans are kept.
+          </p>
+          <ReleaseDeleteDialog
+            releaseId={releaseId}
+            releaseTitle={form.title}
+            onDeleted={(err) => {
+              if (err) {
+                toast({ variant: "destructive", title: "Could not delete release", description: err.message });
+                return;
+              }
+              toast({ title: "Release deleted" });
+              navigate("/releases");
+            }}
+            triggerVariant="destructive"
+            triggerSize="default"
           />
         </SurfacePanel>
       ) : null}

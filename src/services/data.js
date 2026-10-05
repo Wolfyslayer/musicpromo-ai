@@ -51,6 +51,24 @@ export async function loadReleases() {
   }));
 }
 
+/**
+ * Remove a release from the catalog. Songs are unlinked (not deleted); campaigns keep their plans
+ * but lose release_id so launch board no longer groups them under this release.
+ */
+export async function deleteRelease(releaseId) {
+  const [songs, campaigns] = await Promise.all([
+    db.entities.Song.list("-created_date", L),
+    db.entities.Campaign.list("-created_date", L),
+  ]);
+  const onRelease = (songs || []).filter((s) => s.release_id === releaseId);
+  await Promise.all(
+    onRelease.map((s) => db.entities.Song.update(s.id, { release_id: null, track_number: null }))
+  );
+  const linkedCampaigns = (campaigns || []).filter((c) => c.release_id === releaseId);
+  await Promise.all(linkedCampaigns.map((c) => db.entities.Campaign.update(c.id, { release_id: null })));
+  await db.entities.Release.delete(releaseId);
+}
+
 export async function loadRelease(id) {
   const release = await db.entities.Release.get(id);
   const [artists, songs, campaigns, allContent, allVideos] = await Promise.all([
