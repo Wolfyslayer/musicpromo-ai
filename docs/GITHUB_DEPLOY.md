@@ -65,8 +65,8 @@ Optional: add a dedicated workflow with `supabase db push` and a database passwo
 AI and OAuth handlers read secrets from **Supabase**, not from the frontend bundle. Set these once in the dashboard (**Project Settings → Edge Functions → Secrets**) or via CLI:
 
 ```bash
-supabase secrets set OPENAI_API_KEY=sk-... --project-ref YOUR_REF
-# Free-tier alternative (Groq): see docs/FREE_AI.md — set OPENAI_BASE_URL and OPENAI_MODEL too.
+supabase secrets set GEMINI_API_KEY=AIza... --project-ref YOUR_REF
+# See docs/FREE_AI.md — Groq/OpenAI overrides via AI_PROVIDER and OPENAI_* secrets.
 
 # Social connect (required for Instagram / TikTok / YouTube — not stored in GitHub)
 supabase secrets set PUBLIC_APP_URL=https://musicpromoai.site --project-ref YOUR_REF

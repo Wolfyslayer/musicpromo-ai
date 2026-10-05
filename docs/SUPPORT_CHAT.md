@@ -19,46 +19,31 @@ Tickets get a public id like `MP-A1B2C3`. Reply from your inbox (Resend sets **R
 
 ## AI assistant (optional — not required for tickets)
 
-The assistant uses the same **OpenAI-compatible** stack as campaign generation (`invokeLlm` / `invokeLlmChat`). You do **not** have to use OpenAI’s paid API.
+The assistant uses the same stack as campaign generation (`invokeLlmChat` → **Gemini by default**).
 
-### Option A — Free/cheap LLM (recommended): Groq
+### Option A — Gemini free tier (recommended)
 
-Same secrets as [FREE_AI.md](./FREE_AI.md) — one setup powers campaigns **and** support chat:
+Same secrets as [FREE_AI.md](./FREE_AI.md):
 
 | Secret | Value |
 |--------|--------|
-| `OPENAI_API_KEY` | Groq key (`gsk_...`) |
-| `OPENAI_BASE_URL` | `https://api.groq.com/openai/v1` |
-| `OPENAI_MODEL` | `llama-3.1-8b-instant` (fast, generous free tier) or `llama-3.3-70b-versatile` (better answers) |
+| `GEMINI_API_KEY` | [AI Studio](https://aistudio.google.com/apikey) key |
+| `GEMINI_MODEL` | Optional — default `gemini-2.5-flash` |
 
-Then deploy the chat function:
+Then deploy:
 
 ```bash
 supabase functions deploy supportChat
 ```
 
-No OpenAI account or `sk-...` key is involved when `OPENAI_BASE_URL` points at Groq.
+### Option B — Groq or OpenAI (text only)
 
-Other free-tier providers (Gemini OpenAI compatibility, OpenRouter `:free` models) are listed in **FREE_AI.md**.
+Set `AI_PROVIDER=openai` and `OPENAI_BASE_URL` / `OPENAI_MODEL` per **FREE_AI.md** (Groq or OpenAI).
 
-### Option B — No AI at all (email only, $0 LLM)
+### Option C — No AI at all (email only, $0 LLM)
 
 1. Deploy only `submitSupportTicket` (skip `supportChat`).
 2. In your **frontend build** (GitHub Actions / `.env.local`), set:
    ```bash
    VITE_SUPPORT_AI=off
    ```
-3. Rebuild and deploy the site.
-
-Signed-in users see the **ticket form only** — no chat, no LLM calls. Guests on `/privacy` and `/terms` behave the same as before.
-
-## Rate limits
-
-- AI (when enabled): 40 user messages per hour per user (`support_chat_usage`).
-
-## Troubleshooting “Could not reach Edge Function”
-
-1. **SQL** — In Supabase SQL editor, run the `support_tickets` / `support_chat_usage` block from `supabase/schema.sql`.
-2. **Deploy** — The live site calls `submitSupportTicket`. After merging support chat, run **GitHub → Actions → Deploy → Run workflow** (or `supabase functions deploy submitSupportTicket --project-ref YOUR_REF`).
-3. **Frontend env** — GitHub Pages build must use the same project as your functions: repository variables/secrets `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from **Supabase → Settings → API** (Project URL + anon public key).
-4. **Resend** — Ticket save can succeed even if email fails; check function logs in Supabase → Edge Functions → submitSupportTicket → Logs.

@@ -3,8 +3,19 @@ import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
 import {
   coverArtProviderStatus,
   generateCloudCoverArt,
+  persistCoverArtFromBytes,
   persistCoverArtToStorage,
 } from "../_shared/aiCoverArt.ts";
+
+function decodeReferenceImageBase64(raw: unknown): Uint8Array | undefined {
+  const b64 = String(raw || "").trim();
+  if (!b64) return undefined;
+  const cleaned = b64.includes(",") ? b64.split(",").pop()! : b64;
+  const binary = atob(cleaned.replace(/\s/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
 
 async function handler(req: Request) {
   try {
@@ -32,14 +43,22 @@ async function handler(req: Request) {
       genre,
       mood,
       useLlmPrompt,
+      referenceImageBytes: decodeReferenceImageBase64(body?.referenceImageBase64),
     });
 
-    const publicUrl = await persistCoverArtToStorage(serviceClient(), user.id, generated.sourceUrl);
+    const admin = serviceClient();
+    const publicUrl = generated.imageBytes?.byteLength
+      ? await persistCoverArtFromBytes(admin, user.id, generated.imageBytes)
+      : generated.sourceUrl
+        ? await persistCoverArtToStorage(admin, user.id, generated.sourceUrl)
+        : "";
+
+    if (!publicUrl) throw new Error("Could not save generated cover.");
 
     return jsonWithCors(req, {
       ok: true,
       imageUrl: publicUrl,
-      sourceUrl: generated.sourceUrl,
+      sourceUrl: generated.sourceUrl || publicUrl,
       provider: generated.provider,
       imagePrompt: generated.imagePrompt,
       billingNote: generated.billingNote,

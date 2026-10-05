@@ -1,4 +1,6 @@
 import { db } from "@/api/base44Client";
+
+export { fileToCoverReferencePng, urlToCoverReferencePng } from "@/lib/coverReferenceImage";
 import { messageFromFunctionInvokeError } from "@/lib/functionInvokeError";
 
 function unwrap(res) {

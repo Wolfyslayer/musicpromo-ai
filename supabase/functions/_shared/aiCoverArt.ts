@@ -1,17 +1,17 @@
 /**
- * Text → album cover image (optional pay-per-use).
+ * Text → album cover image.
  *
- * Secrets (preferred):
- * - OPENAI_API_KEY or OPENAI_IMAGE_API_KEY — OpenAI Images API (DALL·E / gpt-image)
- * - OPENAI_IMAGE_MODEL — optional, default dall-e-3
- * - OPENAI_IMAGE_BASE_URL — optional, default https://api.openai.com/v1 (use real OpenAI even if OPENAI_BASE_URL is Groq)
+ * Default: Google Gemini image models (GEMINI_API_KEY from AI Studio).
  *
- * Legacy fallbacks:
- * - FAL_KEY, REPLICATE_API_TOKEN — when AI_COVER_PROVIDER=fal|replicate or no OpenAI image key
- * - AI_COVER_PROVIDER — openai | fal | replicate | off
+ * Legacy:
+ * - OPENAI_IMAGE_* — OpenAI Images (DALL·E / gpt-image)
+ * - FAL_KEY, REPLICATE_API_TOKEN — AI_COVER_PROVIDER=fal|replicate
+ * - AI_COVER_PROVIDER — gemini | openai | fal | replicate | off
  */
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { hasLlmConfigured, resolveGeminiApiKey } from "./aiProvider.ts";
+import { geminiGenerateImage, resolveGeminiImageModel } from "./geminiImages.ts";
 import { invokeLlm } from "./invokeLlm.ts";
 
 const BUCKET = "music-promo-assets";
@@ -20,7 +20,7 @@ const DEFAULT_REPLICATE_COVER = "black-forest-labs/flux-schnell";
 const DEFAULT_OPENAI_IMAGE_MODEL = "dall-e-3";
 const DEFAULT_OPENAI_IMAGE_SIZE = "1024x1024";
 
-export type CoverArtProvider = "openai" | "fal" | "replicate" | "off";
+export type CoverArtProvider = "gemini" | "openai" | "fal" | "replicate" | "off";
 
 function openAiImageApiKey(): string {
   return (Deno.env.get("OPENAI_IMAGE_API_KEY") || Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY") || "")
@@ -34,6 +34,7 @@ function openAiImageApiBase(): string {
 
 export function resolveCoverArtProvider(): CoverArtProvider {
   const mode = (Deno.env.get("AI_COVER_PROVIDER") || "").trim().toLowerCase();
+  const geminiKey = resolveGeminiApiKey();
   const openaiKey = openAiImageApiKey();
   const falKey = (Deno.env.get("FAL_KEY") || "").trim();
   const repToken = (Deno.env.get("REPLICATE_API_TOKEN") || "").trim();
@@ -41,10 +42,12 @@ export function resolveCoverArtProvider(): CoverArtProvider {
   if (mode === "off" || mode === "none" || mode === "false" || mode === "0") {
     return "off";
   }
+  if (mode === "gemini") return geminiKey ? "gemini" : "off";
   if (mode === "openai") return openaiKey ? "openai" : "off";
   if (mode === "fal") return falKey ? "fal" : "off";
   if (mode === "replicate") return repToken ? "replicate" : "off";
 
+  if (geminiKey) return "gemini";
   if (openaiKey) return "openai";
   if (falKey) return "fal";
   if (repToken) return "replicate";
@@ -56,17 +59,21 @@ export function coverArtProviderStatus() {
   return {
     provider,
     configured: provider !== "off",
+    supportsImageEdit: provider === "gemini" || provider === "openai",
+    geminiImageModel: resolveGeminiImageModel(),
     openAiImageModel: Deno.env.get("OPENAI_IMAGE_MODEL") || DEFAULT_OPENAI_IMAGE_MODEL,
     falModel: Deno.env.get("FAL_COVER_MODEL") || DEFAULT_FAL_COVER,
     replicateModel: Deno.env.get("REPLICATE_COVER_MODEL") || DEFAULT_REPLICATE_COVER,
     note:
-      provider === "openai"
-        ? "Cover art billed by OpenAI (Images API — pay-as-you-go)."
-        : provider === "fal"
-          ? "Cover art billed by fal.ai (Flux — pay-as-you-go)."
-          : provider === "replicate"
-            ? "Cover art billed by Replicate (Flux Schnell)."
-            : "Set OPENAI_API_KEY (or OPENAI_IMAGE_API_KEY) in Supabase Edge Function secrets to enable AI covers.",
+      provider === "gemini"
+        ? "Cover art via Gemini (Google AI Studio free tier limits apply)."
+        : provider === "openai"
+          ? "Cover art billed by OpenAI (Images API — pay-as-you-go)."
+          : provider === "fal"
+            ? "Cover art billed by fal.ai (Flux — pay-as-you-go)."
+            : provider === "replicate"
+              ? "Cover art billed by Replicate (Flux Schnell)."
+              : "Set GEMINI_API_KEY in Supabase Edge Function secrets to enable AI covers.",
   };
 }
 
@@ -88,7 +95,7 @@ export async function expandCoverPromptWithLlm(input: {
     .filter(Boolean)
     .join(" ");
 
-  if (!(Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY"))) {
+  if (!hasLlmConfigured()) {
     return base || "Square album cover art, cinematic lighting, no text, no logos, music release artwork.";
   }
 
@@ -107,6 +114,45 @@ ${base}`,
   } catch (err) {
     console.warn("[aiCoverArt] LLM prompt assist skipped:", (err as Error).message);
     return base || "Square album cover art, cinematic lighting, no text, no logos.";
+  }
+}
+
+export async function expandCoverEditPromptWithLlm(input: {
+  prompt: string;
+  title?: string;
+  artistName?: string;
+  genre?: string;
+  mood?: string;
+}): Promise<string> {
+  const instruction = String(input.prompt || "").trim();
+  if (!instruction) {
+    throw new Error("Describe what to change (e.g. “make the sky purple”).");
+  }
+  const context = [
+    input.title ? `Album title (mood only, do not render as text): ${input.title}.` : "",
+    input.genre ? `Genre: ${input.genre}.` : "",
+    input.mood ? `Mood: ${input.mood}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const base = `Edit this square music album cover image. ${instruction}. ${context} Keep a strong cover composition. Do not add text or logos unless the user asked.`;
+
+  if (!hasLlmConfigured()) return base;
+
+  try {
+    const result = (await invokeLlm({
+      prompt: `Rewrite as ONE instruction for an image-editing model editing Image 1 (album cover).\nUser request: ${instruction}\n${context}`,
+      response_json_schema: {
+        type: "object",
+        properties: { prompt: { type: "string" } },
+        required: ["prompt"],
+      },
+    })) as { prompt?: string };
+    return String(result?.prompt || base).trim() || base;
+  } catch (err) {
+    console.warn("[aiCoverArt] edit prompt assist skipped:", (err as Error).message);
+    return base;
   }
 }
 
@@ -250,19 +296,45 @@ export async function generateCloudCoverArt(input: {
   genre?: string;
   mood?: string;
   useLlmPrompt?: boolean;
-}): Promise<{ sourceUrl: string; provider: CoverArtProvider; imagePrompt: string; billingNote: string }> {
+  referenceImageBytes?: Uint8Array;
+}): Promise<{
+  sourceUrl?: string;
+  imageBytes?: Uint8Array;
+  provider: CoverArtProvider;
+  imagePrompt: string;
+  billingNote: string;
+}> {
   const provider = resolveCoverArtProvider();
   if (provider === "off") {
-    throw new Error(
-      "AI cover art is not configured. Set OPENAI_API_KEY (or OPENAI_IMAGE_API_KEY) in Supabase Edge Function secrets."
-    );
+    throw new Error("AI cover art is not configured. Set GEMINI_API_KEY in Supabase Edge Function secrets.");
   }
 
-  const imagePrompt =
-    input.useLlmPrompt !== false
+  const hasReference = Boolean(input.referenceImageBytes?.byteLength);
+  const imagePrompt = hasReference
+    ? input.useLlmPrompt !== false
+      ? await expandCoverEditPromptWithLlm(input)
+      : `Edit this square album cover: ${String(input.prompt || "").trim()}`
+    : input.useLlmPrompt !== false
       ? await expandCoverPromptWithLlm(input)
       : String(input.prompt || "").trim() ||
         "Square album cover artwork, cinematic, no text, no logos, music release.";
+
+  if (hasReference && provider !== "gemini") {
+    throw new Error("Upload-and-edit requires Gemini. Set GEMINI_API_KEY (AI_COVER_PROVIDER=gemini).");
+  }
+
+  if (provider === "gemini") {
+    const gemini = await geminiGenerateImage({
+      prompt: imagePrompt,
+      referenceImageBytes: input.referenceImageBytes,
+    });
+    return {
+      imageBytes: gemini.imageBytes,
+      provider: "gemini",
+      imagePrompt,
+      billingNote: "Generated with Gemini (Google AI Studio).",
+    };
+  }
 
   const result =
     provider === "openai"
@@ -279,6 +351,28 @@ export async function generateCloudCoverArt(input: {
         : "Billed by Replicate (Flux Schnell image).";
 
   return { ...result, provider: result.provider, imagePrompt, billingNote };
+}
+
+export async function persistCoverArtFromBytes(
+  supabase: SupabaseClient,
+  userId: string,
+  bytes: Uint8Array,
+  contentType = "image/png"
+): Promise<string> {
+  if (bytes.byteLength > 15 * 1024 * 1024) {
+    throw new Error("Cover image is too large to store (>15MB).");
+  }
+  const ext = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
+  const path = `cover-art/${userId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, bytes, {
+    contentType,
+    upsert: false,
+  });
+  if (error) throw new Error(error.message);
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  const publicUrl = data?.publicUrl || "";
+  if (!publicUrl) throw new Error("Upload succeeded but public URL is missing.");
+  return publicUrl;
 }
 
 export async function persistCoverArtToStorage(

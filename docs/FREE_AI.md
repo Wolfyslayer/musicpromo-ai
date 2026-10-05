@@ -1,66 +1,62 @@
-# Free (or cheap) AI for campaign generation
+# Free AI (Google Gemini — default)
 
-Campaign **analyze** + **plan** steps call Edge Functions that use **`invokeLlm`** — an **OpenAI-compatible** HTTP API.  
-**Promo video pixels** render **on your device** (Remotion/WebCodecs) — Groq does **not** generate video. Groq can still help with **campaign copy** and, if configured, **wording** the motion prompt before an optional paid fal/Replicate clip (see [PROMO_VIDEO.md](./PROMO_VIDEO.md)).
+Campaign **analyze**, **plan**, **support chat**, cover **prompt polish**, and optional **motion prompt** wording all use **`invokeLlm`** — an **OpenAI-compatible** HTTP API pointed at **Gemini** by default.
 
-OpenAI is the default. If you see `credit_balance_exhausted`, switch to a provider with a **free tier** by changing Supabase secrets (no app redeploy required for secret-only changes).
+**Promo video pixels** still render **on your device** (Remotion/WebCodecs). Optional cloud video clips still use **fal/Replicate** when configured (see [PROMO_VIDEO.md](./PROMO_VIDEO.md)).
 
-## Recommended: Groq (free tier, no card)
+## Recommended: Gemini free tier (AI Studio)
 
-1. Sign up at [console.groq.com](https://console.groq.com).
-2. Create an **API key**.
-3. In **Supabase → Project Settings → Edge Functions → Secrets**, set:
+1. Create a key at [Google AI Studio](https://aistudio.google.com/apikey).
+2. In **Supabase → Project Settings → Edge Functions → Secrets**, set:
 
 | Secret | Value |
 |--------|--------|
-| `OPENAI_API_KEY` | Your Groq API key (`gsk_...`) |
-| `OPENAI_BASE_URL` | `https://api.groq.com/openai/v1` |
-| `OPENAI_MODEL` | `llama-3.3-70b-versatile` (quality) or `llama-3.1-8b-instant` (faster / higher daily limits) |
+| `GEMINI_API_KEY` | Your AI Studio API key |
+| `GEMINI_MODEL` | Optional — default `gemini-2.5-flash` |
+| `GEMINI_IMAGE_MODEL` | Optional — default `gemini-2.5-flash-image` (cover lab) |
+| `AI_PROVIDER` | Optional — default `gemini` |
 
-4. Try **Create campaign** again.
+No app redeploy is required for secret-only changes (Edge Functions read secrets at runtime).
 
-**Limits:** Free tier is rate-limited (requests/tokens per minute and per day). Heavy use may hit **429** until the quota resets. Fine for personal promo campaigns; not for high-traffic production.
+**Limits:** Free tier is rate-limited (RPM/RPD). Heavy use may return **429** / `RESOURCE_EXHAUSTED` until quotas reset. Image models may have stricter caps than chat — check [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing).
 
-**Note:** Groq models differ from GPT-4o-mini; JSON shape is usually fine but wording may vary.
+### One key for everything
 
-## Alternative: Google Gemini (free tier with limits)
-
-Gemini offers a free API tier via [Google AI Studio](https://aistudio.google.com/apikey).  
-Use Google’s **OpenAI compatibility** base URL (check current docs; often):
-
-- `OPENAI_BASE_URL` = `https://generativelanguage.googleapis.com/v1beta/openai`
-- `OPENAI_API_KEY` = your Gemini API key
-- `OPENAI_MODEL` = a current Gemini model id from Google’s compatibility list
-
-Quota and model names change; verify in Google’s docs before production.
-
-## Alternative: OpenRouter (some free models)
-
-[OpenRouter](https://openrouter.ai) can route to models with `:free` suffix on some offerings:
-
-- `OPENAI_BASE_URL` = `https://openrouter.ai/api/v1`
-- `OPENAI_API_KEY` = OpenRouter key
-- `OPENAI_MODEL` = e.g. a listed free model (see their catalog)
-
-Free routes are often slow or capped.
+You can store the same AI Studio key as **`GEMINI_API_KEY`** (preferred) or legacy **`OPENAI_API_KEY`** when `AI_PROVIDER=gemini`.
 
 ## Cover lab (AI album covers)
 
-**Cover lab** (`/artwork`) generates images with the **OpenAI Images API** (default model `dall-e-3`), not fal/Replicate.
+Uses **Gemini native image generation** (`generateContent` + `GEMINI_IMAGE_MODEL`, default `gemini-2.5-flash-image`).
+
+| Secret | Purpose |
+|--------|---------|
+| `GEMINI_API_KEY` | Chat + covers |
+| `GEMINI_IMAGE_MODEL` | Override image model (e.g. `gemini-3.1-flash-image` on paid tier) |
+
+Legacy OpenAI covers: set `AI_COVER_PROVIDER=openai` and `OPENAI_IMAGE_API_KEY`.  
+Legacy Flux: `AI_COVER_PROVIDER=fal|replicate` + `FAL_KEY` / `REPLICATE_API_TOKEN`.
+
+## Alternative: Groq (free text only)
+
+Groq does **not** generate images. Use it for **text** only:
 
 | Secret | Value |
 |--------|--------|
-| `OPENAI_API_KEY` | OpenAI `sk-...` with Images access |
+| `AI_PROVIDER` | `openai` (use custom base URL) |
+| `OPENAI_API_KEY` | Groq key (`gsk_...`) |
+| `OPENAI_BASE_URL` | `https://api.groq.com/openai/v1` |
+| `OPENAI_MODEL` | e.g. `llama-3.3-70b-versatile` |
 
-If you use **Groq** for campaign copy (`OPENAI_BASE_URL` → Groq), keep Groq for chat but add a real OpenAI key for covers:
+Keep **`GEMINI_API_KEY`** for cover lab, or set `AI_COVER_PROVIDER=openai` with a separate image key.
+
+## Alternative: OpenAI (paid)
 
 | Secret | Value |
 |--------|--------|
-| `OPENAI_IMAGE_API_KEY` | OpenAI `sk-...` (Images only) |
-| `OPENAI_IMAGE_BASE_URL` | Optional; default `https://api.openai.com/v1` |
-
-Optional: `OPENAI_IMAGE_MODEL`, `OPENAI_IMAGE_SIZE` (default `1024x1024`), `OPENAI_IMAGE_QUALITY` (`standard` or `hd` for DALL·E 3).  
-Legacy: `AI_COVER_PROVIDER=fal|replicate` still works if you prefer Flux via `FAL_KEY` / `REPLICATE_API_TOKEN`.
+| `AI_PROVIDER` | `openai` |
+| `OPENAI_API_KEY` | OpenAI `sk-...` |
+| `OPENAI_BASE_URL` | Optional — default `https://api.openai.com/v1` |
+| `OPENAI_MODEL` | e.g. `gpt-4o-mini` |
 
 ## What stays on-device (no LLM bill)
 
@@ -73,9 +69,7 @@ Legacy: `AI_COVER_PROVIDER=fal|replicate` still works if you prefer Flux via `FA
 Never put API keys in GitHub `VITE_*` vars or the frontend bundle.
 
 ```bash
-supabase secrets set OPENAI_API_KEY="gsk_..." --project-ref YOUR_REF
-supabase secrets set OPENAI_BASE_URL="https://api.groq.com/openai/v1" --project-ref YOUR_REF
-supabase secrets set OPENAI_MODEL="llama-3.3-70b-versatile" --project-ref YOUR_REF
+supabase secrets set GEMINI_API_KEY="AIza..." --project-ref YOUR_REF
+supabase secrets set GEMINI_MODEL="gemini-2.5-flash" --project-ref YOUR_REF
+supabase secrets set GEMINI_IMAGE_MODEL="gemini-2.5-flash-image" --project-ref YOUR_REF
 ```
-
-Revert to OpenAI anytime by setting `OPENAI_BASE_URL` back to `https://api.openai.com/v1`, `OPENAI_MODEL` to `gpt-4o-mini`, and an OpenAI `sk-...` key.
