@@ -31,39 +31,47 @@ export default function PlanAndCreditsPicker({
   creditPackCatalog,
   stripeConfigured,
   creditPacksConfigured,
+  stripeEmbeddedCheckout,
   currentPlan,
   onCheckoutStart,
+  onCheckoutSession,
 }) {
   const [busyKey, setBusyKey] = useState("");
 
-  const subscribe = async (planId, interval) => {
-    const key = `${planId}-${interval}`;
+  const openEmbedded = async (promise, key) => {
     setBusyKey(key);
     try {
-      onCheckoutStart?.();
-      await startSubscriptionCheckout(planId, interval);
+      const session = await promise;
+      if (session?.billingExempt) {
+        onCheckoutStart?.(new Error(session.message || "Billing not required for this account."));
+        return;
+      }
+      onCheckoutSession?.(session);
     } catch (e) {
       onCheckoutStart?.(e);
+    } finally {
       setBusyKey("");
     }
   };
 
-  const buyPack = async (packId) => {
-    setBusyKey(`pack-${packId}`);
-    try {
-      onCheckoutStart?.();
-      await startCreditPackCheckout(packId);
-    } catch (e) {
-      onCheckoutStart?.(e);
-      setBusyKey("");
-    }
-  };
+  const subscribe = (planId, interval) => openEmbedded(startSubscriptionCheckout(planId, interval), `${planId}-${interval}`);
+
+  const buyPack = (packId) => openEmbedded(startCreditPackCheckout(packId), `pack-${packId}`);
 
   if (!stripeConfigured && !creditPacksConfigured) {
     return (
       <p className="text-sm text-muted-foreground">
         Paid plans and credit packs need Stripe price IDs in Supabase (see docs/BILLING.md). Display prices below are
         targets for your Stripe products.
+      </p>
+    );
+  }
+
+  if (!stripeEmbeddedCheckout) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Add <code className="text-xs">STRIPE_PUBLISHABLE_KEY</code> (pk_test_… or pk_live_…) to Supabase Edge Function
+        secrets so checkout can open in-app. See docs/BILLING.md.
       </p>
     );
   }

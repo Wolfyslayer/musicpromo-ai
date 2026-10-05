@@ -7,8 +7,26 @@ import {
   normalizePaidPlanId,
   resolveStripePriceId,
 } from "../_shared/subscriptionPlans.ts";
-import { ensureStripeCustomer, stripeRequest } from "../_shared/stripeCustomer.ts";
+import {
+  assertCheckoutPriceId,
+  ensureStripeCustomer,
+  stripePublishableKey,
+  stripeRequest,
+} from "../_shared/stripeCustomer.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
+
+function embeddedReturnUrl(appOrigin: string, query: Record<string, string>): string {
+  const params = new URLSearchParams({ checkout: "complete", ...query });
+  return `${appOrigin}/settings/billing?${params.toString()}&session_id={CHECKOUT_SESSION_ID}`;
+}
+
+function embeddedSessionFields(appOrigin: string, returnQuery: Record<string, string>): URLSearchParams {
+  return new URLSearchParams({
+    ui_mode: "embedded",
+    redirect_on_completion: "if_required",
+    return_url: embeddedReturnUrl(appOrigin, returnQuery),
+  });
+}
 
 async function handler(req: Request) {
   try {
@@ -18,6 +36,17 @@ async function handler(req: Request) {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user?.id) return jsonWithCors(req, { error: "Unauthorized" }, 401);
+
+    if (!stripePublishableKey()) {
+      return jsonWithCors(
+        req,
+        {
+          error:
+            "Embedded checkout needs STRIPE_PUBLISHABLE_KEY (pk_test_… or pk_live_…) in Supabase Edge Function secrets.",
+        },
+        503
+      );
+    }
 
     const appOrigin = (Deno.env.get("PUBLIC_APP_URL") || "https://musicpromoai.site").replace(/\/$/, "");
     const admin = serviceClient();
@@ -41,31 +70,42 @@ async function handler(req: Request) {
       if (!packId) {
         return jsonWithCors(req, { error: "packId must be boost_100, boost_300, boost_800, or boost_2000" }, 400);
       }
-      const priceId = resolveCreditPackPriceId(packId);
+      const packSecret = `STRIPE_CREDIT_PACK_${packId.toUpperCase()}_PRICE_ID`;
+      const priceId = assertCheckoutPriceId(resolveCreditPackPriceId(packId), packSecret);
       if (!priceId) {
         return jsonWithCors(
           req,
-          { error: `Stripe price not configured for pack ${packId}. Set STRIPE_CREDIT_PACK_${packId.toUpperCase()}_PRICE_ID.` },
+          { error: `Stripe price not configured for pack ${packId}. Set ${packSecret} to a price_… ID.` },
           503
         );
       }
 
-      const session = await stripeRequest(
-        "/checkout/sessions",
-        new URLSearchParams({
-          mode: "payment",
-          customer: customerId,
-          "line_items[0][price]": priceId,
-          "line_items[0][quantity]": "1",
-          success_url: `${appOrigin}/settings/billing?checkout=success&purchase=credits&pack=${packId}`,
-          cancel_url: `${appOrigin}/settings/billing?checkout=cancel`,
-          "metadata[user_id]": uid,
-          "metadata[checkout_type]": "credit_pack",
-          "metadata[credit_pack_id]": packId,
-        })
-      );
+      const params = new URLSearchParams({
+        mode: "payment",
+        customer: customerId,
+        "line_items[0][price]": priceId,
+        "line_items[0][quantity]": "1",
+        "metadata[user_id]": uid,
+        "metadata[checkout_type]": "credit_pack",
+        "metadata[credit_pack_id]": packId,
+      });
+      for (const [k, v] of embeddedSessionFields(appOrigin, { purchase: "credits", pack: packId })) {
+        params.set(k, v);
+      }
 
-      return jsonWithCors(req, { ok: true, url: session.url, sessionId: session.id, packId, checkoutType: "credit_pack" });
+      const session = await stripeRequest("/checkout/sessions", params);
+      const clientSecret = String(session.client_secret || "");
+      if (!clientSecret) {
+        throw new Error("Stripe did not return a checkout client secret for embedded mode.");
+      }
+
+      return jsonWithCors(req, {
+        ok: true,
+        clientSecret,
+        sessionId: session.id,
+        packId,
+        checkoutType: "credit_pack",
+      });
     }
 
     const planId = normalizePaidPlanId(body?.plan || body?.tier || "creator");
@@ -75,36 +115,35 @@ async function handler(req: Request) {
       return jsonWithCors(req, { error: "plan must be creator, pro, or studio" }, 400);
     }
 
-    const priceId = resolveStripePriceId(planId, interval);
+    const planSecret = `STRIPE_${planId.toUpperCase()}_${interval === "year" ? "YEARLY" : "MONTHLY"}_PRICE_ID`;
+    const priceId = assertCheckoutPriceId(resolveStripePriceId(planId, interval), planSecret);
     if (!priceId) {
-      return jsonWithCors(
-        req,
-        {
-          error: `Stripe price not configured for ${planId} (${interval}). Set STRIPE_${planId.toUpperCase()}_${interval === "year" ? "YEARLY" : "MONTHLY"}_PRICE_ID.`,
-        },
-        503
-      );
+      return jsonWithCors(req, { error: `Stripe price not configured for ${planId} (${interval}). Set ${planSecret} to a price_… ID.` }, 503);
     }
 
-    const session = await stripeRequest(
-      "/checkout/sessions",
-      new URLSearchParams({
-        mode: "subscription",
-        customer: customerId,
-        "line_items[0][price]": priceId,
-        "line_items[0][quantity]": "1",
-        success_url: `${appOrigin}/settings/billing?checkout=success&plan=${planId}&interval=${interval}`,
-        cancel_url: `${appOrigin}/settings/billing?checkout=cancel`,
-        "metadata[user_id]": uid,
-        "metadata[checkout_type]": "subscription",
-        "metadata[plan]": planId,
-        "metadata[interval]": interval,
-        "subscription_data[metadata][user_id]": uid,
-        "subscription_data[metadata][plan]": planId,
-      })
-    );
+    const params = new URLSearchParams({
+      mode: "subscription",
+      customer: customerId,
+      "line_items[0][price]": priceId,
+      "line_items[0][quantity]": "1",
+      "metadata[user_id]": uid,
+      "metadata[checkout_type]": "subscription",
+      "metadata[plan]": planId,
+      "metadata[interval]": interval,
+      "subscription_data[metadata][user_id]": uid,
+      "subscription_data[metadata][plan]": planId,
+    });
+    for (const [k, v] of embeddedSessionFields(appOrigin, { plan: planId, interval })) {
+      params.set(k, v);
+    }
 
-    return jsonWithCors(req, { ok: true, url: session.url, sessionId: session.id, plan: planId, interval });
+    const session = await stripeRequest("/checkout/sessions", params);
+    const clientSecret = String(session.client_secret || "");
+    if (!clientSecret) {
+      throw new Error("Stripe did not return a checkout client secret for embedded mode.");
+    }
+
+    return jsonWithCors(req, { ok: true, clientSecret, sessionId: session.id, plan: planId, interval });
   } catch (error) {
     return jsonWithCors(req, { error: (error as Error).message }, 500);
   }

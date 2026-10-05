@@ -3,8 +3,14 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Loader2, Sparkles } from "lucide-react";
 import DailyClaimPanel from "@/components/billing/DailyClaimPanel";
 import PlanAndCreditsPicker from "@/components/billing/PlanAndCreditsPicker";
+import StripeEmbeddedCheckoutDialog from "@/components/billing/StripeEmbeddedCheckoutDialog";
 import { useToast } from "@/components/ui/use-toast";
-import { CREDIT_ACTION_LABELS, fetchBillingStatus, PLAN_LABELS } from "@/services/billingService";
+import {
+  CREDIT_ACTION_LABELS,
+  fetchBillingStatus,
+  PLAN_LABELS,
+  resolvePublishableKey,
+} from "@/services/billingService";
 
 function Card({ title, children }) {
   return (
@@ -20,6 +26,27 @@ export default function SettingsBillingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [billing, setBilling] = useState(null);
+  const [checkoutUi, setCheckoutUi] = useState(null);
+
+  const publishableKey = resolvePublishableKey(billing?.stripePublishableKey);
+
+  const finishCheckoutToast = (meta) => {
+    if (meta?.packId || meta?.checkoutType === "credit_pack") {
+      toast({
+        title: "Credit purchase complete",
+        description: "Your balance updates when Stripe confirms payment (usually within a minute).",
+      });
+      return;
+    }
+    const plan = meta?.plan;
+    const interval = meta?.interval;
+    toast({
+      title: "Subscription started",
+      description: plan
+        ? `Your ${PLAN_LABELS[plan] || plan} plan${interval ? ` (${interval}ly)` : ""} activates when Stripe confirms payment.`
+        : "Credits refresh when Stripe confirms payment.",
+    });
+  };
 
   const load = () => {
     setLoading(true);
@@ -38,25 +65,19 @@ export default function SettingsBillingPage() {
 
   useEffect(() => {
     const checkout = searchParams.get("checkout");
-    if (checkout === "success") {
+    if (checkout === "success" || checkout === "complete") {
       const purchase = searchParams.get("purchase");
       const pack = searchParams.get("pack");
       const plan = searchParams.get("plan");
       const interval = searchParams.get("interval");
-      if (purchase === "credits" && pack) {
-        toast({
-          title: "Credit purchase complete",
-          description: "Your balance updates when Stripe confirms payment (usually within a minute).",
-        });
-      } else {
-        toast({
-          title: "Subscription started",
-          description: plan
-            ? `Your ${PLAN_LABELS[plan] || plan} plan${interval ? ` (${interval}ly)` : ""} activates when Stripe confirms payment.`
-            : "Credits refresh when Stripe confirms payment.",
-        });
-      }
+      finishCheckoutToast({
+        packId: pack,
+        checkoutType: purchase === "credits" ? "credit_pack" : "subscription",
+        plan,
+        interval,
+      });
       searchParams.delete("checkout");
+      searchParams.delete("session_id");
       searchParams.delete("plan");
       searchParams.delete("interval");
       searchParams.delete("purchase");
@@ -139,13 +160,37 @@ export default function SettingsBillingPage() {
             creditPackCatalog={billing?.creditPackCatalog}
             stripeConfigured={billing?.stripeConfigured}
             creditPacksConfigured={billing?.creditPacksConfigured}
+            stripeEmbeddedCheckout={billing?.stripeEmbeddedCheckout}
             currentPlan={paidPlan ? billing.plan : "free"}
             onCheckoutStart={(err) => {
               if (err) toast({ variant: "destructive", title: "Checkout unavailable", description: err.message });
             }}
+            onCheckoutSession={(session) => {
+              setCheckoutUi({
+                clientSecret: session.clientSecret,
+                sessionKey: session.sessionId,
+                meta: session,
+              });
+            }}
           />
         </Card>
       ) : null}
+
+      <StripeEmbeddedCheckoutDialog
+        open={Boolean(checkoutUi?.clientSecret)}
+        onOpenChange={(open) => {
+          if (!open) setCheckoutUi(null);
+        }}
+        publishableKey={publishableKey}
+        clientSecret={checkoutUi?.clientSecret}
+        sessionKey={checkoutUi?.sessionKey}
+        onComplete={() => {
+          const meta = checkoutUi?.meta;
+          setCheckoutUi(null);
+          finishCheckoutToast(meta);
+          load();
+        }}
+      />
 
       <Card title="Credits this month">
         {exempt ? (

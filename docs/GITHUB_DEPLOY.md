@@ -68,6 +68,9 @@ AI and OAuth handlers read secrets from **Supabase**, not from the frontend bund
 supabase secrets set GEMINI_API_KEY=AIza... --project-ref YOUR_REF
 # See docs/FREE_AI.md — Groq/OpenAI overrides via AI_PROVIDER and OPENAI_* secrets.
 
+# Stripe embedded checkout (publishable key is safe to expose; secret key stays in Supabase only)
+supabase secrets set STRIPE_PUBLISHABLE_KEY=pk_live_... --project-ref YOUR_REF
+
 # Social connect (required for Instagram / TikTok / YouTube — not stored in GitHub)
 supabase secrets set PUBLIC_APP_URL=https://musicpromoai.site --project-ref YOUR_REF
 supabase secrets set SOCIAL_TOKEN_ENCRYPTION_KEY="$(openssl rand -base64 32)" --project-ref YOUR_REF

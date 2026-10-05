@@ -10,30 +10,42 @@ export async function claimDailyCredits() {
   return res.data;
 }
 
-export async function startSubscriptionCheckout(plan = "creator", interval = "month") {
-  const res = await db.functions.invoke("createSubscriptionCheckout", { plan, interval });
+function resolvePublishableKey(apiKey) {
+  const fromApi = apiKey && String(apiKey).trim();
+  if (fromApi) return fromApi;
+  const fromEnv = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+  return fromEnv && String(fromEnv).trim() ? String(fromEnv).trim() : "";
+}
+
+async function invokeCheckout(payload) {
+  const res = await db.functions.invoke("createSubscriptionCheckout", payload);
   if (res.data?.billingExempt) {
     return { billingExempt: true, message: res.data.message };
   }
-  const url = res.data?.url;
-  if (!url) throw new Error(res.data?.error || "Could not start checkout.");
-  window.location.assign(url);
-  return { billingExempt: false };
+  if (res.data?.error) throw new Error(res.data.error);
+  const clientSecret = res.data?.clientSecret;
+  if (!clientSecret) throw new Error(res.data?.error || "Could not start checkout.");
+  return {
+    billingExempt: false,
+    clientSecret,
+    sessionId: res.data.sessionId,
+    checkoutType: res.data.checkoutType,
+    packId: res.data.packId,
+    plan: res.data.plan,
+    interval: res.data.interval,
+  };
+}
+
+/** Opens embedded checkout in-app; pass result to StripeEmbeddedCheckoutDialog. */
+export async function startSubscriptionCheckout(plan = "creator", interval = "month") {
+  return invokeCheckout({ plan, interval });
 }
 
 export async function startCreditPackCheckout(packId) {
-  const res = await db.functions.invoke("createSubscriptionCheckout", {
-    checkoutType: "credit_pack",
-    packId,
-  });
-  if (res.data?.billingExempt) {
-    return { billingExempt: true, message: res.data.message };
-  }
-  const url = res.data?.url;
-  if (!url) throw new Error(res.data?.error || "Could not start checkout.");
-  window.location.assign(url);
-  return { billingExempt: false };
+  return invokeCheckout({ checkoutType: "credit_pack", packId });
 }
+
+export { resolvePublishableKey };
 
 /** Human-readable labels for credit cost keys returned by the API. */
 /** @deprecated use startSubscriptionCheckout */

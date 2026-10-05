@@ -11,6 +11,7 @@ import {
   stripePlansConfigured,
 } from "./subscriptionPlans.ts";
 import { creditPacksConfigured, publicCreditPackCatalog, type CreditPackId, creditsForPack } from "./creditPacks.ts";
+import { stripeEmbeddedCheckoutReady, stripePublishableKey } from "./stripeCustomer.ts";
 
 export type BillingPlan = BillingPlanId;
 
@@ -207,6 +208,8 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
       subscriptionRenewsAt: null,
       billingInterval: null,
       stripeConfigured: stripePlansConfigured(),
+      stripePublishableKey: stripePublishableKey() || null,
+      stripeEmbeddedCheckout: stripeEmbeddedCheckoutReady(),
       planCatalog: publicPlanCatalog(),
       planComparison: publicPlanComparison(),
       creditPackCatalog: publicCreditPackCatalog(),
@@ -239,6 +242,8 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
     subscriptionRenewsAt: row?.subscription_current_period_end || null,
     billingInterval: row?.billing_interval || null,
     stripeConfigured: stripePlansConfigured(),
+    stripePublishableKey: stripePublishableKey() || null,
+    stripeEmbeddedCheckout: stripeEmbeddedCheckoutReady(),
     planCatalog: publicPlanCatalog(),
     planComparison: publicPlanComparison(),
     creditPackCatalog: publicCreditPackCatalog(),
