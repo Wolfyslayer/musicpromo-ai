@@ -2,6 +2,7 @@ import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
 import { buildContentPrompt } from "../_shared/aiPrompts.ts";
 import { billingErrorResponse, withCreditCharge } from "../_shared/billing.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
+import { invokeLlm } from "../_shared/invokeLlm.ts";
 
 async function handler(req: Request) {
   try {
@@ -25,9 +26,11 @@ async function handler(req: Request) {
           contentType: body.contentType,
           campaignGoals: body.campaignGoals,
         });
-        return base44.asServiceRole.integrations.Core.InvokeLLM({
+        return invokeLlm({
           prompt,
           response_json_schema: schema,
+          provider: "gemini",
+          modelSlot: "generate_content",
         });
       });
       return jsonWithCors(req, {

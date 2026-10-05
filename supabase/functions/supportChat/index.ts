@@ -92,6 +92,8 @@ async function handler(req: Request): Promise<Response> {
     }
 
     const result = await invokeLlmChat({
+      provider: "gemini",
+      modelSlot: "support_chat",
       messages: llmMessages,
       response_json_schema: {
         type: "object",

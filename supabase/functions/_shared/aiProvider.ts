@@ -3,11 +3,18 @@
  * Override with AI_PROVIDER=openai and OpenAI secrets when needed.
  */
 
+import {
+  type GeminiChatModelSlot,
+  resolveGeminiChatModel,
+  resolveGeminiModelForSlot,
+} from "./geminiModels.ts";
+
 export type AiProviderMode = "gemini" | "openai";
+
+export { resolveGeminiChatModel } from "./geminiModels.ts";
 
 const GEMINI_OPENAI_COMPAT_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
 const OPENAI_DEFAULT_BASE = "https://api.openai.com/v1";
-const DEFAULT_GEMINI_CHAT_MODEL = "gemini-3.8-flash";
 const DEFAULT_OPENAI_CHAT_MODEL = "gpt-4o-mini";
 
 /** Gemini AI Studio / Google API keys — not OpenAI `sk-` keys. */
@@ -60,11 +67,6 @@ export function resolveLlmBaseUrl(): string {
   return resolveAiProvider() === "gemini" ? GEMINI_OPENAI_COMPAT_BASE : OPENAI_DEFAULT_BASE;
 }
 
-export function resolveGeminiChatModel(): string {
-  const geminiModel = (Deno.env.get("GEMINI_MODEL") || "").trim();
-  return geminiModel || DEFAULT_GEMINI_CHAT_MODEL;
-}
-
 /** Gemini chat key only (never Groq/OpenAI sk- keys). */
 export function resolveGeminiLlmApiKey(): string {
   const gemini = normalizeSecret(Deno.env.get("GEMINI_API_KEY") || "");
@@ -95,15 +97,27 @@ export type LlmRuntimeConfig = {
   model: string;
 };
 
+export type LlmRuntimeOptions = {
+  provider?: AiProviderMode;
+  /** When provider is gemini, pick GEMINI_MODEL_* for this feature. */
+  modelSlot?: GeminiChatModelSlot;
+  model?: string;
+};
+
 /** Resolved API key, host, and model for one chat completion request. */
-export function resolveLlmRuntime(providerOverride?: AiProviderMode): LlmRuntimeConfig {
-  const provider = providerOverride ?? resolveAiProvider();
+export function resolveLlmRuntime(options?: AiProviderMode | LlmRuntimeOptions): LlmRuntimeConfig {
+  const opts: LlmRuntimeOptions =
+    options === "gemini" || options === "openai" ? { provider: options } : options ?? {};
+  const provider = opts.provider ?? resolveAiProvider();
   if (provider === "gemini") {
+    const model =
+      opts.model?.trim() ||
+      (opts.modelSlot ? resolveGeminiModelForSlot(opts.modelSlot) : resolveGeminiChatModel());
     return {
       provider,
       apiKey: resolveGeminiLlmApiKey(),
       baseUrl: GEMINI_OPENAI_COMPAT_BASE,
-      model: resolveGeminiChatModel(),
+      model,
     };
   }
   const custom = normalizeSecret(Deno.env.get("OPENAI_BASE_URL") || "");

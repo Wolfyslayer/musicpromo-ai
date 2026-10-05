@@ -1,8 +1,8 @@
 # Free AI (Google Gemini — default)
 
-Campaign **plan**, **support chat**, cover **prompt polish**, and optional **motion prompt** wording use **`invokeLlm`** — an **OpenAI-compatible** HTTP API pointed at **Gemini** by default (or Groq when `AI_PROVIDER=openai`).
+Campaign **analyze**, **plan**, **content**, **support chat**, cover **prompt polish**, and **motion prompt** text all use **Google Gemini** via **`invokeLlm`** (OpenAI-compatible Gemini endpoint). Set **`AI_PROVIDER=openai`** only if you want a non-Gemini stack for legacy call sites that still use the default provider — campaign features listed above pin **`provider: gemini`** in code.
 
-**Song analysis** (`analyzeSong`) **always** calls **Google Gemini** (`GEMINI_API_KEY` + `GEMINI_MODEL`), even if you use Groq for other text features.
+**Cover / artwork pixels** use **Nano Banana** (Gemini native image models) via the **Interactions API** for Gemini 3.x image models, with **`generateContent`** fallback for **`gemini-2.5-flash-image`**.
 
 **Promo video pixels** still render **on your device** (Remotion/WebCodecs). Optional cloud video clips still use **fal/Replicate** when configured (see [PROMO_VIDEO.md](./PROMO_VIDEO.md)).
 
@@ -14,8 +14,15 @@ Campaign **plan**, **support chat**, cover **prompt polish**, and optional **mot
 | Secret | Value |
 |--------|--------|
 | `GEMINI_API_KEY` | Your AI Studio API key |
-| `GEMINI_MODEL` | Optional — default `gemini-3.8-flash` |
-| `GEMINI_IMAGE_MODEL` | Optional — default `gemini-2.5-flash-image` (cover lab) |
+| `GEMINI_MODEL` | Default chat model — fallback for all rows below (`gemini-3.8-flash`) |
+| `GEMINI_MODEL_ANALYZE_SONG` | Song analysis |
+| `GEMINI_MODEL_GENERATE_CAMPAIGN` | Campaign plan generation |
+| `GEMINI_MODEL_GENERATE_CONTENT` | Hooks, captions, hashtags, etc. |
+| `GEMINI_MODEL_SUPPORT_CHAT` | Help widget assistant |
+| `GEMINI_MODEL_COVER_PROMPT` | Cover art prompt polish (text only) |
+| `GEMINI_MODEL_VIDEO_PROMPT` | AI clip motion prompt (text only) |
+| `GEMINI_IMAGE_MODEL` | Cover pixels — default **`gemini-3.1-flash-image`** (Nano Banana 2). Aliases: `nano-banana-2`, `nano-banana`, `nano-banana-pro` |
+| `GEMINI_IMAGE_API` | Optional — `interactions` (default for 3.x image) or `generateContent` |
 | `AI_PROVIDER` | Optional — default `gemini` |
 
 No app redeploy is required for secret-only changes (Edge Functions read secrets at runtime).
@@ -26,14 +33,21 @@ No app redeploy is required for secret-only changes (Edge Functions read secrets
 
 You can store the same AI Studio key as **`GEMINI_API_KEY`** (preferred) or legacy **`OPENAI_API_KEY`** when `AI_PROVIDER=gemini`.
 
-## Cover lab (AI album covers)
+## Cover lab (AI album covers — Nano Banana)
 
-Uses **Gemini native image generation** (`generateContent` + `GEMINI_IMAGE_MODEL`, default `gemini-2.5-flash-image`).
+Uses **Gemini Nano Banana** image models ([docs](https://ai.google.dev/gemini-api/docs/image-generation)):
+
+| Marketing name | Model ID |
+|----------------|----------|
+| Nano Banana 2 (default) | `gemini-3.1-flash-image` |
+| Nano Banana | `gemini-2.5-flash-image` |
+| Nano Banana Pro | `gemini-3-pro-image` |
+| Nano Banana 2 Lite | `gemini-3.1-flash-lite-image` |
 
 | Secret | Purpose |
 |--------|---------|
 | `GEMINI_API_KEY` | Chat + covers |
-| `GEMINI_IMAGE_MODEL` | Override image model (e.g. `gemini-3.1-flash-image` on paid tier) |
+| `GEMINI_IMAGE_MODEL` | Image model ID or alias (`nano-banana-2`, etc.) |
 
 Legacy OpenAI covers: set `AI_COVER_PROVIDER=openai` and `OPENAI_IMAGE_API_KEY`.  
 Legacy Flux: `AI_COVER_PROVIDER=fal|replicate` + `FAL_KEY` / `REPLICATE_API_TOKEN`.
@@ -97,5 +111,7 @@ Never put API keys in GitHub `VITE_*` vars or the frontend bundle.
 ```bash
 supabase secrets set GEMINI_API_KEY="AIza..." --project-ref YOUR_REF
 supabase secrets set GEMINI_MODEL="gemini-3.8-flash" --project-ref YOUR_REF
-supabase secrets set GEMINI_IMAGE_MODEL="gemini-2.5-flash-image" --project-ref YOUR_REF
+supabase secrets set GEMINI_IMAGE_MODEL="gemini-3.1-flash-image" --project-ref YOUR_REF
+supabase secrets set GEMINI_MODEL_ANALYZE_SONG="gemini-3.8-flash" --project-ref YOUR_REF
+supabase secrets set GEMINI_MODEL_GENERATE_CAMPAIGN="gemini-3.8-flash" --project-ref YOUR_REF
 ```
