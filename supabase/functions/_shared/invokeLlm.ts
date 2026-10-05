@@ -117,6 +117,13 @@ export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<st
           : "AI quota exceeded. See docs/FREE_AI.md for Gemini (free) or Groq setup."
       );
     }
+    if (res.status === 401 && /invalid_api_key|Invalid API Key|API key not valid/i.test(raw)) {
+      throw new Error(
+        resolveAiProvider() === "gemini"
+          ? "AI API key rejected (401). In Supabase → Edge Functions → Secrets, set a valid GEMINI_API_KEY from Google AI Studio (https://aistudio.google.com/apikey). If you use Groq/OpenAI instead, set AI_PROVIDER=openai and OPENAI_API_KEY + OPENAI_BASE_URL. See docs/FREE_AI.md."
+          : "AI API key rejected (401). Check OPENAI_API_KEY and OPENAI_BASE_URL in Supabase Edge Function secrets. See docs/FREE_AI.md."
+      );
+    }
     throw new Error(`AI request failed (${res.status}): ${raw.slice(0, 400)}`);
   }
 
@@ -200,6 +207,13 @@ export async function invokeLlmChat(args: {
   }
 
   if (!res.ok) {
+    if (res.status === 401 && /invalid_api_key|Invalid API Key|API key not valid/i.test(raw)) {
+      throw new Error(
+        resolveAiProvider() === "gemini"
+          ? "AI API key rejected (401). In Supabase → Edge Functions → Secrets, set a valid GEMINI_API_KEY from Google AI Studio (https://aistudio.google.com/apikey). See docs/FREE_AI.md."
+          : "AI API key rejected (401). Check OPENAI_API_KEY and OPENAI_BASE_URL in Supabase Edge Function secrets. See docs/FREE_AI.md."
+      );
+    }
     throw new Error(`AI request failed (${res.status}): ${raw.slice(0, 400)}`);
   }
 
