@@ -5,6 +5,11 @@ export async function fetchBillingStatus() {
   return res.data;
 }
 
+export async function claimDailyCredits() {
+  const res = await db.functions.invoke("getUserBilling", { action: "claim" });
+  return res.data;
+}
+
 export async function startProCheckout() {
   const res = await db.functions.invoke("createSubscriptionCheckout", {});
   if (res.data?.billingExempt) {

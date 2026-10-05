@@ -1,12 +1,14 @@
 # Plan, credits & Stripe Pro
 
-Premium AI features (song analysis, campaign generation, content helpers, cover art, optional cloud motion clips) consume **monthly credits** enforced on the server before each model call.
+Premium AI (song analysis, content helpers, cover art) uses **monthly credits**. **Campaign plans** and **cloud AI video clips** are always free. Users can also earn extra credits from a **7-day monthly claim streak** (Settings → Plan & credits).
 
 ## Database
 
 Run once in **Supabase → SQL editor** (not applied by GitHub Deploy):
 
 - `supabase/migrations/20261005_user_billing.sql`
+- `supabase/migrations/20261006_daily_credit_claim.sql`
+- `supabase/migrations/20261005_user_role_guard.sql` (staff roles)
 
 Creates `user_billing` and `credit_ledger` with RLS (users can read their own rows; Edge Functions write via service role).
 
@@ -23,14 +25,21 @@ Optional tuning:
 
 | Secret | Default |
 |--------|---------|
-| `BILLING_FREE_MONTHLY_CREDITS` | 40 |
-| `BILLING_PRO_MONTHLY_CREDITS` | 400 |
+| `BILLING_FREE_MONTHLY_CREDITS` | 120 |
+| `BILLING_PRO_MONTHLY_CREDITS` | 1200 |
+| `DAILY_CLAIM_BASE_CREDITS` | 2 (days 1–2, 4–6); day 3 = 2×; day 7 = 4× |
 | `CREDIT_COST_ANALYZE_SONG` | 3 |
-| `CREDIT_COST_GENERATE_CAMPAIGN` | 12 |
+| `CREDIT_COST_GENERATE_CAMPAIGN` | 0 (always free) |
 | `CREDIT_COST_GENERATE_CONTENT` | 2 |
 | `CREDIT_COST_COVER_ART` | 8 |
 | `CREDIT_COST_COVER_ART_EDIT` | 10 |
-| `CREDIT_COST_AI_VIDEO_CLIP` | 20 |
+| `CREDIT_COST_AI_VIDEO_CLIP` | 0 (always free) |
+
+### 7-day claim streak
+
+Once per UTC day, up to 7 times per calendar month. Consecutive days only — miss a day and the streak restarts at day 1. Bonuses: **day 3 = 2×** base, **day 7 = 4×** base. Claim streak resets when monthly credits reset.
+
+API: `getUserBilling` with `{ "action": "claim" }`.
 
 ## Deploy functions
 
