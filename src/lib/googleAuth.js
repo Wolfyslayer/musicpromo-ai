@@ -1,35 +1,18 @@
 import { pkceChallengeFromVerifier, randomUrlSafeString } from "@/lib/googlePkce";
 import { isNativeApp } from "@/lib/nativeApp";
+import { writeGoogleSignInSession, clearGoogleSignInSessionAll, readGoogleSignInSession } from "@/lib/googleAuthStorage";
+import { openGoogleOAuthInAppBrowser } from "@/lib/googleAuthNative";
+import { getGoogleClientId, getGoogleSignInRedirectUri } from "@/lib/googleOAuthConfig";
 
-/** Production origin for OAuth (Capacitor must use same hostname in capacitor.config.ts). */
-const NATIVE_APP_ORIGIN = "https://musicpromoai.site";
-
-export const GOOGLE_AUTH_STORAGE = {
-  state: "musicpromo:google_oauth_state",
-  verifier: "musicpromo:google_oauth_verifier",
-  returnTo: "musicpromo:google_oauth_return_to",
-};
+export { GOOGLE_AUTH_STORAGE } from "@/lib/googleAuthStorage";
+export { getGoogleClientId, getGoogleSignInRedirectUri } from "@/lib/googleOAuthConfig";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const LOGIN_SCOPES = ["openid", "email", "profile"];
 
-/** Redirect URI registered in Google Cloud (must match token exchange). */
-export function getGoogleSignInRedirectUri() {
-  const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
-  const configured = String(import.meta.env.VITE_APP_ORIGIN || "").trim().replace(/\/$/, "");
-  const origin = isNativeApp()
-    ? configured || NATIVE_APP_ORIGIN
-    : window.location.origin;
-  return `${origin}${base}/auth/google/callback`;
-}
-
-export function getGoogleClientId() {
-  return String(import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
-}
-
 /**
  * Start Google sign-in on your app domain (not *.supabase.co).
- * Google shows "Continue to musicpromoai.site" when redirect_uri is your site.
+ * Native: in-app Chrome Custom Tab + App Link callback. Web: full redirect.
  */
 export async function startGoogleSignIn(returnTo = "/") {
   const clientId = getGoogleClientId();
@@ -44,9 +27,7 @@ export async function startGoogleSignIn(returnTo = "/") {
   const challenge = await pkceChallengeFromVerifier(verifier);
   const redirectUri = getGoogleSignInRedirectUri();
 
-  sessionStorage.setItem(GOOGLE_AUTH_STORAGE.state, state);
-  sessionStorage.setItem(GOOGLE_AUTH_STORAGE.verifier, verifier);
-  sessionStorage.setItem(GOOGLE_AUTH_STORAGE.returnTo, returnTo || "/");
+  writeGoogleSignInSession({ state, verifier, returnTo: returnTo || "/" });
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -60,15 +41,20 @@ export async function startGoogleSignIn(returnTo = "/") {
     prompt: "select_account",
   });
 
-  window.location.assign(`${GOOGLE_AUTH_URL}?${params.toString()}`);
+  const authUrl = `${GOOGLE_AUTH_URL}?${params.toString()}`;
+
+  if (isNativeApp()) {
+    await openGoogleOAuthInAppBrowser(authUrl);
+    return;
+  }
+
+  window.location.assign(authUrl);
 }
 
 export function clearGoogleSignInSession() {
-  sessionStorage.removeItem(GOOGLE_AUTH_STORAGE.state);
-  sessionStorage.removeItem(GOOGLE_AUTH_STORAGE.verifier);
-  sessionStorage.removeItem(GOOGLE_AUTH_STORAGE.returnTo);
+  clearGoogleSignInSessionAll();
 }
 
 export function readGoogleSignInReturnTo() {
-  return sessionStorage.getItem(GOOGLE_AUTH_STORAGE.returnTo) || "/";
+  return readGoogleSignInSession().returnTo || "/";
 }

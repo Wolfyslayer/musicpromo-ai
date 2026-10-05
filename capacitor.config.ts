@@ -14,6 +14,7 @@ const config: CapacitorConfig = {
           hostname: "musicpromoai.site",
           androidScheme: "https",
           iosScheme: "https",
+          allowNavigation: ["accounts.google.com", "*.google.com", "musicpromoai.site"],
         }),
   },
   plugins: {
