@@ -1,11 +1,14 @@
 /**
  * Text → album cover image (optional pay-per-use).
  *
- * Secrets:
- * - FAL_KEY — fal.ai (recommended; e.g. fal-ai/flux/dev)
- * - FAL_COVER_MODEL — optional, default fal-ai/flux/dev
- * - REPLICATE_API_TOKEN + REPLICATE_COVER_MODEL (default black-forest-labs/flux-schnell)
- * - OPENAI_API_KEY — optional prompt polish (Groq-compatible base URL OK)
+ * Secrets (preferred):
+ * - OPENAI_API_KEY or OPENAI_IMAGE_API_KEY — OpenAI Images API (DALL·E / gpt-image)
+ * - OPENAI_IMAGE_MODEL — optional, default dall-e-3
+ * - OPENAI_IMAGE_BASE_URL — optional, default https://api.openai.com/v1 (use real OpenAI even if OPENAI_BASE_URL is Groq)
+ *
+ * Legacy fallbacks:
+ * - FAL_KEY, REPLICATE_API_TOKEN — when AI_COVER_PROVIDER=fal|replicate or no OpenAI image key
+ * - AI_COVER_PROVIDER — openai | fal | replicate | off
  */
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
@@ -14,20 +17,35 @@ import { invokeLlm } from "./invokeLlm.ts";
 const BUCKET = "music-promo-assets";
 const DEFAULT_FAL_COVER = "fal-ai/flux/dev";
 const DEFAULT_REPLICATE_COVER = "black-forest-labs/flux-schnell";
+const DEFAULT_OPENAI_IMAGE_MODEL = "dall-e-3";
+const DEFAULT_OPENAI_IMAGE_SIZE = "1024x1024";
 
-export type CoverArtProvider = "fal" | "replicate" | "off";
+export type CoverArtProvider = "openai" | "fal" | "replicate" | "off";
+
+function openAiImageApiKey(): string {
+  return (Deno.env.get("OPENAI_IMAGE_API_KEY") || Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY") || "")
+    .trim();
+}
+
+function openAiImageApiBase(): string {
+  const base = Deno.env.get("OPENAI_IMAGE_BASE_URL") || "https://api.openai.com/v1";
+  return base.replace(/\/+$/, "");
+}
 
 export function resolveCoverArtProvider(): CoverArtProvider {
-  const mode = (Deno.env.get("AI_COVER_PROVIDER") || Deno.env.get("AI_VIDEO_PROVIDER") || "").trim().toLowerCase();
+  const mode = (Deno.env.get("AI_COVER_PROVIDER") || "").trim().toLowerCase();
+  const openaiKey = openAiImageApiKey();
   const falKey = (Deno.env.get("FAL_KEY") || "").trim();
   const repToken = (Deno.env.get("REPLICATE_API_TOKEN") || "").trim();
+
   if (mode === "off" || mode === "none" || mode === "false" || mode === "0") {
-    if (falKey) return "fal";
-    if (repToken) return "replicate";
     return "off";
   }
-  if ((mode === "fal" || !mode) && falKey) return "fal";
-  if (mode === "replicate" && repToken) return "replicate";
+  if (mode === "openai") return openaiKey ? "openai" : "off";
+  if (mode === "fal") return falKey ? "fal" : "off";
+  if (mode === "replicate") return repToken ? "replicate" : "off";
+
+  if (openaiKey) return "openai";
   if (falKey) return "fal";
   if (repToken) return "replicate";
   return "off";
@@ -38,14 +56,17 @@ export function coverArtProviderStatus() {
   return {
     provider,
     configured: provider !== "off",
+    openAiImageModel: Deno.env.get("OPENAI_IMAGE_MODEL") || DEFAULT_OPENAI_IMAGE_MODEL,
     falModel: Deno.env.get("FAL_COVER_MODEL") || DEFAULT_FAL_COVER,
     replicateModel: Deno.env.get("REPLICATE_COVER_MODEL") || DEFAULT_REPLICATE_COVER,
     note:
-      provider === "fal"
-        ? "Cover art billed by fal.ai (Flux — pay-as-you-go)."
-        : provider === "replicate"
-          ? "Cover art billed by Replicate (Flux Schnell)."
-          : "Set FAL_KEY or REPLICATE_API_TOKEN in Supabase secrets to enable AI covers.",
+      provider === "openai"
+        ? "Cover art billed by OpenAI (Images API — pay-as-you-go)."
+        : provider === "fal"
+          ? "Cover art billed by fal.ai (Flux — pay-as-you-go)."
+          : provider === "replicate"
+            ? "Cover art billed by Replicate (Flux Schnell)."
+            : "Set OPENAI_API_KEY (or OPENAI_IMAGE_API_KEY) in Supabase Edge Function secrets to enable AI covers.",
   };
 }
 
@@ -180,6 +201,48 @@ async function replicateTextToImage(prompt: string): Promise<{ sourceUrl: string
   throw new Error("Replicate cover generation timed out.");
 }
 
+async function openAiTextToImage(prompt: string): Promise<{ sourceUrl: string; provider: "openai" }> {
+  const apiKey = openAiImageApiKey();
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY (or OPENAI_IMAGE_API_KEY) is not set.");
+  }
+
+  const model = (Deno.env.get("OPENAI_IMAGE_MODEL") || DEFAULT_OPENAI_IMAGE_MODEL).trim();
+  const size = (Deno.env.get("OPENAI_IMAGE_SIZE") || DEFAULT_OPENAI_IMAGE_SIZE).trim();
+  const quality = (Deno.env.get("OPENAI_IMAGE_QUALITY") || "standard").trim();
+
+  const body: Record<string, unknown> = {
+    model,
+    prompt: prompt.slice(0, 4000),
+    n: 1,
+    size,
+    response_format: "url",
+  };
+  if (model.startsWith("dall-e-3")) {
+    body.quality = quality === "hd" ? "hd" : "standard";
+  }
+
+  const res = await fetch(`${openAiImageApiBase()}/images/generations`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error?.message || data?.error || JSON.stringify(data);
+    throw new Error(`OpenAI Images error (${res.status}): ${msg}`);
+  }
+
+  const imageUrl = data?.data?.[0]?.url;
+  if (!imageUrl || !/^https?:\/\//i.test(String(imageUrl))) {
+    throw new Error("OpenAI returned no image URL.");
+  }
+  return { sourceUrl: String(imageUrl), provider: "openai" };
+}
+
 export async function generateCloudCoverArt(input: {
   prompt: string;
   title?: string;
@@ -191,7 +254,7 @@ export async function generateCloudCoverArt(input: {
   const provider = resolveCoverArtProvider();
   if (provider === "off") {
     throw new Error(
-      "AI cover art is not configured. Set FAL_KEY (recommended) or REPLICATE_API_TOKEN in Supabase Edge Function secrets."
+      "AI cover art is not configured. Set OPENAI_API_KEY (or OPENAI_IMAGE_API_KEY) in Supabase Edge Function secrets."
     );
   }
 
@@ -201,12 +264,19 @@ export async function generateCloudCoverArt(input: {
       : String(input.prompt || "").trim() ||
         "Square album cover artwork, cinematic, no text, no logos, music release.";
 
-  const result = provider === "fal" ? await falTextToImage(imagePrompt) : await replicateTextToImage(imagePrompt);
+  const result =
+    provider === "openai"
+      ? await openAiTextToImage(imagePrompt)
+      : provider === "fal"
+        ? await falTextToImage(imagePrompt)
+        : await replicateTextToImage(imagePrompt);
 
   const billingNote =
-    result.provider === "fal"
-      ? "Billed by fal.ai (Flux image — pay-as-you-go)."
-      : "Billed by Replicate (Flux Schnell image).";
+    result.provider === "openai"
+      ? "Billed by OpenAI (DALL·E / Images API)."
+      : result.provider === "fal"
+        ? "Billed by fal.ai (Flux image — pay-as-you-go)."
+        : "Billed by Replicate (Flux Schnell image).";
 
   return { ...result, provider: result.provider, imagePrompt, billingNote };
 }

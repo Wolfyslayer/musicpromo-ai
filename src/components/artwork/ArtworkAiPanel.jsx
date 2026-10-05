@@ -59,17 +59,16 @@ export default function ArtworkAiPanel({ onImageReady, requireAuth }) {
           <div>
             <h2 className="font-heading text-lg font-semibold">AI album cover</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Describe the vibe — we expand it into a Flux prompt and return a square cover (no text baked in; add
-              titles in the Design tab).
+              Describe the vibe — we polish the prompt with your LLM key and generate a square cover via OpenAI Images
+              (no text baked in; add titles in the Design tab).
             </p>
           </div>
         </div>
 
         {!status?.configured ? (
           <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100/90">
-            AI covers need <strong className="font-semibold">FAL_KEY</strong> or{" "}
-            <strong className="font-semibold">REPLICATE_API_TOKEN</strong> in Supabase (same as AI video). You can still
-            use the Design editor below.
+            AI covers need <strong className="font-semibold">OPENAI_API_KEY</strong> (OpenAI Images — same Supabase
+            Edge Function secrets as chat). You can still use the Design editor below.
           </p>
         ) : null}
 
