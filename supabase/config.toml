@@ -35,6 +35,10 @@ verify_jwt = false
 [functions.sendDailyStatsDigest]
 verify_jwt = false
 
+# TemPolor song-generation callbacks (no user JWT).
+[functions.tempolorSongCallback]
+verify_jwt = false
+
 # Guest ticket form on /privacy and /terms (no user session required).
 [functions.submitSupportTicket]
 verify_jwt = false

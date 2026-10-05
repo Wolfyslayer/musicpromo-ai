@@ -66,7 +66,7 @@ Credits are granted on `checkout.session.completed` (webhook). Catalog in `credi
 
 | Secret | Feature |
 |--------|---------|
-| `SUNO_API_BASE_URL` + `SUNO_API_KEY` | `generateSunoTrack` |
+| `SUNO_API_KEY` (TemPolor API key), `PUBLIC_APP_URL`, optional `SUNO_API_BASE_URL` (default `https://api.tempolor.com`), optional `SUNO_API_MODEL` (default `tempolor-latest`) | `generateSunoTrack` (+ deploy `tempolorSongCallback`) |
 | `REPLICATE_API_TOKEN` | `splitAudioStems` |
 
 Credit defaults: `suno_generation` 25, `stem_split` 18.

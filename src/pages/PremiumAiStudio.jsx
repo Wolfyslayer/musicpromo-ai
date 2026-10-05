@@ -188,7 +188,12 @@ export default function PremiumAiStudio() {
           <h2 className="font-heading text-lg font-semibold">AI song (Suno)</h2>
         </div>
         {!sunoStatus?.configured ? (
-          <p className="text-sm text-amber-200/90">Backend: set SUNO_API_BASE_URL and SUNO_API_KEY in Supabase secrets.</p>
+          <p className="text-sm text-amber-200/90">
+            Backend: TemPolor — set <code className="text-xs">SUNO_API_KEY</code> (platform API key),{" "}
+            <code className="text-xs">PUBLIC_APP_URL</code>, optional{" "}
+            <code className="text-xs">SUNO_API_BASE_URL</code> (default https://api.tempolor.com) and{" "}
+            <code className="text-xs">SUNO_API_MODEL</code> (default tempolor-latest).
+          </p>
         ) : null}
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1.5 md:col-span-2">
