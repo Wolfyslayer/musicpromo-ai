@@ -44,6 +44,24 @@ Quota and model names change; verify in Google’s docs before production.
 
 Free routes are often slow or capped.
 
+## Cover lab (AI album covers)
+
+**Cover lab** (`/artwork`) generates images with the **OpenAI Images API** (default model `dall-e-3`), not fal/Replicate.
+
+| Secret | Value |
+|--------|--------|
+| `OPENAI_API_KEY` | OpenAI `sk-...` with Images access |
+
+If you use **Groq** for campaign copy (`OPENAI_BASE_URL` → Groq), keep Groq for chat but add a real OpenAI key for covers:
+
+| Secret | Value |
+|--------|--------|
+| `OPENAI_IMAGE_API_KEY` | OpenAI `sk-...` (Images only) |
+| `OPENAI_IMAGE_BASE_URL` | Optional; default `https://api.openai.com/v1` |
+
+Optional: `OPENAI_IMAGE_MODEL`, `OPENAI_IMAGE_SIZE` (default `1024x1024`), `OPENAI_IMAGE_QUALITY` (`standard` or `hd` for DALL·E 3).  
+Legacy: `AI_COVER_PROVIDER=fal|replicate` still works if you prefer Flux via `FAL_KEY` / `REPLICATE_API_TOKEN`.
+
 ## What stays on-device (no LLM bill)
 
 - Artwork/audio **asset profile** (colors, hooks from title/energy)
