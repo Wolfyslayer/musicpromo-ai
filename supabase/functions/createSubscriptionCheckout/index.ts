@@ -7,7 +7,7 @@ import {
   normalizePaidPlanId,
   resolveStripePriceId,
 } from "../_shared/subscriptionPlans.ts";
-import { ensureStripeCustomer, stripeRequest } from "../_shared/stripeCustomer.ts";
+import { assertCheckoutPriceId, ensureStripeCustomer, stripeRequest } from "../_shared/stripeCustomer.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
 
 async function handler(req: Request) {
@@ -41,11 +41,12 @@ async function handler(req: Request) {
       if (!packId) {
         return jsonWithCors(req, { error: "packId must be boost_100, boost_300, boost_800, or boost_2000" }, 400);
       }
-      const priceId = resolveCreditPackPriceId(packId);
+      const packSecret = `STRIPE_CREDIT_PACK_${packId.toUpperCase()}_PRICE_ID`;
+      const priceId = assertCheckoutPriceId(resolveCreditPackPriceId(packId), packSecret);
       if (!priceId) {
         return jsonWithCors(
           req,
-          { error: `Stripe price not configured for pack ${packId}. Set STRIPE_CREDIT_PACK_${packId.toUpperCase()}_PRICE_ID.` },
+          { error: `Stripe price not configured for pack ${packId}. Set ${packSecret} to a price_… ID.` },
           503
         );
       }
@@ -75,15 +76,10 @@ async function handler(req: Request) {
       return jsonWithCors(req, { error: "plan must be creator, pro, or studio" }, 400);
     }
 
-    const priceId = resolveStripePriceId(planId, interval);
+    const planSecret = `STRIPE_${planId.toUpperCase()}_${interval === "year" ? "YEARLY" : "MONTHLY"}_PRICE_ID`;
+    const priceId = assertCheckoutPriceId(resolveStripePriceId(planId, interval), planSecret);
     if (!priceId) {
-      return jsonWithCors(
-        req,
-        {
-          error: `Stripe price not configured for ${planId} (${interval}). Set STRIPE_${planId.toUpperCase()}_${interval === "year" ? "YEARLY" : "MONTHLY"}_PRICE_ID.`,
-        },
-        503
-      );
+      return jsonWithCors(req, { error: `Stripe price not configured for ${planId} (${interval}). Set ${planSecret} to a price_… ID.` }, 503);
     }
 
     const session = await stripeRequest(

@@ -85,3 +85,37 @@ Always free: campaign plan, cloud AI video clip. Daily claim via header 🎁.
 `getUserBilling`, `createSubscriptionCheckout`, `stripeBillingWebhook`, `generateSunoTrack`, `splitAudioStems`, plus existing AI functions.
 
 Webhook: `https://<project-ref>.supabase.co/functions/v1/stripeBillingWebhook`
+
+## Troubleshooting Stripe checkout
+
+### “Missing price” / “No such price” / product id errors
+
+Supabase secrets must hold **Price IDs** (`price_1ABC…`), **not** Product IDs (`prod_…`). Checkout sends `line_items[0][price]=price_…`. If you paste `prod_…`, Stripe returns an error about the product/price.
+
+**How to copy the right ID (matches your catalog names):**
+
+| Stripe product (your list) | Supabase secret | Price type |
+|-----------------------------|-----------------|------------|
+| Creator Plan · $9.00 | `STRIPE_CREATOR_MONTHLY_PRICE_ID` | Recurring **month** |
+| Creator Plan · $86.00 | `STRIPE_CREATOR_YEARLY_PRICE_ID` | Recurring **year** |
+| Pro Plan · $18.00 / $172.00 | `STRIPE_PRO_MONTHLY_PRICE_ID` / `STRIPE_PRO_YEARLY_PRICE_ID` | month / year |
+| Studio Plan · $32.00 / $306.00 | `STRIPE_STUDIO_MONTHLY_PRICE_ID` / `STRIPE_STUDIO_YEARLY_PRICE_ID` | month / year |
+| Credits 100 · $5.00 | `STRIPE_CREDIT_PACK_BOOST_100_PRICE_ID` | **One time** |
+| Credits 300 · $12.00 | `STRIPE_CREDIT_PACK_BOOST_300_PRICE_ID` | One time |
+| Credits 800 · $28.00 | `STRIPE_CREDIT_PACK_BOOST_800_PRICE_ID` | One time |
+| Credits 2000 · $60.00 | `STRIPE_CREDIT_PACK_BOOST_2000_PRICE_ID` | One time |
+
+On mobile: open the product → tap the **price row** ($9.00 USD, etc.) → copy **Price ID**. On desktop: **Product catalog → product → Pricing → ⋮ on the price → Copy price ID**.
+
+### Test vs live mismatch
+
+`STRIPE_SECRET_KEY` must match the mode of every `price_…` ID:
+
+- `sk_test_…` → prices created in **Test mode**
+- `sk_live_…` → prices created in **Live mode**
+
+Mixing test keys with live prices (or the reverse) produces “no such price” even when the ID looks correct.
+
+### After changing secrets
+
+Edge Function secrets apply immediately; redeploy is not required. Try checkout again in **Settings → Plan & credits**.

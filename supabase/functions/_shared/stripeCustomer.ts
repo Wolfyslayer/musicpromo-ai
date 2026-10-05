@@ -1,5 +1,17 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
+/** Checkout line_items require a Price id (`price_…`), not a Product id (`prod_…`). */
+export function assertCheckoutPriceId(raw: string, secretName: string): string {
+  const id = String(raw || "").trim();
+  if (!id) return id;
+  if (id.startsWith("prod_")) {
+    throw new Error(
+      `${secretName} must be a Stripe Price ID (starts with price_), not a Product ID (${id}). In the Dashboard, open the product → select the $ row → copy Price ID.`
+    );
+  }
+  return id;
+}
+
 export async function stripeRequest(path: string, body: URLSearchParams) {
   const secret = (Deno.env.get("STRIPE_SECRET_KEY") || "").trim();
   if (!secret) throw new Error("Stripe is not configured (STRIPE_SECRET_KEY).");
