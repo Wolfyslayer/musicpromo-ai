@@ -47,3 +47,21 @@ export async function fetchMediaBytes(
   }
   return { bytes: buf, mimeType };
 }
+
+/** Download public HTTPS media for TikTok / YouTube / X uploads (videos up to 256MB). */
+export async function fetchPublicMediaBytes(url: string): Promise<Uint8Array> {
+  const target = String(url || "").trim();
+  if (!target.startsWith("http://") && !target.startsWith("https://")) {
+    throw new Error("media_fetch: URL must be http(s)");
+  }
+  const res = await fetch(target, { redirect: "follow" });
+  if (!res.ok) {
+    throw new Error(`media_fetch: HTTP ${res.status}`);
+  }
+  const buf = new Uint8Array(await res.arrayBuffer());
+  if (!buf.byteLength) throw new Error("media_fetch: empty body");
+  if (buf.byteLength > 256 * 1024 * 1024) {
+    throw new Error("media_fetch: file too large (>256MB)");
+  }
+  return buf;
+}
