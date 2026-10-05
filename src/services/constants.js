@@ -48,6 +48,12 @@ export const CAMPAIGN_STATUSES = [
   { id: "archived", label: "Archived", color: "muted" },
 ];
 
+export const RELEASE_TYPES = [
+  { id: "single", label: "Single", hint: "One focus track" },
+  { id: "ep", label: "EP", hint: "2–6 tracks" },
+  { id: "album", label: "Album", hint: "Full project rollout" },
+];
+
 export const RELEASE_STATUSES = [
   { id: "draft", label: "Draft", color: "muted" },
   { id: "scheduled", label: "Scheduled", color: "chart-3" },

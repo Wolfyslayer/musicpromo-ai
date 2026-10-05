@@ -37,6 +37,20 @@
       "type": "string",
       "title": "Description"
     },
+    "release_type": {
+      "type": "string",
+      "enum": [
+        "single",
+        "ep",
+        "album"
+      ],
+      "default": "single",
+      "title": "Release type"
+    },
+    "primary_song_id": {
+      "type": "string",
+      "title": "Featured track (optional)"
+    },
     "is_demo": {
       "type": "boolean",
       "default": false,

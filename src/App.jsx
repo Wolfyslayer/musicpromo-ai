@@ -38,6 +38,7 @@ import ReleaseDetail from '@/pages/ReleaseDetail';
 import LaunchBoard from '@/pages/LaunchBoard';
 import ReleaseEditor from '@/pages/ReleaseEditor';
 import ReleaseCalendar from '@/pages/ReleaseCalendar';
+import ReleaseAlbumCampaign from '@/pages/ReleaseAlbumCampaign';
 import ReleaseContent from '@/pages/ReleaseContent';
 import SocialShell, { SocialIndexRedirect } from '@/components/social/SocialShell';
 import {
@@ -139,6 +140,7 @@ const AuthenticatedApp = () => {
           <Route path="/releases" element={<Releases />} />
           <Route path="/releases/new" element={<ReleaseEditor />} />
           <Route path="/releases/:id/edit" element={<ReleaseEditor />} />
+          <Route path="/releases/:id/campaign" element={<ReleaseAlbumCampaign />} />
           <Route path="/releases/:id/calendar" element={<ReleaseCalendar />} />
           <Route path="/releases/:id/content" element={<ReleaseContent />} />
           <Route path="/releases/:id/launch" element={<LaunchBoard />} />

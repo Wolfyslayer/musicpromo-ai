@@ -1,7 +1,7 @@
 import { db } from '@/api/base44Client';
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Loader2, Sparkles, Music2, ImageIcon, AudioLines, FileText, Target, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,7 @@ const STEPS = [
 
 export default function CreateCampaign() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { user, requireAuth } = useAuth();
   const [step, setStep] = useState(0);
@@ -58,6 +59,7 @@ export default function CreateCampaign() {
     return {
       artistMode: "existing", artistId: "", newArtistName: "", newArtistGenre: "",
       releaseId: "",
+      existingSongId: "",
       title: "", genre: "", releaseDate: todayISO(), language: "English", description: "",
       artworkUrl: "", artworkFile: null,
       audioUri: "", audioSignedUrl: "", audioDuration: null, audioName: "", audioFile: null,
@@ -79,6 +81,63 @@ export default function CreateCampaign() {
     loadArtists().then(setArtists).catch(() => {});
     loadReleases().then(setReleases).catch(() => setReleases([]));
   }, []);
+
+  const releaseParam = searchParams.get("release") || "";
+  const songParam = searchParams.get("song") || "";
+
+  useEffect(() => {
+    if (!releaseParam || !releases.length) return;
+    const release = releases.find((r) => r.id === releaseParam);
+    if (!release) return;
+    setForm((f) => ({
+      ...f,
+      releaseId: releaseParam,
+      artistMode: "existing",
+      artistId: release.artist_id || f.artistId,
+      releaseDate: release.release_date || f.releaseDate,
+      artworkUrl: f.artworkUrl || release.artwork_url || "",
+    }));
+  }, [releaseParam, releases]);
+
+  useEffect(() => {
+    if (!songParam) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const s = await db.entities.Song.get(songParam);
+        if (cancelled || !s) return;
+        let releaseArt = "";
+        const rid = s.release_id || releaseParam;
+        if (rid) {
+          const rel = await db.entities.Release.get(rid).catch(() => null);
+          releaseArt = rel?.artwork_url || "";
+        }
+        setForm((f) => ({
+          ...f,
+          existingSongId: s.id,
+          artistMode: "existing",
+          artistId: s.artist_id || f.artistId,
+          releaseId: rid || f.releaseId,
+          title: s.title || f.title,
+          genre: s.genre || f.genre,
+          releaseDate: s.release_date || f.releaseDate,
+          language: s.language || f.language,
+          description: s.description || f.description,
+          artworkUrl: s.artwork_url || releaseArt || f.artworkUrl,
+          audioUri: s.audio_url || f.audioUri,
+          audioSignedUrl: s.audio_url || f.audioSignedUrl,
+          audioDuration: s.audio_duration ?? f.audioDuration,
+          lyrics: s.lyrics || f.lyrics,
+        }));
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [songParam, releaseParam]);
+
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   useEffect(() => {
@@ -209,7 +268,13 @@ export default function CreateCampaign() {
         analysis: form.assetProfile ? { assetProfile: form.assetProfile } : null, is_demo: false,
       };
       if (form.releaseId) songPayload.release_id = form.releaseId;
-      const song = await db.entities.Song.create(songPayload);
+      let song;
+      if (form.existingSongId) {
+        await db.entities.Song.update(form.existingSongId, songPayload);
+        song = { id: form.existingSongId, ...songPayload };
+      } else {
+        song = await db.entities.Song.create(songPayload);
+      }
 
       const songForAI = {
         ...song,
@@ -522,9 +587,16 @@ function StepSong({ form, set, artists, releases, selectArtist, selectRelease })
               ))}
             </SelectContent>
           </Select>
-          <p className="mt-1 text-xs text-muted-foreground">Optional. Leave empty to keep the previous Artist → Song → Campaign flow.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Optional. Album projects: add tracks on the release, then use Plan campaigns or open a track here.
+          </p>
         </Field>
       )}
+      {form.existingSongId ? (
+        <p className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          Updating existing track <strong className="text-foreground">{form.title}</strong> — audio and artwork you add here save to this song.
+        </p>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Song Title *"><Input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Northern Light" /></Field>
         <Field label="Genre">
