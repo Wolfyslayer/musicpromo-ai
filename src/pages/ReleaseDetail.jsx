@@ -94,7 +94,10 @@ export default function ReleaseDetail() {
               >
                 <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
               </Button>
-              <Button size="sm" className="rounded-full" onClick={() => navigate(`/releases/${id}/launch`)}>
+              <Button size="sm" className="rounded-full" onClick={() => navigate(`/create?release=${id}`)}>
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Plan campaigns
+              </Button>
+              <Button size="sm" variant="outline" className="rounded-full" onClick={() => navigate(`/releases/${id}/launch`)}>
                 <Rocket className="mr-1.5 h-3.5 w-3.5" /> Launch board
               </Button>
               <Button
@@ -152,8 +155,8 @@ export default function ReleaseDetail() {
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-heading text-sm font-600 uppercase tracking-wider text-muted-foreground">Songs</h2>
-          <Button size="sm" className="rounded-full" onClick={() => navigate("/create")}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" /> New Campaign
+          <Button size="sm" className="rounded-full" onClick={() => navigate(`/create?release=${id}`)}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" /> Album rollout
           </Button>
         </div>
 
@@ -180,7 +183,11 @@ export default function ReleaseDetail() {
               return (
                 <button
                   key={s.id}
-                  onClick={() => related ? navigate(`/campaigns/${related.id}/plan`) : navigate("/create")}
+                  onClick={() =>
+                    related
+                      ? navigate(`/campaigns/${related.id}/plan`)
+                      : navigate(`/create/track?release=${id}&song=${s.id}`)
+                  }
                   className="flex w-full items-center gap-3 rounded-xl border border-border/50 bg-card/40 p-3 text-left transition hover:border-primary/40"
                 >
                   <ArtworkImage src={s.artwork_url} alt={s.title} className="h-12 w-12 shrink-0" rounded="rounded-lg" />
@@ -224,8 +231,8 @@ export default function ReleaseDetail() {
             title="No campaigns yet"
             description="Create a campaign and optionally attach this release."
             action={
-              <Button onClick={() => navigate("/create")} className="rounded-full">
-                <Plus className="mr-1.5 h-3.5 w-3.5" /> New Campaign
+              <Button onClick={() => navigate(`/create?release=${id}`)} className="rounded-full">
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Plan album rollout
               </Button>
             }
           />

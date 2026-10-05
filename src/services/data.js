@@ -1,4 +1,5 @@
 import { db } from '@/api/base44Client';
+import { sortReleaseTracks } from "@/services/releaseTracks";
 import { normalizeArtistRow } from "@/services/artistSocial";
 import { loadPosts } from "@/services/socialService";
 
@@ -60,7 +61,7 @@ export async function loadRelease(id) {
     db.entities.VideoProject.list("-created_date", L),
   ]);
   const artist = artists.find((a) => a.id === release.artist_id) || null;
-  const releaseSongs = songs.filter((s) => s.release_id === id);
+  const releaseSongs = sortReleaseTracks(songs.filter((s) => s.release_id === id));
   const releaseCampaigns = campaigns.filter((c) => c.release_id === id);
   const campaignIds = new Set(releaseCampaigns.map((c) => c.id));
   const songMap = Object.fromEntries(songs.map((s) => [s.id, s]));

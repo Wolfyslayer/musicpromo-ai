@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast";
 
 import { loadArtists } from "@/services/data";
-import { RELEASE_STATUSES } from "@/services/constants";
+import { RELEASE_STATUSES, RELEASE_TYPES } from "@/services/constants";
+import ReleaseTracklistEditor from "@/components/releases/ReleaseTracklistEditor";
 import { todayISO } from "@/services/format";
 import ArtworkUpload from "@/components/ArtworkUpload";
 import { useAuth } from "@/lib/AuthContext";
@@ -38,6 +39,7 @@ export default function ReleaseEditor() {
     artwork_url: "",
     description: "",
     presave_url: "",
+    release_type: "single",
   });
 
   useEffect(() => {
@@ -60,6 +62,7 @@ export default function ReleaseEditor() {
           artwork_url: r.artwork_url || "",
           description: r.description || "",
           presave_url: r.presave_url || "",
+          release_type: r.release_type || "single",
         });
       })
       .catch((e) => {
@@ -90,6 +93,7 @@ export default function ReleaseEditor() {
         artwork_url: form.artwork_url || "",
         description: form.description || "",
         presave_url: form.presave_url || "",
+        release_type: form.release_type || "single",
         is_demo: false,
       };
       if (isNew) {
@@ -162,6 +166,16 @@ export default function ReleaseEditor() {
               className="rounded-xl"
             />
           </Field>
+          <Field label="Release type">
+            <Select value={form.release_type} onValueChange={(v) => set("release_type", v)}>
+              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {RELEASE_TYPES.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
           <Field label="Status">
             <Select value={form.status} onValueChange={(v) => set("status", v)}>
               <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
@@ -197,6 +211,17 @@ export default function ReleaseEditor() {
           {busy ? "Saving…" : isNew ? "Create Release" : "Save Release"}
         </Button>
       </SurfacePanel>
+
+      {!isNew && releaseId && form.artist_id ? (
+        <SurfacePanel className="mt-4">
+          <ReleaseTracklistEditor
+            releaseId={releaseId}
+            artistId={form.artist_id}
+            releaseArtworkUrl={form.artwork_url}
+            releaseDate={form.release_date}
+          />
+        </SurfacePanel>
+      ) : null}
     </div>
   );
 }

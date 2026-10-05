@@ -14,6 +14,10 @@
       "type": "string",
       "title": "Song Title"
     },
+    "track_number": {
+      "type": "number",
+      "title": "Track number"
+    },
     "genre": {
       "type": "string",
       "title": "Genre"

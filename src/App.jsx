@@ -18,6 +18,7 @@ import Layout from '@/components/Layout';
 import Dashboard from '@/pages/Dashboard';
 import Campaigns from '@/pages/Campaigns';
 import CreateCampaign from '@/pages/CreateCampaign';
+import ReleaseCampaignPlanner from '@/pages/ReleaseCampaignPlanner';
 import CampaignContent from '@/pages/CampaignContent';
 import CampaignShell, { CampaignIndexRedirect } from '@/components/campaign/CampaignShell';
 import {
@@ -38,6 +39,7 @@ import ReleaseDetail from '@/pages/ReleaseDetail';
 import LaunchBoard from '@/pages/LaunchBoard';
 import ReleaseEditor from '@/pages/ReleaseEditor';
 import ReleaseCalendar from '@/pages/ReleaseCalendar';
+import ReleaseAlbumCampaign from '@/pages/ReleaseAlbumCampaign';
 import ReleaseContent from '@/pages/ReleaseContent';
 import SocialShell, { SocialIndexRedirect } from '@/components/social/SocialShell';
 import {
@@ -109,7 +111,8 @@ const AuthenticatedApp = () => {
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/campaigns" element={<Campaigns />} />
-          <Route path="/create" element={<CreateCampaign />} />
+          <Route path="/create" element={<ReleaseCampaignPlanner />} />
+          <Route path="/create/track" element={<CreateCampaign />} />
           <Route path="/studio" element={<VideoGenerator />} />
           <Route path="/artwork" element={<ArtworkStudio />} />
           <Route path="/premium" element={<PremiumAiStudio />} />
@@ -139,6 +142,7 @@ const AuthenticatedApp = () => {
           <Route path="/releases" element={<Releases />} />
           <Route path="/releases/new" element={<ReleaseEditor />} />
           <Route path="/releases/:id/edit" element={<ReleaseEditor />} />
+          <Route path="/releases/:id/campaign" element={<ReleaseAlbumCampaign />} />
           <Route path="/releases/:id/calendar" element={<ReleaseCalendar />} />
           <Route path="/releases/:id/content" element={<ReleaseContent />} />
           <Route path="/releases/:id/launch" element={<LaunchBoard />} />
