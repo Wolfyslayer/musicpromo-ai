@@ -246,9 +246,13 @@ export default function PremiumAiStudio() {
         </div>
         {!stemStatus?.configured ? (
           <p className="text-sm text-amber-200/90">
-            Backend: set <code className="text-xs">REPLICATE_API_TOKEN</code> (r8_… API token from Replicate — this is
-            separate from TemPolor / Suno song generation).
+            Backend: TemPolor stems use the same <code className="text-xs">SUNO_API_KEY</code> +{" "}
+            <code className="text-xs">PUBLIC_APP_URL</code> as AI songs (optional{" "}
+            <code className="text-xs">SUNO_API_STEM_MODEL</code>, default Stems v2). Or set{" "}
+            <code className="text-xs">REPLICATE_API_TOKEN</code> for Replicate Demucs instead.
           </p>
+        ) : stemStatus?.provider === "tempolor" ? (
+          <p className="text-xs text-muted-foreground">{stemStatus.note}</p>
         ) : null}
         <div className="space-y-3">
           <div className="space-y-1.5">
@@ -346,7 +350,9 @@ export default function PremiumAiStudio() {
           <ul className="space-y-2 text-sm">
             {Object.entries(stems).map(([name, url]) => (
               <li key={name} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/50 px-3 py-2">
-                <span className="font-medium capitalize">{name.replace(/_/g, " ")}</span>
+                <span className="font-medium capitalize">
+                  {name === "stems_zip" ? "All stems (ZIP)" : name.replace(/_/g, " ")}
+                </span>
                 <a href={url} target="_blank" rel="noreferrer" className="text-primary underline">
                   Download
                 </a>

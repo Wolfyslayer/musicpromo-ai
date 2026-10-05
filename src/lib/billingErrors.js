@@ -55,7 +55,7 @@ export function billingFailureToast(err) {
       title: "Stem splitter not configured",
       description:
         err?.message ||
-        "Set REPLICATE_API_TOKEN (r8_… from replicate.com/account/api-tokens) in Supabase secrets and redeploy splitAudioStems.",
+        "Set SUNO_API_KEY + PUBLIC_APP_URL for TemPolor stems (same as AI songs), or REPLICATE_API_TOKEN as fallback. Redeploy splitAudioStems.",
     };
   }
   if (isSessionAuthError(err)) {
