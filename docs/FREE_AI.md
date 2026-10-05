@@ -12,7 +12,7 @@ Campaign **analyze**, **plan**, **support chat**, cover **prompt polish**, and o
 | Secret | Value |
 |--------|--------|
 | `GEMINI_API_KEY` | Your AI Studio API key |
-| `GEMINI_MODEL` | Optional — default `gemini-2.5-flash` |
+| `GEMINI_MODEL` | Optional — default `gemini-3.8-flash` |
 | `GEMINI_IMAGE_MODEL` | Optional — default `gemini-2.5-flash-image` (cover lab) |
 | `AI_PROVIDER` | Optional — default `gemini` |
 
@@ -84,6 +84,6 @@ Never put API keys in GitHub `VITE_*` vars or the frontend bundle.
 
 ```bash
 supabase secrets set GEMINI_API_KEY="AIza..." --project-ref YOUR_REF
-supabase secrets set GEMINI_MODEL="gemini-2.5-flash" --project-ref YOUR_REF
+supabase secrets set GEMINI_MODEL="gemini-3.8-flash" --project-ref YOUR_REF
 supabase secrets set GEMINI_IMAGE_MODEL="gemini-2.5-flash-image" --project-ref YOUR_REF
 ```
