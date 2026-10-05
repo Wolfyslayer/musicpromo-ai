@@ -15,7 +15,10 @@ export async function fetchStemSplitStatus() {
   return res.data;
 }
 
-export async function splitAudioStems({ audioUrl }) {
-  const res = await db.functions.invoke("splitAudioStems", { audioUrl });
+export async function splitAudioStems({ audioUrl, songId } = {}) {
+  const payload = {};
+  if (songId) payload.songId = String(songId);
+  else if (audioUrl) payload.audioUrl = String(audioUrl).trim();
+  const res = await db.functions.invoke("splitAudioStems", payload);
   return res.data;
 }
