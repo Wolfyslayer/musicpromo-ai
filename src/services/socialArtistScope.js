@@ -17,10 +17,16 @@ export function setSocialArtistId(artistId) {
   }
 }
 
-/** Prefer artist-scoped OAuth connection for the Social Hub. */
-export function connectionForProvider(connections, providerId, artistId = "") {
+/**
+ * Prefer artist-scoped OAuth connection for the Social Hub.
+ * Pass `artistId` = `null` to ignore artist scope (any connected account for this provider).
+ */
+export function connectionForProvider(connections, providerId, artistId = undefined) {
   const pid = String(providerId || "").toLowerCase();
-  const aid = String(artistId || getSocialArtistId() || "").trim();
+  const aid =
+    artistId === null
+      ? ""
+      : String(artistId !== undefined ? artistId : getSocialArtistId() || "").trim();
   const rows = (connections || [])
     .map((c) => ({
       ...c,

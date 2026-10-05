@@ -8,7 +8,7 @@ import { getGoogleClientId } from "@/lib/googleAuth";
 import { getSessionAccessToken } from "@/lib/app-params";
 import { SOCIAL_PROVIDERS, getSocialProviderConfig } from "@/services/social/providers";
 import { CONNECTION_STATUS, CONNECTION_STATUS_META } from "@/services/social/provider";
-import { connectionForProvider } from "@/services/socialArtistScope";
+import { connectionForProvider, getSocialArtistId } from "@/services/socialArtistScope";
 import { primaryProviderForDayPlatform } from "@/services/social/dayPlatform";
 
 export const OAUTH_PROVIDERS = new Set(["instagram", "tiktok", "youtube", "x"]);
@@ -115,8 +115,38 @@ export function getProvider(id) {
   };
 }
 
+/** Build Social Hub provider cards from a socialConnectionStatus payload. */
+export function providersFromConnectionStatus(status, artistId = undefined) {
+  const connections = (Array.isArray(status?.connections) ? status.connections : []).map(
+    normalizeSocialConnection
+  );
+  return mergeProvidersWithConnections(
+    connections,
+    status?.providersConfigured || {},
+    artistId === undefined ? getSocialArtistId() : artistId
+  );
+}
+
 export async function getConnectionStatus() {
-  return invoke("socialConnectionStatus", {});
+  const res = await invoke("socialConnectionStatus", {});
+  if (!res || typeof res !== "object") return res;
+  const connections = (Array.isArray(res.connections) ? res.connections : []).map(
+    normalizeSocialConnection
+  );
+  const anyConnected = connections.some((c) => c.status === "connected");
+  const providers = providersFromConnectionStatus(res);
+  const providersAny = mergeProvidersWithConnections(
+    connections,
+    res.providersConfigured || {},
+    null
+  );
+  return {
+    ...res,
+    connections,
+    providers,
+    providersAny,
+    anyConnected,
+  };
 }
 
 /**
@@ -268,11 +298,13 @@ export function normalizeSocialConnection(raw) {
   };
 }
 
-export function mergeProvidersWithConnections(connections = [], providersConfigured = {}, artistId = "") {
-  const aid = String(artistId || "").trim();
-
+export function mergeProvidersWithConnections(
+  connections = [],
+  providersConfigured = {},
+  artistId = undefined
+) {
   return SOCIAL_PROVIDERS.map((cfg) => {
-    const live = connectionForProvider(connections, cfg.id, aid);
+    const live = connectionForProvider(connections, cfg.id, artistId);
     const normalized = live ? normalizeSocialConnection(live) : null;
     const oauthReady = cfg.oauthImplemented === true;
 
