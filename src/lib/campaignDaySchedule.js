@@ -1,3 +1,5 @@
+import { detectBrowserTimeZone, formatDateTimeLocal } from "@/lib/userTimezone";
+
 /** Local datetime-local value and ISO for campaignSchedule API. */
 
 export function dayToLocalDatetimeValue(day) {
@@ -41,4 +43,9 @@ export function postingTimeToScheduledIso(dayDate, postingTime) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   const time = normalizePostingTime(postingTime);
   return localDatetimeToIso(`${date}T${time}`);
+}
+
+/** Human-readable scheduled time in the user's browser timezone. */
+export function formatScheduledAtDisplay(iso, timeZone) {
+  return formatDateTimeLocal(iso, { timeZone: timeZone || detectBrowserTimeZone() });
 }

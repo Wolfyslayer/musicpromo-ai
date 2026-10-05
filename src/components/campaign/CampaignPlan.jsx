@@ -22,6 +22,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 import { db } from "@/api/base44Client";
+import { formatScheduledAtDisplay } from "@/lib/campaignDaySchedule";
 import { aiService } from "@/services/aiService";
 import { platformColor } from "@/services/constants";
 import { fmtDate } from "@/services/format";
@@ -139,7 +140,7 @@ function DayScheduleMeta({ day, posts, onRefresh }) {
         <DayStatusChip day={day} posts={posts} />
         <span className="inline-flex items-center gap-1 text-muted-foreground">
           <Clock className="h-3 w-3" />
-          {countdown.label || new Date(day.scheduled_at).toLocaleString()}
+          {countdown.label || formatScheduledAtDisplay(day.scheduled_at)}
         </span>
         {countdown.overdue ? (
           <Button
@@ -266,7 +267,7 @@ export default function CampaignPlan({
         title: "Auto-publish scheduled",
         description:
           res?.message ||
-          `Queued until ${new Date(res.scheduledAt).toLocaleString()}. The worker checks every few minutes.`,
+          `Queued until ${formatScheduledAtDisplay(res.scheduledAt)}. The worker checks every few minutes.`,
       });
       const refreshed = await loadPosts({ campaignId: campaign.id });
       setPosts(refreshed?.posts || []);

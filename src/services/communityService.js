@@ -103,3 +103,10 @@ export async function loadLaunchDigest() {
   if (!body?.ok) throw new Error(body?.error || "Could not load digest.");
   return body.digest;
 }
+
+export async function loadDailyStatsDigest() {
+  const res = await db.functions.invoke("getDailyStatsDigest", {});
+  const body = unwrap(res);
+  if (!body?.ok) throw new Error(body?.error || "Could not load daily stats.");
+  return body.digest;
+}

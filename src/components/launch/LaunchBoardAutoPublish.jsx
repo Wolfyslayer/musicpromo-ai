@@ -18,6 +18,7 @@ import {
   countSchedulableDays,
   defaultBulkPostingTime,
 } from "@/services/launchAutoPublish";
+import { detectBrowserTimeZone, timeZoneShortLabel } from "@/lib/userTimezone";
 
 export default function LaunchBoardAutoPublish({ days = [], onComplete, disabled }) {
   const { toast } = useToast();
@@ -25,6 +26,7 @@ export default function LaunchBoardAutoPublish({ days = [], onComplete, disabled
   const [busy, setBusy] = useState(false);
   const schedulable = useMemo(() => countSchedulableDays(days), [days]);
   const [postingTime, setPostingTime] = useState(() => defaultBulkPostingTime(days));
+  const tzLabel = timeZoneShortLabel(detectBrowserTimeZone());
 
   const openDialog = (nextOpen) => {
     if (nextOpen) setPostingTime(defaultBulkPostingTime(days));
@@ -42,7 +44,7 @@ export default function LaunchBoardAutoPublish({ days = [], onComplete, disabled
       if (result.scheduled > 0) {
         toast({
           title: "Auto-publish enabled",
-          description: `${result.scheduled} day(s) queued at ${postingTime} (your local time) on each plan date.`,
+          description: `${result.scheduled} day(s) queued at ${postingTime} ${tzLabel} on each plan date.`,
         });
         setOpen(false);
         onComplete?.();
@@ -87,7 +89,7 @@ export default function LaunchBoardAutoPublish({ days = [], onComplete, disabled
           <DialogTitle>Auto-publish all plan days</DialogTitle>
           <DialogDescription>
             Pick one daily time. Each campaign day keeps its own calendar date and publishes at this time
-            (local). We update posting time and queue auto-publish for {schedulable} day
+            in {tzLabel}. We update posting time and queue auto-publish for {schedulable} day
             {schedulable === 1 ? "" : "s"}.
           </DialogDescription>
         </DialogHeader>
@@ -101,7 +103,7 @@ export default function LaunchBoardAutoPublish({ days = [], onComplete, disabled
             className="rounded-xl"
           />
           <p className="text-xs text-muted-foreground">
-            Already posted or in-progress days are skipped. Connect social accounts in Social Hub first.
+            Times use your device timezone ({tzLabel}). Already posted or in-progress days are skipped.
           </p>
         </div>
         <DialogFooter className="gap-2 sm:gap-0">

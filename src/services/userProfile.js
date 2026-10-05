@@ -2,6 +2,7 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { db } from "@/api/base44Client";
 import { normalizeHandleInput, validateHandle } from "@/services/profileHandle";
 import { normalizeCollabIntents } from "@/services/communityProfileUtils";
+import { detectBrowserTimeZone, normalizeNotifyTime } from "@/lib/userTimezone";
 
 function googleAvatarFromSessionUser(sessionUser) {
   const meta = sessionUser?.user_metadata || {};
@@ -13,7 +14,7 @@ export async function fetchOwnProfile(userId) {
   const { data, error } = await supabase
     .from("users")
     .select(
-      "id, email, full_name, display_name, handle, avatar_url, avatar_override, bio, profile_public, hide_artists_on_profile, role, featured_release_id, show_active_campaign_badge, allow_public_contact, community_collab_intents, launch_digest_enabled, push_digest_enabled"
+      "id, email, full_name, display_name, handle, avatar_url, avatar_override, bio, profile_public, hide_artists_on_profile, role, featured_release_id, show_active_campaign_badge, allow_public_contact, community_collab_intents, launch_digest_enabled, push_digest_enabled, daily_stats_email_enabled, daily_stats_push_enabled, daily_stats_notify_time, timezone"
     )
     .eq("id", userId)
     .maybeSingle();
@@ -74,6 +75,19 @@ export async function updateOwnProfile(userId, patch) {
   if (patch.push_digest_enabled != null) {
     allowed.push_digest_enabled = Boolean(patch.push_digest_enabled);
   }
+  if (patch.daily_stats_email_enabled != null) {
+    allowed.daily_stats_email_enabled = Boolean(patch.daily_stats_email_enabled);
+  }
+  if (patch.daily_stats_push_enabled != null) {
+    allowed.daily_stats_push_enabled = Boolean(patch.daily_stats_push_enabled);
+  }
+  if (patch.daily_stats_notify_time != null) {
+    allowed.daily_stats_notify_time = normalizeNotifyTime(patch.daily_stats_notify_time);
+  }
+  if (patch.timezone != null) {
+    const tz = String(patch.timezone || "").trim();
+    allowed.timezone = tz || null;
+  }
 
   allowed.last_active_at = new Date().toISOString();
 
@@ -114,6 +128,21 @@ export async function deleteAccount() {
   const body = res?.data ?? res;
   if (!body?.ok) throw new Error(body?.error || "Could not delete account.");
   return body;
+}
+
+/** Persist browser IANA timezone when it changes (schedules + digests). */
+export async function syncBrowserTimezoneIfNeeded(userId, profile) {
+  if (!userId) return detectBrowserTimeZone();
+  const browser = detectBrowserTimeZone();
+  const stored = profile?.timezone ? String(profile.timezone).trim() : "";
+  if (stored === browser) return browser;
+  try {
+    await updateOwnProfile(userId, { timezone: browser });
+    return browser;
+  } catch (e) {
+    console.warn("[profile] timezone sync", e?.message || e);
+    return stored || browser;
+  }
 }
 
 export function profileDisplayName(profile, fallbackUser) {

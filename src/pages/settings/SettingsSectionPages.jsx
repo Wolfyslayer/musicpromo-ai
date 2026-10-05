@@ -23,6 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CAMPAIGN_DURATIONS, VIDEO_TEMPLATES_LIST } from "@/services/constants";
 import { useSettingsOutlet } from "@/components/settings/SettingsShell";
+import DailyStatsNotifyPanel from "@/components/analytics/DailyStatsNotifyPanel";
 import { useWorkspace } from "@/lib/workspaceContext";
 import {
   createWorkspaceStudio,
@@ -538,6 +539,8 @@ export function SettingsPreferencesPage() {
           <p className="mt-2 text-xs text-muted-foreground">Create a campaign linked to a release to enable this tour.</p>
         )}
       </Card>
+
+      <DailyStatsNotifyPanel />
 
       <Card title="Appearance">
         <p className="text-sm font-600">Matches your device</p>

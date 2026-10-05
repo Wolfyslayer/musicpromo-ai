@@ -4,6 +4,7 @@
  * Tokens never leave the backend.
  */
 import { secrets } from "./runtime.ts";
+import { localDateTimeInZoneToUtcIso, normalizeTimeZone } from "./timezone.ts";
 import { decryptCredential } from "./socialCrypto.ts";
 import { hasInstagramPublishScope } from "./instagramOAuth.ts";
 import {
@@ -105,7 +106,8 @@ export function buildDayCaption(day: Record<string, unknown> | null | undefined)
  */
 export function resolveScheduledAt(
   day: Record<string, unknown>,
-  fallbackIso?: string | null
+  fallbackIso?: string | null,
+  timeZone?: string | null
 ): string {
   if (fallbackIso && !Number.isNaN(Date.parse(fallbackIso))) {
     return new Date(fallbackIso).toISOString();
@@ -116,6 +118,10 @@ export function resolveScheduledAt(
   const hh = match ? String(match[1]).padStart(2, "0") : "12";
   const mm = match ? match[2] : "00";
   if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const tzIso = timeZone
+      ? localDateTimeInZoneToUtcIso(date, `${hh}:${mm}`, normalizeTimeZone(timeZone))
+      : null;
+    if (tzIso) return tzIso;
     const iso = `${date}T${hh}:${mm}:00`;
     const parsed = Date.parse(iso);
     if (!Number.isNaN(parsed)) return new Date(parsed).toISOString();

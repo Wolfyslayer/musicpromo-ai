@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import {
   dayToLocalDatetimeValue,
+  formatScheduledAtDisplay,
   localDatetimeToIso,
   scheduledAtToLocalValue,
 } from "@/lib/campaignDaySchedule";
@@ -41,7 +42,7 @@ export default function LaunchDayScheduleControls({ day, onScheduled }) {
       }
       toast({
         title: isScheduled ? "Rescheduled" : "Scheduled",
-        description: res.message || new Date(res.scheduledAt).toLocaleString(),
+        description: res.message || formatScheduledAtDisplay(res.scheduledAt),
       });
       onScheduled?.();
     } catch (e) {
