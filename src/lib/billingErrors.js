@@ -20,8 +20,20 @@ export function insufficientCreditsMessage(err) {
   return base;
 }
 
+function isInvalidAiKeyError(err) {
+  const msg = String(err?.message || err?.data?.error || "");
+  return /invalid_api_key|Invalid API Key|AI API key rejected \(401\)/i.test(msg);
+}
+
 /** Toast title + description for billing-related failures. */
 export function billingFailureToast(err) {
+  if (isInvalidAiKeyError(err)) {
+    return {
+      title: "AI not configured on server",
+      description:
+        "Campaign generation needs a valid AI key in Supabase (GEMINI_API_KEY from Google AI Studio). Site owners: see docs/FREE_AI.md and redeploy edge functions after updating secrets.",
+    };
+  }
   if (isPremiumRequiredError(err)) {
     return {
       title: "Creator plan required",

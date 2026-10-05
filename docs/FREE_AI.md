@@ -60,6 +60,17 @@ Keep **`GEMINI_API_KEY`** for cover lab, or set `AI_COVER_PROVIDER=openai` with 
 | `OPENAI_IMAGE_API_KEY` | Optional — OpenAI Images only when using Groq for chat |
 | `OPENAI_IMAGE_MODEL` / `OPENAI_IMAGE_EDIT_MODEL` | Optional — DALL·E / gpt-image when `AI_COVER_PROVIDER=openai` |
 
+## Troubleshooting: `Invalid API Key` (401) when generating campaigns
+
+If the app shows **AI request failed (401)** or **invalid_api_key** on **Generate campaign**:
+
+1. Open [Google AI Studio](https://aistudio.google.com/apikey) and create or copy an API key (starts with `AIza…`).
+2. In **Supabase → Project Settings → Edge Functions → Secrets**, set **`GEMINI_API_KEY`** to that value (no quotes). Leave **`AI_PROVIDER`** unset or set to `gemini`.
+3. If you use **Groq** instead: `AI_PROVIDER=openai`, `OPENAI_API_KEY=gsk_…`, `OPENAI_BASE_URL=https://api.groq.com/openai/v1`, `OPENAI_MODEL=llama-3.3-70b-versatile`.
+4. Redeploy functions after changing secrets: `supabase functions deploy --project-ref YOUR_REF` or run the **Deploy** GitHub Action.
+
+Secrets are **not** stored in GitHub; the frontend bundle never contains the LLM key.
+
 ## What stays on-device (no LLM bill)
 
 - Artwork/audio **asset profile** (colors, hooks from title/energy)
