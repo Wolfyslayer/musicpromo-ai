@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react";
 import DayStatusChip from "@/components/ux/DayStatusChip";
 import { Button } from "@/components/ui/button";
 import { fmtDate } from "@/services/format";
+import { formatScheduledAtDisplay } from "@/lib/campaignDaySchedule";
 import { platformColor } from "@/services/constants";
 
 export default function LaunchTimelineDayRow({ item, onManageDay }) {
@@ -34,7 +35,7 @@ export default function LaunchTimelineDayRow({ item, onManageDay }) {
             </span>
             {day.scheduled_at ? (
               <span className="text-[10px] text-muted-foreground">
-                {new Date(day.scheduled_at).toLocaleString()}
+                {formatScheduledAtDisplay(day.scheduled_at)}
               </span>
             ) : null}
           </div>

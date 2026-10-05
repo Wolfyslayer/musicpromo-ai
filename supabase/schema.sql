@@ -22,6 +22,11 @@ create table if not exists public.users (
   launch_digest_enabled boolean not null default true,
   launch_digest_last_sent_at timestamptz,
   push_digest_enabled boolean not null default true,
+  daily_stats_email_enabled boolean not null default false,
+  daily_stats_push_enabled boolean not null default false,
+  daily_stats_notify_time text not null default '08:00',
+  daily_stats_last_sent_at timestamptz,
+  timezone text,
   last_active_at timestamptz,
   created_at timestamptz default now()
 );

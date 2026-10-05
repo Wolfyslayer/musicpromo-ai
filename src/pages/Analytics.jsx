@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useWorkspaceRefresh } from "@/lib/AuthContext";
 import PageHeader from "@/components/PageHeader";
+import DailyStatsNotifyPanel from "@/components/analytics/DailyStatsNotifyPanel";
 
 const CHART_COLORS = ["hsl(265 90% 68%)", "hsl(326 85% 62%)", "hsl(190 90% 55%)", "hsl(43 90% 60%)", "hsl(0 80% 62%)", "hsl(150 70% 50%)"];
 const METRICS = ["views", "likes", "comments", "shares", "saves", "followers_gained", "streams", "playlist_adds", "clicks"];
@@ -163,6 +164,8 @@ export default function Analytics() {
           </Button>
         }
       />
+
+      <DailyStatsNotifyPanel />
 
       {loading ? (
         <div className="h-40 animate-shimmer rounded-2xl" />

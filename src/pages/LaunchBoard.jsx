@@ -14,6 +14,7 @@ import ReleaseLaunchTour from "@/components/onboarding/ReleaseLaunchTour";
 import SocialConnectionStrip from "@/components/ux/SocialConnectionStrip";
 import ReleaseChecklist from "@/components/ux/ReleaseChecklist";
 import LaunchWeekDigestBar from "@/components/ux/LaunchWeekDigestBar";
+import DailyStatsNotifyPanel from "@/components/analytics/DailyStatsNotifyPanel";
 import LaunchBoardAutoPublish from "@/components/launch/LaunchBoardAutoPublish";
 import ArtworkImage from "@/components/ArtworkImage";
 import EmptyState from "@/components/EmptyState";
@@ -174,6 +175,7 @@ export default function LaunchBoard() {
 
       <SocialConnectionStrip providers={providers} />
       <LaunchWeekDigestBar />
+      <DailyStatsNotifyPanel compact />
       <ReleaseChecklist
         release={release}
         campaigns={campaigns}

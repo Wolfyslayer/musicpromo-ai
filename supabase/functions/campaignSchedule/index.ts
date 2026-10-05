@@ -1,5 +1,6 @@
 import { serveWithCors } from "../_shared/cors.ts";
-import { createClientFromRequest } from "../_shared/runtime.ts";
+import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
+import { normalizeTimeZone } from "../_shared/timezone.ts";
 import {
   buildDayCaption,
   mapDayPlatformToProviders,
@@ -66,9 +67,22 @@ async function handler (req: Request): Promise<Response> {
       );
     }
 
+    let ownerTimeZone: string | null = null;
+    try {
+      const { data: profileRow } = await serviceClient()
+        .from("users")
+        .select("timezone")
+        .eq("id", user.id)
+        .maybeSingle();
+      ownerTimeZone = profileRow?.timezone ? normalizeTimeZone(profileRow.timezone) : null;
+    } catch {
+      ownerTimeZone = null;
+    }
+
     const scheduledAt = resolveScheduledAt(
       day,
-      body?.scheduledAt ? String(body.scheduledAt) : null
+      body?.scheduledAt ? String(body.scheduledAt) : null,
+      ownerTimeZone
     );
 
     const caption = buildDayCaption(day);
