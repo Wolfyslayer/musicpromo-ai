@@ -2,7 +2,7 @@ import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
 import { buildGenerateCampaignPrompt } from "../_shared/aiPrompts.ts";
 import { billingErrorResponse, withCreditCharge } from "../_shared/billing.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
-import { invokeLlm } from "../_shared/invokeLlm.ts";
+import { runGeminiCampaignLlm } from "../_shared/runCampaignLlm.ts";
 
 async function handler(req: Request) {
   try {
@@ -31,11 +31,11 @@ async function handler(req: Request) {
           startDate: body.startDate,
           promoStyle: body.promoStyle,
         });
-        return invokeLlm({
+        return runGeminiCampaignLlm({
+          body: body.song as Record<string, unknown>,
           prompt,
-          response_json_schema: schema,
-          provider: "gemini",
-          modelSlot: "generate_campaign",
+          schema,
+          modelKind: "generate_campaign",
         });
       });
       return jsonWithCors(req, {

@@ -98,9 +98,17 @@ If the app shows **AI request failed (401)** or **invalid_api_key** on **Generat
 
 Secrets are **not** stored in GitHub; the frontend bundle never contains the LLM key.
 
+## Multimodal song analysis (artwork + audio)
+
+When **`artwork_url`** and/or **`audio_url`** / **`tracks[]`** are on the analyze/campaign payload, edge functions download public HTTPS media and send it to **Gemini** with the text prompt. Hooks, mood, and campaign days are grounded in what the model **sees** in the cover and **hears** in the clip(s).
+
+- Album/EP: up to **`GEMINI_MAX_CAMPAIGN_AUDIO_TRACKS`** (default **3**) track audios plus release artwork.
+- Audio/artwork must be reachable from Supabase Edge (public storage URL or signed URL in the payload).
+- Optional limits: **`GEMINI_MAX_AUDIO_BYTES`**, **`GEMINI_MAX_IMAGE_BYTES`**.
+
 ## What stays on-device (no LLM bill)
 
-- Artwork/audio **asset profile** (colors, hooks from title/energy)
+- Artwork/audio **asset profile** (colors, hooks from title/energy) — also sent as text hints when present
 - **MP4 promo encode** (WebCodecs / Remotion)
 - Optional local **Whisper** workers where enabled in the UI
 
