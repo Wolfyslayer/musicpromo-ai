@@ -27,6 +27,7 @@ const ERROR_MESSAGES = {
   provider_error:
     "Connection failed. Check app credentials and the OAuth redirect URI in the developer console.",
   client_init_failed: "Server could not start the OAuth callback. Try again in a moment.",
+  artist_required: "Select an artist in Social Hub, then connect again.",
   state_lookup_failed: "Could not validate the login session. Try Connect again.",
   state_consume_failed: "Could not finish the login session. Try Connect again.",
   token_exchange_failed:
@@ -212,6 +213,14 @@ export function SocialHubProvider({ children }) {
         variant: "destructive",
         title: `${provider?.name || providerId || "Platform"} is not connectable yet`,
         description: "This platform is not enabled in the app. Refresh the page and try again.",
+      });
+      return;
+    }
+    if (!socialArtistId) {
+      toast({
+        variant: "destructive",
+        title: "Select an artist",
+        description: "Social accounts are linked per artist — choose one above before connecting.",
       });
       return;
     }

@@ -815,7 +815,7 @@ export default function Profile() {
             {socialConnections.map((c) => (
               <li key={c.id}>
                 {c.provider} — {c.username || c.accountName || "connected"}
-                {c.artistId ? ` (artist ${c.artistId.slice(0, 8)}…)` : " (account-wide)"}
+                {c.artistId ? ` (artist ${c.artistId.slice(0, 8)}…)` : " (needs artist assignment)"}
               </li>
             ))}
           </ul>

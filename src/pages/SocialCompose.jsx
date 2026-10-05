@@ -13,6 +13,7 @@ import PageHeader from "@/components/PageHeader";
 import SocialPlatformPreview, { isVideoMediaUrl } from "@/components/social/SocialPlatformPreview";
 
 import { db } from "@/api/base44Client";
+import { connectionForProvider } from "@/services/socialArtistScope";
 import {
   createPost,
   updatePost,
@@ -161,11 +162,12 @@ export default function SocialCompose() {
         "instagram";
       setProviderId(resolvedProvider);
 
-      const conn =
-        (status?.connections || []).find(
-          (c) => c.provider === resolvedProvider && c.status === "connected"
-        ) || null;
-      setConnection(conn);
+      const composeArtistId =
+        campaignRow?.artist_id || releaseRow?.artist_id || songRow?.artist_id || "";
+      const conn = composeArtistId
+        ? connectionForProvider(status?.connections || [], resolvedProvider, composeArtistId)
+        : null;
+      setConnection(conn ? { ...conn, artistId: conn.artistId || composeArtistId } : null);
 
       const vpReady =
         vp && vp.rendering_status === "complete" && vp.render_output_url && /^https:\/\//i.test(vp.render_output_url);

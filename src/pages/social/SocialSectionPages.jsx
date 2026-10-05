@@ -10,7 +10,7 @@ import StatusBadge from "@/components/StatusBadge";
 import { useSocialHub } from "@/contexts/SocialHubContext";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { buildComposePath } from "@/services/socialService";
+import { buildComposePath, getConnectionStatus } from "@/services/socialService";
 import { assignLegacySocialToArtistIfNeeded } from "@/services/artistSocial";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -40,6 +40,14 @@ export function SocialConnectPage() {
 
   const selectedArtist = artists.find((a) => a.id === socialArtistId);
 
+  const [legacyCount, setLegacyCount] = useState(0);
+
+  useEffect(() => {
+    getConnectionStatus()
+      .then((s) => setLegacyCount(Number(s?.legacyConnectionCount) || 0))
+      .catch(() => setLegacyCount(0));
+  }, [socialArtistId, loading]);
+
   const claimLegacyForArtist = async () => {
     if (!socialArtistId) {
       toast({ variant: "destructive", title: "Select an artist first" });
@@ -47,10 +55,11 @@ export function SocialConnectPage() {
     }
     const { updated } = await assignLegacySocialToArtistIfNeeded(socialArtistId, { force: true });
     if (updated > 0) {
-      toast({ title: `Linked ${updated} account-wide connection(s) to this artist` });
+      toast({ title: `Assigned ${updated} older connection(s) to this artist` });
+      setLegacyCount(0);
       await reload();
     } else {
-      toast({ title: "No account-wide connections to move" });
+      toast({ title: "No unassigned connections to move" });
     }
   };
 
@@ -60,14 +69,13 @@ export function SocialConnectPage() {
         <div className="mb-3 space-y-1.5">
           <Label className="text-xs text-muted-foreground">Connect socials for artist</Label>
           <Select
-            value={socialArtistId || "__account__"}
-            onValueChange={(v) => selectSocialArtist(v === "__account__" ? "" : v)}
+            value={socialArtistId || (artists[0]?.id ?? "")}
+            onValueChange={(v) => selectSocialArtist(v)}
           >
             <SelectTrigger className="max-w-md rounded-xl">
-              <SelectValue placeholder="Account-wide (legacy)" />
+              <SelectValue placeholder="Choose artist" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__account__">Account-wide (any campaign)</SelectItem>
               {artists.map((a) => (
                 <SelectItem key={a.id} value={a.id}>
                   {a.name}
@@ -76,16 +84,19 @@ export function SocialConnectPage() {
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            Each artist can have their own TikTok, Instagram, YouTube, and X. Campaign scheduling uses the campaign&apos;s artist.
+            Each artist has their own TikTok, Instagram, YouTube, and X. Auto-publish always uses the campaign&apos;s
+            artist — never a shared account-wide login.
             {selectedArtist ? (
               <span className="mt-1 block font-medium text-foreground/80">
                 Connecting for: {selectedArtist.name}
               </span>
-            ) : null}
+            ) : (
+              <span className="mt-1 block text-amber-700 dark:text-amber-400">Select an artist to connect or disconnect.</span>
+            )}
           </p>
-          {socialArtistId && artists.length > 1 ? (
+          {socialArtistId && legacyCount > 0 ? (
             <Button type="button" variant="ghost" size="sm" className="mt-2 h-9 rounded-full px-3 text-xs" onClick={claimLegacyForArtist}>
-              Use older account-wide connections for this artist
+              Assign {legacyCount} unscoped connection{legacyCount === 1 ? "" : "s"} to {selectedArtist?.name || "this artist"}
             </Button>
           ) : null}
         </div>

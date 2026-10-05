@@ -42,6 +42,9 @@ async function upsertSocialAccount(
   const provider = String(fields.provider);
   const providerAccountId = String(fields.provider_account_id);
   const artistId = String(fields.artist_id || "").trim();
+  if (!artistId) {
+    throw new Error("artist_id is required for social connections");
+  }
   const existing = await base44.asServiceRole.entities.SocialAccount.filter(
     { user_id: userId, provider },
     "-created_date",
@@ -49,9 +52,7 @@ async function upsertSocialAccount(
   );
   for (const row of (existing || []).filter((a) => {
     if (a.status !== "connected") return false;
-    const rowArtist = String(a.artist_id || "").trim();
-    if (artistId) return rowArtist === artistId;
-    return !rowArtist;
+    return String(a.artist_id || "").trim() === artistId;
   })) {
     await base44.asServiceRole.entities.SocialAccount.update(row.id, {
       status: "disconnected",

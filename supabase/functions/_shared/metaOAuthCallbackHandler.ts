@@ -144,6 +144,9 @@ async function upsertSocialAccount(
   const provider = String(fields.provider);
   const providerAccountId = String(fields.provider_account_id);
   const artistId = String(fields.artist_id || "").trim();
+  if (!artistId) {
+    throw new Error("artist_id is required for social connections");
+  }
   const existing = await base44.asServiceRole.entities.SocialAccount.filter(
     { user_id: userId, provider },
     "-created_date",
@@ -151,9 +154,7 @@ async function upsertSocialAccount(
   );
   for (const row of (existing || []).filter((a) => {
     if (a.status !== "connected") return false;
-    const rowArtist = String(a.artist_id || "").trim();
-    if (artistId) return rowArtist === artistId;
-    return !rowArtist;
+    return String(a.artist_id || "").trim() === artistId;
   })) {
     await base44.asServiceRole.entities.SocialAccount.update(row.id, {
       status: "disconnected",
@@ -785,6 +786,15 @@ export default async function (req: Request): Promise<Response> {
         errorType: "INVALID_STATE",
         socialErrorCode: "invalid_state",
         err: new Error("Cannot bind SocialAccount — no OAuth state user and no session"),
+      });
+    }
+    if (!boundArtistId) {
+      return debugFailureResponse({
+        home: publicAppUrl,
+        step: "artist_scope",
+        errorType: "ARTIST_REQUIRED",
+        socialErrorCode: "artist_required",
+        err: new Error("OAuth state missing artist_id — reconnect from Social Hub with an artist selected"),
       });
     }
 

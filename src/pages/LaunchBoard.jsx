@@ -82,10 +82,15 @@ export default function LaunchBoard() {
 
   const reload = () => {
     setLoading(true);
-    Promise.all([loadLaunchBoard(id), getConnectionStatus().catch(() => ({ providers: [], anyConnected: false }))])
-      .then(([board, status]) => {
+    loadLaunchBoard(id)
+      .then(async (board) => {
         setData(board);
-        setProviders(status?.providersAny || status?.providers || []);
+        const artistId = board?.release?.artist_id || board?.artist?.id || "";
+        const status = await getConnectionStatus(artistId || undefined).catch(() => ({
+          providers: [],
+          anyConnected: false,
+        }));
+        setProviders(status?.providers || []);
       })
       .catch((e) => setError(e.message || "Could not load launch board"))
       .finally(() => setLoading(false));

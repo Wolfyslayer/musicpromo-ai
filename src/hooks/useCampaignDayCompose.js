@@ -5,6 +5,7 @@ function postsFingerprint(posts) {
   return posts.map((p) => `${p.id}:${p.status}`).join("|");
 }
 import { db } from "@/api/base44Client";
+import { connectionForProvider } from "@/services/socialArtistScope";
 import {
   createPost,
   updatePost,
@@ -91,10 +92,10 @@ export function useCampaignDayCompose({ day, campaign, release, existingPosts = 
         setVideo(vp);
       }
 
-      const conn =
-        (status?.connections || []).find(
-          (c) => c.provider === resolvedProvider && c.status === "connected"
-        ) || null;
+      const composeArtistId = campaign?.artist_id || "";
+      const conn = composeArtistId
+        ? connectionForProvider(status?.connections || [], resolvedProvider, composeArtistId)
+        : null;
       setConnection(conn);
 
       const vpReady =

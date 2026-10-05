@@ -17,7 +17,6 @@ export function pickSocialAccountForArtist(
   return connected[0] || null;
 }
 
-/** When disconnecting/reconnecting, only touch rows for the same artist. */
 export function sameArtistScope(
   row: Record<string, unknown>,
   artistId?: string | null

@@ -20,15 +20,17 @@ export function CampaignPlanPage() {
   const initialManageDayId = params.get("day") || "";
 
   useEffect(() => {
-    getConnectionStatus()
-      .then((s) => setProviders(s?.providersAny || s?.providers || []))
+    const artistId = campaign?.artist_id || artist?.id || "";
+    getConnectionStatus(artistId || undefined)
+      .then((s) => setProviders(s?.providers || []))
       .catch(() => setProviders([]));
-  }, []);
+  }, [campaign?.artist_id, artist?.id]);
 
   const refreshAll = () => {
     reload();
-    getConnectionStatus()
-      .then((s) => setProviders(s?.providersAny || s?.providers || []))
+    const artistId = campaign?.artist_id || artist?.id || "";
+    getConnectionStatus(artistId || undefined)
+      .then((s) => setProviders(s?.providers || []))
       .catch(() => {});
   };
 

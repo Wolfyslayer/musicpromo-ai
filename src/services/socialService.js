@@ -127,25 +127,35 @@ export function providersFromConnectionStatus(status, artistId = undefined) {
   );
 }
 
-export async function getConnectionStatus() {
+/**
+ * @param {string} [artistId] — when set, provider cards reflect only that artist's connections.
+ */
+export async function getConnectionStatus(artistId) {
   const res = await invoke("socialConnectionStatus", {});
   if (!res || typeof res !== "object") return res;
   const connections = (Array.isArray(res.connections) ? res.connections : []).map(
     normalizeSocialConnection
   );
-  const anyConnected = connections.some((c) => c.status === "connected");
-  const providers = providersFromConnectionStatus(res);
-  const providersAny = mergeProvidersWithConnections(
+  const scopedArtistId =
+    artistId !== undefined && artistId !== null
+      ? String(artistId || "").trim()
+      : getSocialArtistId() || "";
+  const providers = mergeProvidersWithConnections(
     connections,
     res.providersConfigured || {},
-    null
+    scopedArtistId || undefined
   );
+  const anyConnected = providers.some((p) => p.status === CONNECTION_STATUS.CONNECTED);
+  const legacyConnectionCount = connections.filter(
+    (c) => c.status === "connected" && !String(c.artistId || "").trim()
+  ).length;
   return {
     ...res,
     connections,
     providers,
-    providersAny,
     anyConnected,
+    legacyConnectionCount,
+    artistId: scopedArtistId || null,
   };
 }
 
@@ -154,6 +164,14 @@ export async function getConnectionStatus() {
  * Pass forceReauth when reconnecting so Instagram re-prompts for new scopes.
  */
 export async function startOAuth(provider, { forceReauth = false, artistId = "" } = {}) {
+  const boundArtistId = String(artistId || "").trim();
+  if (!boundArtistId) {
+    return {
+      ok: false,
+      error: "Select an artist before connecting a social account.",
+      code: "ARTIST_REQUIRED",
+    };
+  }
   const id = String(
     typeof provider === "object" && provider
       ? provider.id || provider.provider || ""
@@ -178,7 +196,7 @@ export async function startOAuth(provider, { forceReauth = false, artistId = "" 
   const payload = {
     provider: id,
     forceReauth: Boolean(forceReauth),
-    ...(artistId ? { artistId: String(artistId) } : {}),
+    artistId: boundArtistId,
   };
   if (id === "youtube") {
     const googleClientId = getGoogleClientId();
