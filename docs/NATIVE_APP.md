@@ -352,7 +352,11 @@ The native app opens Google in a **Chrome Custom Tab** (in-app sheet, not your d
 4. Merge to `main` and wait for **Deploy** (GitHub Pages must serve `https://musicpromoai.site/.well-known/assetlinks.json`).
 5. Rebuild and reinstall the APK.
 
-Until `assetlinks.json` matches your APK signing certificate, the callback may still open in an external browser and show **Sign-in state mismatch**.
+Until `assetlinks.json` matches your APK signing certificate (colon-separated SHA-256, no `sha256:` prefix), App Links may not return to the app.
+
+Also run **`supabase/migrations/20261005_google_oauth_pkce.sql`** and deploy **`registerGoogleOAuthPkce`** so sign-in completes even if the callback loads outside the app WebView.
+
+**Native sign-in** uses the **in-app WebView** (not Chrome Custom Tabs) so you stay inside MusicPromo AI instead of a browser bar.
 
 ## Google sign-in on Android (redirect_uri_mismatch)
 

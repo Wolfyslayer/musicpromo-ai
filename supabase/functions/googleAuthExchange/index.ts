@@ -1,4 +1,4 @@
-import { secrets } from "../_shared/runtime.ts";
+import { secrets, serviceClient } from "../_shared/runtime.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -27,12 +27,39 @@ async function handler(req: Request): Promise<Response> {
   try {
     const body = await req.json().catch(() => ({}));
     const code = body?.code ? String(body.code) : "";
-    const codeVerifier = body?.codeVerifier ? String(body.codeVerifier) : "";
+    let codeVerifier = body?.codeVerifier ? String(body.codeVerifier) : "";
+    const oauthState = body?.state ? String(body.state).trim() : "";
     const redirectUri = body?.redirectUri ? String(body.redirectUri) : "";
     const clientIdFromApp = body?.clientId ? String(body.clientId).trim() : "";
+    let returnTo = "";
 
-    if (!code || !codeVerifier || !redirectUri) {
-      return jsonWithCors(req, { error: "code, codeVerifier, and redirectUri are required." }, 400);
+    if (!code || !redirectUri) {
+      return jsonWithCors(req, { error: "code and redirectUri are required." }, 400);
+    }
+
+    if (!codeVerifier && oauthState) {
+      const admin = serviceClient();
+      const { data: row, error: rowErr } = await admin
+        .from("google_oauth_pkce")
+        .select("code_verifier, return_to, expires_at")
+        .eq("state", oauthState)
+        .maybeSingle();
+      if (rowErr) {
+        console.error("[googleAuthExchange] pkce lookup", rowErr.message);
+      }
+      if (row?.code_verifier && new Date(String(row.expires_at)).getTime() > Date.now()) {
+        codeVerifier = String(row.code_verifier);
+        returnTo = String(row.return_to || "/");
+        await admin.from("google_oauth_pkce").delete().eq("state", oauthState);
+      }
+    }
+
+    if (!codeVerifier) {
+      return jsonWithCors(
+        req,
+        { error: "Missing or expired sign-in session. Start Google sign-in again from the app." },
+        400
+      );
     }
 
     // Login uses VITE_GOOGLE_CLIENT_ID from the app; social YouTube may use a different OAuth client in secrets.
@@ -83,7 +110,7 @@ async function handler(req: Request): Promise<Response> {
       return jsonWithCors(req, { error: "Google did not return an id_token." }, 400);
     }
 
-    return jsonWithCors(req, { id_token: idToken });
+    return jsonWithCors(req, { id_token: idToken, return_to: returnTo || undefined });
   } catch (error) {
     return jsonWithCors(req, { error: (error as Error).message }, 500);
   }
