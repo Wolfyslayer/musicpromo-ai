@@ -25,3 +25,20 @@ export function localDatetimeToIso(localValue) {
   if (Number.isNaN(parsed)) return null;
   return new Date(parsed).toISOString();
 }
+
+/** HH:mm for CampaignDay.posting_time */
+export function normalizePostingTime(raw) {
+  const s = String(raw || "12:00").trim();
+  const match = s.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return "12:00";
+  const h = Math.min(23, Math.max(0, Number.parseInt(match[1], 10)));
+  return `${String(h).padStart(2, "0")}:${match[2]}`;
+}
+
+/** ISO scheduled_at from calendar date + daily publish time (local). */
+export function postingTimeToScheduledIso(dayDate, postingTime) {
+  const date = String(dayDate || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const time = normalizePostingTime(postingTime);
+  return localDatetimeToIso(`${date}T${time}`);
+}
