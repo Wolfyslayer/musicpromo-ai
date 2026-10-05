@@ -1,7 +1,7 @@
 import { pkceChallengeFromVerifier, randomUrlSafeString } from "@/lib/googlePkce";
 import { isNativeApp } from "@/lib/nativeApp";
 import { writeGoogleSignInSession, clearGoogleSignInSessionAll, readGoogleSignInSession } from "@/lib/googleAuthStorage";
-import { openGoogleOAuthInAppBrowser } from "@/lib/googleAuthNative";
+import { registerGoogleOAuthPkce } from "@/lib/registerGoogleOAuthPkce";
 import { getGoogleClientId, getGoogleSignInRedirectUri } from "@/lib/googleOAuthConfig";
 
 export { GOOGLE_AUTH_STORAGE } from "@/lib/googleAuthStorage";
@@ -12,7 +12,7 @@ const LOGIN_SCOPES = ["openid", "email", "profile"];
 
 /**
  * Start Google sign-in on your app domain (not *.supabase.co).
- * Native: in-app Chrome Custom Tab + App Link callback. Web: full redirect.
+ * Native: same WebView (no Custom Tab chrome) + server-stored PKCE for callback safety.
  */
 export async function startGoogleSignIn(returnTo = "/") {
   const clientId = getGoogleClientId();
@@ -26,8 +26,20 @@ export async function startGoogleSignIn(returnTo = "/") {
   const verifier = randomUrlSafeString(48);
   const challenge = await pkceChallengeFromVerifier(verifier);
   const redirectUri = getGoogleSignInRedirectUri();
+  const safeReturn = returnTo || "/";
 
-  writeGoogleSignInSession({ state, verifier, returnTo: returnTo || "/" });
+  writeGoogleSignInSession({ state, verifier, returnTo: safeReturn });
+
+  try {
+    await registerGoogleOAuthPkce({ state, codeVerifier: verifier, returnTo: safeReturn });
+  } catch (e) {
+    console.warn("[googleAuth] server PKCE register", e);
+    if (isNativeApp()) {
+      throw new Error(
+        "Could not start sign-in. Run supabase/migrations/20261005_google_oauth_pkce.sql and deploy registerGoogleOAuthPkce."
+      );
+    }
+  }
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -43,11 +55,7 @@ export async function startGoogleSignIn(returnTo = "/") {
 
   const authUrl = `${GOOGLE_AUTH_URL}?${params.toString()}`;
 
-  if (isNativeApp()) {
-    await openGoogleOAuthInAppBrowser(authUrl);
-    return;
-  }
-
+  // Stay inside the app WebView — avoids Brave/Chrome Custom Tab bar.
   window.location.assign(authUrl);
 }
 

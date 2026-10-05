@@ -29,21 +29,24 @@ export async function completeGoogleSignInFromUrl(urlString) {
 
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  const { state: expectedState, verifier, returnTo } = readGoogleSignInSession();
+  const session = readGoogleSignInSession();
 
   if (!code) throw new Error("Missing authorization code from Google.");
-  if (!state || !expectedState || state !== expectedState) {
-    throw new Error(
-      "Sign-in state mismatch. Try again from the app (do not open the callback link in an external browser)."
-    );
-  }
-  if (!verifier) throw new Error("Missing PKCE verifier. Try again.");
+  if (!state) throw new Error("Missing OAuth state. Try again.");
 
   const redirectUri = getGoogleSignInRedirectUri();
   const clientId = getGoogleClientId();
-  const { data: fnData, error: fnError } = await supabase.functions.invoke("googleAuthExchange", {
-    body: { code, codeVerifier: verifier, redirectUri, clientId },
-  });
+  const body = {
+    code,
+    state,
+    redirectUri,
+    clientId,
+  };
+  if (session.verifier && session.state === state) {
+    body.codeVerifier = session.verifier;
+  }
+
+  const { data: fnData, error: fnError } = await supabase.functions.invoke("googleAuthExchange", { body });
   if (fnError) throw new Error(await messageFromFunctionInvokeError(fnError));
 
   const idToken = fnData?.id_token;
@@ -58,7 +61,7 @@ export async function completeGoogleSignInFromUrl(urlString) {
   const user = mapUser(data.user);
   if (user) await upsertUserProfile(user, data.user);
 
-  const destination = safeStoredPath(returnTo);
+  const destination = safeStoredPath(fnData?.return_to || session.returnTo);
   clearGoogleSignInSessionAll();
   return { destination };
 }
