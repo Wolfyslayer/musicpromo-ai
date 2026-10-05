@@ -22,7 +22,7 @@ function embeddedReturnUrl(appOrigin: string, query: Record<string, string>): st
 
 function embeddedSessionFields(appOrigin: string, returnQuery: Record<string, string>): URLSearchParams {
   return new URLSearchParams({
-    ui_mode: "embedded",
+    ui_mode: "embedded_page",
     redirect_on_completion: "if_required",
     return_url: embeddedReturnUrl(appOrigin, returnQuery),
   });
