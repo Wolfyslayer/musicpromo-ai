@@ -189,11 +189,13 @@ export default function PremiumAiStudio() {
         </div>
         {!sunoStatus?.configured ? (
           <p className="text-sm text-amber-200/90">
-            Backend: TemPolor — set <code className="text-xs">SUNO_API_KEY</code> (platform API key),{" "}
-            <code className="text-xs">PUBLIC_APP_URL</code>, optional{" "}
-            <code className="text-xs">SUNO_API_BASE_URL</code> (default https://api.tempolor.com) and{" "}
-            <code className="text-xs">SUNO_API_MODEL</code> (default tempolor-latest).
+            Backend: TemPolor — set <code className="text-xs">SUNO_API_KEY</code> (raw key in TemPolor console, not
+            Bearer), <code className="text-xs">PUBLIC_APP_URL</code> (e.g. https://musicpromoai.site), optional{" "}
+            <code className="text-xs">SUNO_API_BASE_URL</code> (must include https:// — default
+            https://api.tempolor.com), and <code className="text-xs">SUNO_API_MODEL</code> (tempolor-latest).
           </p>
+        ) : sunoStatus?.provider === "tempolor" ? (
+          <p className="text-xs text-muted-foreground">{sunoStatus.note}</p>
         ) : null}
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1.5 md:col-span-2">
@@ -243,7 +245,14 @@ export default function PremiumAiStudio() {
           <h2 className="font-heading text-lg font-semibold">Stem splitter</h2>
         </div>
         {!stemStatus?.configured ? (
-          <p className="text-sm text-amber-200/90">Backend: set REPLICATE_API_TOKEN (Demucs model).</p>
+          <p className="text-sm text-amber-200/90">
+            Backend: TemPolor stems use the same <code className="text-xs">SUNO_API_KEY</code> +{" "}
+            <code className="text-xs">PUBLIC_APP_URL</code> as AI songs (optional{" "}
+            <code className="text-xs">SUNO_API_STEM_MODEL</code>, default Stems v2). Or set{" "}
+            <code className="text-xs">REPLICATE_API_TOKEN</code> for Replicate Demucs instead.
+          </p>
+        ) : stemStatus?.provider === "tempolor" ? (
+          <p className="text-xs text-muted-foreground">{stemStatus.note}</p>
         ) : null}
         <div className="space-y-3">
           <div className="space-y-1.5">
@@ -341,7 +350,9 @@ export default function PremiumAiStudio() {
           <ul className="space-y-2 text-sm">
             {Object.entries(stems).map(([name, url]) => (
               <li key={name} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/50 px-3 py-2">
-                <span className="font-medium capitalize">{name.replace(/_/g, " ")}</span>
+                <span className="font-medium capitalize">
+                  {name === "stems_zip" ? "All stems (ZIP)" : name.replace(/_/g, " ")}
+                </span>
                 <a href={url} target="_blank" rel="noreferrer" className="text-primary underline">
                   Download
                 </a>

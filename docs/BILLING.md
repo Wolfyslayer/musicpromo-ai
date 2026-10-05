@@ -66,8 +66,9 @@ Credits are granted on `checkout.session.completed` (webhook). Catalog in `credi
 
 | Secret | Feature |
 |--------|---------|
-| `SUNO_API_KEY` (TemPolor API key), `PUBLIC_APP_URL`, optional `SUNO_API_BASE_URL` (default `https://api.tempolor.com`), optional `SUNO_API_MODEL` (default `tempolor-latest`) | `generateSunoTrack` (+ deploy `tempolorSongCallback`) |
-| `REPLICATE_API_TOKEN` | `splitAudioStems` |
+| `SUNO_API_KEY` (TemPolor API key — send as `Authorization: <key>`, not Bearer), `PUBLIC_APP_URL` (site origin, e.g. `https://musicpromoai.site`), optional `SUNO_API_BASE_URL` (must include `https://`; default `https://api.tempolor.com`), optional `SUNO_API_MODEL` (default `tempolor-latest`) | `generateSunoTrack` (+ deploy `tempolorSongCallback`) |
+| Same TemPolor secrets as songs (`SUNO_API_KEY`, `PUBLIC_APP_URL`, optional `SUNO_API_STEM_MODEL` default `Stems v2`) | `splitAudioStems` (TemPolor `/open-apis/v1/stems`, preferred) |
+| `REPLICATE_API_TOKEN` (optional fallback if TemPolor not configured) | `splitAudioStems` (Replicate Demucs) |
 
 Credit defaults: `suno_generation` 25, `stem_split` 18.
 

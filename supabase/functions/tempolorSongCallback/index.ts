@@ -1,7 +1,7 @@
 import { serveWithCors } from "../_shared/cors.ts";
 
 /**
- * TemPolor song-generation webhook (required callback_url on /open-apis/v1/song/generate).
+ * TemPolor webhook (song generate + stem separation callback_url). Returns plain `success`.
  * We poll task status in generateSunoTrack; this endpoint only needs to acknowledge callbacks.
  * Docs: https://platform.tempolor.com/docs/296524440e0
  */

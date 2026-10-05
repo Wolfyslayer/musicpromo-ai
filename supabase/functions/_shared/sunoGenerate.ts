@@ -4,10 +4,15 @@
  * TemPolor also requires PUBLIC_APP_URL for callback_url (see tempolorSongCallback).
  */
 
-const TEMPOLOR_DEFAULT_BASE = "https://api.tempolor.com";
-const TEMPOLOR_SUCCESS = 200000;
-const POLL_MS = 4000;
-const POLL_TIMEOUT_MS = 240_000;
+import {
+  isTempolorPlatform,
+  readTempolorConfig,
+  tempolorCallbackUrl,
+  tempolorRequest,
+  TEMPOLOR_POLL_MS,
+  TEMPOLOR_POLL_TIMEOUT_MS,
+} from "./tempolorApi.ts";
+import { normalizeApiKey, normalizeExternalBaseUrl } from "./externalUrl.ts";
 
 type SunoGenerateInput = {
   prompt: string;
@@ -18,34 +23,15 @@ type SunoGenerateInput = {
 
 type SunoGenerateResult = { audioUrl: string; taskId?: string; raw?: unknown };
 
-function trimBase(raw: string): string {
-  return String(raw || "").trim().replace(/\/$/, "");
-}
-
 function readConfig() {
-  const key = (Deno.env.get("SUNO_API_KEY") || "").trim();
-  const base = trimBase(Deno.env.get("SUNO_API_BASE_URL") || TEMPOLOR_DEFAULT_BASE);
+  const cfg = readTempolorConfig();
   const model = (Deno.env.get("SUNO_API_MODEL") || "tempolor-latest").trim();
-  const publicApp = trimBase(
-    Deno.env.get("PUBLIC_APP_URL") || Deno.env.get("APP_PUBLIC_URL") || ""
-  );
-  const legacy = Deno.env.get("SUNO_API_LEGACY") === "true";
-  return { key, base, model, publicApp, legacy };
-}
-
-function isTempolorApi(base: string, legacy: boolean): boolean {
-  if (legacy) return false;
-  const b = base.toLowerCase();
-  return (
-    b.includes("tempolor.com") ||
-    b.includes("tianpuyue.cn") ||
-    base === TEMPOLOR_DEFAULT_BASE
-  );
+  return { ...cfg, model };
 }
 
 export function sunoProviderStatus() {
   const { key, base, model, publicApp, legacy } = readConfig();
-  const tempolor = isTempolorApi(base, legacy);
+  const tempolor = isTempolorPlatform(base, legacy);
   const configured = Boolean(key && (tempolor ? publicApp : base));
   return {
     configured,
@@ -61,33 +47,6 @@ export function sunoProviderStatus() {
   };
 }
 
-async function tempolorRequest<T = Record<string, unknown>>(
-  base: string,
-  key: string,
-  path: string,
-  body: Record<string, unknown>
-): Promise<T> {
-  const res = await fetch(`${base}${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: key,
-      "Content-Type": "application/json; charset=utf-8",
-    },
-    body: JSON.stringify(body),
-  });
-  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok) {
-    throw new Error(
-      String(data?.message || data?.error || `TemPolor API HTTP ${res.status}`)
-    );
-  }
-  const status = Number(data?.status);
-  if (status && status !== TEMPOLOR_SUCCESS) {
-    throw new Error(String(data?.message || `TemPolor API error (${status})`));
-  }
-  return data as T;
-}
-
 function buildTempolorPrompt(input: SunoGenerateInput): string {
   const prompt = String(input.prompt || "").trim();
   const title = String(input.title || "").trim();
@@ -97,21 +56,12 @@ function buildTempolorPrompt(input: SunoGenerateInput): string {
   return `${title} — ${prompt}`;
 }
 
-function tempolorCallbackUrl(publicApp: string): string {
-  if (!publicApp) {
-    throw new Error(
-      "PUBLIC_APP_URL is required for TemPolor (callback_url). Add it to Supabase / Base44 secrets."
-    );
-  }
-  return `${publicApp}/functions/v1/tempolorSongCallback`;
-}
-
 async function pollTempolorSong(
   base: string,
   key: string,
   itemId: string
 ): Promise<SunoGenerateResult> {
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  const deadline = Date.now() + TEMPOLOR_POLL_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const data = await tempolorRequest<{
       data?: { songs?: Record<string, unknown>[] };
@@ -119,7 +69,7 @@ async function pollTempolorSong(
 
     const song = data?.data?.songs?.[0];
     if (!song) {
-      await new Promise((r) => setTimeout(r, POLL_MS));
+      await new Promise((r) => setTimeout(r, TEMPOLOR_POLL_MS));
       continue;
     }
 
@@ -140,7 +90,7 @@ async function pollTempolorSong(
       };
     }
 
-    await new Promise((r) => setTimeout(r, POLL_MS));
+    await new Promise((r) => setTimeout(r, TEMPOLOR_POLL_MS));
   }
   throw new Error("Song generation timed out — TemPolor may still be processing. Try again shortly.");
 }
@@ -176,7 +126,8 @@ async function generateViaTempolor(input: SunoGenerateInput): Promise<SunoGenera
 }
 
 async function generateViaLegacyGateway(input: SunoGenerateInput): Promise<SunoGenerateResult> {
-  const { key, base } = readConfig();
+  const key = normalizeApiKey(Deno.env.get("SUNO_API_KEY") || "");
+  const base = normalizeExternalBaseUrl(Deno.env.get("SUNO_API_BASE_URL") || "", "");
   if (!base || !key) {
     throw new Error("Suno API is not configured (SUNO_API_BASE_URL, SUNO_API_KEY).");
   }
@@ -219,7 +170,7 @@ async function generateViaLegacyGateway(input: SunoGenerateInput): Promise<SunoG
 
 export async function generateSunoTrack(input: SunoGenerateInput): Promise<SunoGenerateResult> {
   const cfg = readConfig();
-  if (isTempolorApi(cfg.base, cfg.legacy)) {
+  if (isTempolorPlatform(cfg.base, cfg.legacy)) {
     return generateViaTempolor(input);
   }
   return generateViaLegacyGateway(input);
