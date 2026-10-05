@@ -2,7 +2,11 @@ import { db, ensureClientSessionToken } from "@/api/base44Client";
 import { getSessionAccessToken } from "@/lib/app-params";
 import { isNativeApp, nativePlatform } from "@/lib/nativeApp";
 
+const PUSH_CHANNEL_ID = "musicpromo_updates";
+const PERMISSION_DENIED_KEY = "musicpromo_push_perm_denied";
+
 let listenersAttached = false;
+let listenersPromise = null;
 let lastRegisteredToken = null;
 
 function unwrap(res) {
@@ -19,11 +23,32 @@ export function canUseNativePush() {
   return isNativeApp();
 }
 
-function attachPushListeners(navigate) {
-  if (listenersAttached || !isNativeApp()) return;
-  listenersAttached = true;
+function readDeniedFlag() {
+  try {
+    return sessionStorage.getItem(PERMISSION_DENIED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
-  import("@capacitor/push-notifications").then(({ PushNotifications }) => {
+function writeDeniedFlag(denied) {
+  try {
+    if (denied) sessionStorage.setItem(PERMISSION_DENIED_KEY, "1");
+    else sessionStorage.removeItem(PERMISSION_DENIED_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Attach FCM/APNs listeners before `register()` so tokens are not dropped. */
+export function attachPushListeners(navigate) {
+  if (!isNativeApp()) return Promise.resolve();
+  if (listenersPromise) return listenersPromise;
+
+  listenersPromise = import("@capacitor/push-notifications").then(({ PushNotifications }) => {
+    if (listenersAttached) return;
+    listenersAttached = true;
+
     PushNotifications.addListener("registration", async (token) => {
       const value = token?.value;
       if (!value || value === lastRegisteredToken) return;
@@ -49,6 +74,45 @@ function attachPushListeners(navigate) {
       }
     });
   });
+
+  return listenersPromise;
+}
+
+async function ensureAndroidPushChannel(PushNotifications) {
+  if (nativePlatform() !== "android") return;
+  try {
+    await PushNotifications.createChannel({
+      id: PUSH_CHANNEL_ID,
+      name: "Campaign & launch updates",
+      description: "Weekly digests and important MusicPromo alerts",
+      importance: 4,
+      visibility: 1,
+      vibration: true,
+    });
+  } catch (e) {
+    console.warn("[push] createChannel", e);
+  }
+}
+
+async function ensurePushPermission(PushNotifications) {
+  let perm = await PushNotifications.checkPermissions();
+  if (perm.receive === "granted") {
+    writeDeniedFlag(false);
+    return perm;
+  }
+
+  // Android can return `prompt-with-rationale`; iOS uses `prompt` — request whenever not granted.
+  if (perm.receive === "denied" && readDeniedFlag()) {
+    return perm;
+  }
+
+  perm = await PushNotifications.requestPermissions();
+  if (perm.receive === "granted") {
+    writeDeniedFlag(false);
+  } else if (perm.receive === "denied") {
+    writeDeniedFlag(true);
+  }
+  return perm;
 }
 
 /**
@@ -58,15 +122,14 @@ function attachPushListeners(navigate) {
 export async function syncNativePushRegistration(navigate) {
   if (!isNativeApp()) return { ok: false, skipped: true };
 
-  attachPushListeners(navigate);
+  await attachPushListeners(navigate);
 
   const { PushNotifications } = await import("@capacitor/push-notifications");
-  let perm = await PushNotifications.checkPermissions();
-  if (perm.receive === "prompt") {
-    perm = await PushNotifications.requestPermissions();
-  }
+  await ensureAndroidPushChannel(PushNotifications);
+
+  const perm = await ensurePushPermission(PushNotifications);
   if (perm.receive !== "granted") {
-    return { ok: false, denied: true };
+    return { ok: false, denied: perm.receive === "denied", permission: perm.receive };
   }
 
   await PushNotifications.register();
