@@ -3,7 +3,8 @@ import {
   buildMultimodalPromptPrefix,
   planMediaAttachments,
 } from "./aiMediaContext.ts";
-import { invokeGeminiJson, resolveAnalyzeSongModel, resolveGenerateCampaignModel } from "./geminiMultimodalLlm.ts";
+import { invokeGeminiJson, resolveModelForCampaignKind } from "./geminiMultimodalLlm.ts";
+import type { GeminiChatModelSlot } from "./geminiModels.ts";
 import { invokeLlm } from "./invokeLlm.ts";
 
 /** Gemini JSON call with optional artwork + audio; falls back to text-only OpenAI-compat LLM. */
@@ -16,8 +17,9 @@ export async function runGeminiCampaignLlm(args: {
   const { items, hints } = planMediaAttachments(args.body);
   const { parts, loaded } = await buildGeminiInlineParts(items);
   const fullPrompt = buildMultimodalPromptPrefix(hints) + args.prompt;
-  const model =
-    args.modelKind === "analyze_song" ? resolveAnalyzeSongModel() : resolveGenerateCampaignModel();
+  const modelSlot: GeminiChatModelSlot =
+    args.modelKind === "analyze_song" ? "analyze_song" : "generate_campaign";
+  const model = resolveModelForCampaignKind(args.modelKind);
 
   const attachMeta = loaded.length
     ? {
@@ -45,6 +47,8 @@ export async function runGeminiCampaignLlm(args: {
   const textResult = await invokeLlm({
     prompt: fullPrompt,
     response_json_schema: args.schema,
+    provider: "gemini",
+    modelSlot,
   });
   if (typeof textResult === "object" && textResult) {
     return { ...textResult, ...attachMeta };

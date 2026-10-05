@@ -13,19 +13,24 @@
  */
 
 import {
+  type AiProviderMode,
+  geminiLlmSetupHint,
   hasLlmConfigured,
   llmSetupHint,
-  resolveAiProvider,
-  resolveLlmApiKey,
-  resolveLlmBaseUrl,
-  resolveLlmModel,
+  resolveLlmRuntime,
 } from "./aiProvider.ts";
+import type { GeminiChatModelSlot } from "./geminiModels.ts";
 
 type InvokeLlmArgs = {
   prompt?: string;
   response_json_schema?: Record<string, unknown>;
   add_context_from_internet?: boolean;
   file_urls?: string[];
+  /** When set, bypasses AI_PROVIDER (e.g. song analysis always uses Gemini). */
+  provider?: AiProviderMode;
+  /** Uses GEMINI_MODEL_* secret for this feature when provider is gemini. */
+  modelSlot?: GeminiChatModelSlot;
+  model?: string;
 };
 
 function extractJson(text: string): unknown {
@@ -44,9 +49,13 @@ function extractJson(text: string): unknown {
 }
 
 export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<string, unknown>> {
-  const apiKey = resolveLlmApiKey();
-  if (!apiKey) {
-    throw new Error(llmSetupHint());
+  const runtime = resolveLlmRuntime({
+    provider: args.provider,
+    modelSlot: args.modelSlot,
+    model: args.model,
+  });
+  if (!runtime.apiKey) {
+    throw new Error(args.provider === "gemini" ? geminiLlmSetupHint() : llmSetupHint());
   }
 
   const prompt = String(args.prompt || "").trim();
@@ -61,15 +70,15 @@ export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<st
 
   const schema = args.response_json_schema;
   const baseBody: Record<string, unknown> = {
-    model: resolveLlmModel(),
+    model: runtime.model,
     messages: [{ role: "user", content: prompt }],
   };
 
   async function requestWithBody(body: Record<string, unknown>): Promise<Response> {
-    return fetch(`${resolveLlmBaseUrl()}/chat/completions`, {
+    return fetch(`${runtime.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${runtime.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -110,16 +119,15 @@ export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<st
 
   if (!res.ok) {
     if (res.status === 429 && /insufficient_quota|credit_balance|rate_limit|RESOURCE_EXHAUSTED/i.test(raw)) {
-      const provider = resolveAiProvider();
       throw new Error(
-        provider === "gemini"
+        runtime.provider === "gemini"
           ? "Gemini quota exceeded. Wait for the free-tier reset or enable billing in Google AI Studio — see docs/FREE_AI.md."
           : "AI quota exceeded. See docs/FREE_AI.md for Gemini (free) or Groq setup."
       );
     }
     if (res.status === 401 && /invalid_api_key|Invalid API Key|API key not valid/i.test(raw)) {
       throw new Error(
-        resolveAiProvider() === "gemini"
+        runtime.provider === "gemini"
           ? "AI API key rejected (401). Set GEMINI_API_KEY (AIza…) in Supabase Edge Function secrets. Delete or replace any old OPENAI_API_KEY (sk-…) and unset OPENAI_BASE_URL unless you use Groq with AI_PROVIDER=openai. See docs/FREE_AI.md."
           : "AI API key rejected (401). Check OPENAI_API_KEY and OPENAI_BASE_URL in Supabase Edge Function secrets. See docs/FREE_AI.md."
       );
@@ -153,10 +161,17 @@ export type ChatMessage = { role: "user" | "assistant" | "system"; content: stri
 export async function invokeLlmChat(args: {
   messages: ChatMessage[];
   response_json_schema?: Record<string, unknown>;
+  provider?: AiProviderMode;
+  modelSlot?: GeminiChatModelSlot;
+  model?: string;
 }): Promise<string | Record<string, unknown>> {
-  const apiKey = resolveLlmApiKey();
-  if (!apiKey) {
-    throw new Error(llmSetupHint());
+  const runtime = resolveLlmRuntime({
+    provider: args.provider,
+    modelSlot: args.modelSlot,
+    model: args.model,
+  });
+  if (!runtime.apiKey) {
+    throw new Error(args.provider === "gemini" ? geminiLlmSetupHint() : llmSetupHint());
   }
 
   const messages = (args.messages || [])
@@ -169,15 +184,15 @@ export async function invokeLlmChat(args: {
 
   const schema = args.response_json_schema;
   const baseBody: Record<string, unknown> = {
-    model: resolveLlmModel(),
+    model: runtime.model,
     messages,
   };
 
   async function requestWithBody(body: Record<string, unknown>): Promise<Response> {
-    return fetch(`${resolveLlmBaseUrl()}/chat/completions`, {
+    return fetch(`${runtime.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${runtime.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -214,7 +229,7 @@ export async function invokeLlmChat(args: {
   if (!res.ok) {
     if (res.status === 401 && /invalid_api_key|Invalid API Key|API key not valid/i.test(raw)) {
       throw new Error(
-        resolveAiProvider() === "gemini"
+        runtime.provider === "gemini"
           ? "AI API key rejected (401). In Supabase → Edge Functions → Secrets, set a valid GEMINI_API_KEY from Google AI Studio (https://aistudio.google.com/apikey). See docs/FREE_AI.md."
           : "AI API key rejected (401). Check OPENAI_API_KEY and OPENAI_BASE_URL in Supabase Edge Function secrets. See docs/FREE_AI.md."
       );

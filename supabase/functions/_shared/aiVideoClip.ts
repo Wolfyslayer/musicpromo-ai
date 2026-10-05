@@ -56,6 +56,8 @@ export async function expandMotionPromptWithLlm(userPrompt: string, songTitle = 
   if (!hasLlmConfigured()) return base;
   try {
     const result = (await invokeLlm({
+      provider: "gemini",
+      modelSlot: "video_prompt",
       prompt: `Write ONE image-to-video motion prompt for animating album cover art into a vertical music promo clip.
 Rules: under 45 words; describe camera/motion/light only; no on-screen text, logos, subtitles, or UI.
 Song title: ${songTitle || "Unknown"}.
