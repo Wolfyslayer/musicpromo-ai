@@ -21,14 +21,14 @@ export function CampaignPlanPage() {
 
   useEffect(() => {
     getConnectionStatus()
-      .then((s) => setProviders(s?.providers || []))
+      .then((s) => setProviders(s?.providersAny || s?.providers || []))
       .catch(() => setProviders([]));
   }, []);
 
   const refreshAll = () => {
     reload();
     getConnectionStatus()
-      .then((s) => setProviders(s?.providers || []))
+      .then((s) => setProviders(s?.providersAny || s?.providers || []))
       .catch(() => {});
   };
 

@@ -80,10 +80,10 @@ export default function LaunchBoard() {
 
   const reload = () => {
     setLoading(true);
-    Promise.all([loadLaunchBoard(id), getConnectionStatus().catch(() => ({ providers: [] }))])
+    Promise.all([loadLaunchBoard(id), getConnectionStatus().catch(() => ({ providers: [], anyConnected: false }))])
       .then(([board, status]) => {
         setData(board);
-        setProviders(status?.providers || []);
+        setProviders(status?.providersAny || status?.providers || []);
       })
       .catch((e) => setError(e.message || "Could not load launch board"))
       .finally(() => setLoading(false));
