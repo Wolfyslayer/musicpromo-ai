@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import AudioUpload from "@/components/AudioUpload";
 import { countSongsMissingAudio } from "@/services/releaseDefaults";
+import { audioDisplayName } from "@/services/audioDisplay";
 function TrackUploadRow({ song, release, expanded, onToggle, onSaved, requireAuth }) {
   const { toast } = useToast();
   const [lyrics, setLyrics] = useState(song.lyrics || "");
@@ -21,6 +22,7 @@ function TrackUploadRow({ song, release, expanded, onToggle, onSaved, requireAut
       await db.entities.Song.update(song.id, {
         audio_url: payload.file_uri,
         audio_duration: payload.duration,
+        audio_filename: payload.name || "",
       });
       toast({ title: "Audio saved", description: song.title });
       onSaved?.();
@@ -43,6 +45,9 @@ function TrackUploadRow({ song, release, expanded, onToggle, onSaved, requireAut
   };
 
   const hasAudio = Boolean(song.audio_url);
+  const audioLabel = hasAudio
+    ? audioDisplayName({ audioFilename: song.audio_filename, audioUrl: song.audio_url })
+    : "";
 
   return (
     <li
@@ -55,8 +60,9 @@ function TrackUploadRow({ song, release, expanded, onToggle, onSaved, requireAut
         </span>
         <span className="min-w-0 flex-1 truncate font-medium">{song.title}</span>
         {hasAudio ? (
-          <span className="inline-flex items-center gap-1 text-xs text-primary">
-            <Check className="h-3.5 w-3.5" /> Audio
+          <span className="inline-flex max-w-[45%] items-center gap-1 truncate text-xs text-primary" title={audioLabel}>
+            <Check className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{audioLabel}</span>
           </span>
         ) : (
           <span className="text-xs text-muted-foreground">Needs audio</span>
@@ -75,6 +81,8 @@ function TrackUploadRow({ song, release, expanded, onToggle, onSaved, requireAut
               guard={requireAuth}
               value={song.audio_url}
               signedUrl={song.audio_url}
+              fileName={song.audio_filename}
+              durationSec={song.audio_duration}
               onChange={(payload) => requireAuth(() => saveAudio(payload))}
             />
           </div>

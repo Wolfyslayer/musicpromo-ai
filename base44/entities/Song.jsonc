@@ -47,6 +47,10 @@
       "type": "number",
       "title": "Audio Duration (seconds)"
     },
+    "audio_filename": {
+      "type": "string",
+      "title": "Original audio file name"
+    },
     "lyrics": {
       "type": "string",
       "title": "Lyrics"

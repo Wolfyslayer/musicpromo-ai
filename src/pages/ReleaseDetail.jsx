@@ -14,6 +14,7 @@ import ArtworkImage from "@/components/ArtworkImage";
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
 import CampaignCard from "@/components/CampaignCard";
+import ReleaseDeleteDialog from "@/components/releases/ReleaseDeleteDialog";
 
 export default function ReleaseDetail() {
   const { id } = useParams();
@@ -23,6 +24,15 @@ export default function ReleaseDetail() {
   const [error, setError] = useState("");
   const [songToAdd, setSongToAdd] = useState("");
   const [linking, setLinking] = useState(false);
+
+  const handleReleaseDeleted = (err) => {
+    if (err) {
+      toast({ variant: "destructive", title: "Could not delete release", description: err.message });
+      return;
+    }
+    toast({ title: "Release deleted" });
+    navigate("/releases");
+  };
 
   const reload = () =>
     loadRelease(id)
@@ -127,6 +137,14 @@ export default function ReleaseDetail() {
               >
                 <Share2 className="mr-1.5 h-3.5 w-3.5" /> Social
               </Button>
+              <ReleaseDeleteDialog
+                releaseId={id}
+                releaseTitle={release.title}
+                songsCount={songs.length}
+                campaignsCount={campaigns.length}
+                onDeleted={handleReleaseDeleted}
+                triggerVariant="outline"
+              />
             </div>
           </div>
         </div>

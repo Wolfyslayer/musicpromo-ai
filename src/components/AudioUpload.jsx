@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { audioDisplayName } from "@/services/audioDisplay";
 import { Upload, X, Loader2, Music, RefreshCw } from "lucide-react";
 
 import { useToast } from "@/components/ui/use-toast";
@@ -14,13 +15,25 @@ const ACCEPT = ".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/x-wav,audio/mp4";
  * onChange({ file_uri, signed_url, duration, name, file })
  * `file` is the local Blob kept for client-side Remotion rendering.
  */
-export default function AudioUpload({ value, signedUrl, onChange, guard }) {
+export default function AudioUpload({ value, signedUrl, fileName = "", durationSec = null, onChange, guard }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
-  const [duration, setDuration] = useState(null);
-  const [playUrl, setPlayUrl] = useState(signedUrl || "");
+  const [duration, setDuration] = useState(durationSec);
+  const [playUrl, setPlayUrl] = useState(signedUrl || value || "");
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!value) {
+      setPlayUrl("");
+      setName("");
+      setDuration(null);
+      return;
+    }
+    setPlayUrl(signedUrl || value);
+    setName(fileName || audioDisplayName({ audioFilename: fileName, audioUrl: value }));
+    if (durationSec != null) setDuration(durationSec);
+  }, [value, signedUrl, fileName, durationSec]);
 
   const openPicker = () => {
     const open = () => inputRef.current?.click();
