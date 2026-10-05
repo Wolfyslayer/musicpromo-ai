@@ -1,25 +1,26 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Film, RefreshCw, CheckCircle2, Clapperboard, Loader2 } from "lucide-react";
+import { Plus, Film, RefreshCw, CheckCircle2 } from "lucide-react";
+import CampaignGenerateVideosButton from "@/components/campaign/CampaignGenerateVideosButton";
 import { Button } from "@/components/ui/button";
 import EmptyState from "@/components/EmptyState";
 import VideoPreview from "@/components/VideoPreview";
-import VideoRenderProgress from "@/components/VideoRenderProgress";
 import { getTemplate } from "@/services/videoTemplates";
-import { videoService } from "@/services/videoService";
-import { useToast } from "@/components/ui/use-toast";
-import { useAuth } from "@/lib/AuthContext";
 
 function isReady(v) {
   return v.rendering_status === "complete" && v.render_output_url && /^https:\/\//i.test(v.render_output_url);
 }
 
-export default function CampaignVideos({ campaign, videos, song, onRefresh }) {
+export default function CampaignVideos({
+  campaign,
+  days = [],
+  videos,
+  song,
+  artistName,
+  release,
+  onRefresh,
+}) {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const { requireAuth } = useAuth();
-  const [batching, setBatching] = useState(false);
-  const [batchProgress, setBatchProgress] = useState(null);
 
   const sorted = useMemo(
     () =>
@@ -31,8 +32,6 @@ export default function CampaignVideos({ campaign, videos, song, onRefresh }) {
     [videos]
   );
 
-  const drafts = sorted.filter((v) => !isReady(v));
-
   const openEditor = (projectId, remake = false, dayId = "") => {
     const q = new URLSearchParams();
     if (projectId) q.set("project", projectId);
@@ -42,79 +41,28 @@ export default function CampaignVideos({ campaign, videos, song, onRefresh }) {
     navigate(`/campaigns/${campaign.id}/video?${q.toString()}`);
   };
 
-  const renderAllDrafts = () =>
-    requireAuth(async () => {
-      if (!drafts.length) return;
-      setBatching(true);
-      setBatchProgress({ progress: 0, message: "Starting batch render…" });
-      let done = 0;
-      try {
-        for (const project of drafts) {
-          setBatchProgress({
-            progress: Math.round((done / drafts.length) * 100),
-            message: `Rendering day ${project.animation_settings?.dayNumber || done + 1}…`,
-          });
-          const res = await videoService.exportVideo(project, {
-            onProgress: (info) => {
-              const slice = done / drafts.length + (info.progress || 0) / 100 / drafts.length;
-              setBatchProgress({
-                progress: Math.round(slice * 100),
-                message: info.message || "Encoding…",
-              });
-            },
-          });
-          if (res.status === "failed") {
-            throw new Error(res.message || "Render failed");
-          }
-          done += 1;
-        }
-        setBatchProgress({ progress: 100, message: "All drafts exported" });
-        toast({ title: "Videos ready", description: `Rendered ${done} promo clip${done === 1 ? "" : "s"} on this device.` });
-        onRefresh?.();
-      } catch (err) {
-        toast({
-          variant: "destructive",
-          title: "Batch render stopped",
-          description: err?.message || "Try rendering one video at a time in the editor.",
-        });
-      } finally {
-        setBatching(false);
-        setTimeout(() => setBatchProgress(null), 1200);
-      }
-    });
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           Each plan day can have its own promo. Drafts use your song, cover, and AI hooks — export on this device.
         </p>
-        <div className="flex flex-wrap gap-2">
-          {drafts.length > 1 ? (
-            <Button
-              variant="outline"
-              className="rounded-full"
-              disabled={batching}
-              onClick={renderAllDrafts}
-            >
-              {batching ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              ) : (
-                <Clapperboard className="mr-1.5 h-4 w-4" />
-              )}
-              Render {drafts.length} drafts
-            </Button>
-          ) : null}
-          <Button onClick={() => openEditor()} className="rounded-full">
+        <div className="flex flex-wrap items-start gap-2">
+          <CampaignGenerateVideosButton
+            campaign={campaign}
+            days={days}
+            videos={sorted}
+            song={song}
+            artistName={artistName}
+            release={release}
+            onComplete={onRefresh}
+          />
+          <Button variant="outline" onClick={() => openEditor()} className="rounded-full">
             <Plus className="mr-1.5 h-4 w-4" />
             New Video
           </Button>
         </div>
       </div>
-
-      {batchProgress ? (
-        <VideoRenderProgress progress={batchProgress.progress} message={batchProgress.message} />
-      ) : null}
 
       {sorted.length ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -177,12 +125,28 @@ export default function CampaignVideos({ campaign, videos, song, onRefresh }) {
         <EmptyState
           icon={Film}
           title="No videos yet"
-          description="Create a campaign with artwork + audio and a promo style — each plan day gets a video draft automatically."
+          description={
+            days.length
+              ? "Generate exported MP4s for every plan day in one click — hook clip, artwork, and style from your campaign."
+              : "Create a campaign with artwork + audio and a promo style — each plan day gets a video draft automatically."
+          }
           action={
-            <Button onClick={() => openEditor()} className="rounded-full">
-              <Plus className="mr-1.5 h-4 w-4" />
-              New Video
-            </Button>
+            days.length ? (
+              <CampaignGenerateVideosButton
+                campaign={campaign}
+                days={days}
+                videos={[]}
+                song={song}
+                artistName={artistName}
+                release={release}
+                onComplete={onRefresh}
+              />
+            ) : (
+              <Button onClick={() => openEditor()} className="rounded-full">
+                <Plus className="mr-1.5 h-4 w-4" />
+                New Video
+              </Button>
+            )
           }
         />
       )}
