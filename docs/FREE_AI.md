@@ -60,6 +60,16 @@ Keep **`GEMINI_API_KEY`** for cover lab, or set `AI_COVER_PROVIDER=openai` with 
 | `OPENAI_IMAGE_API_KEY` | Optional — OpenAI Images only when using Groq for chat |
 | `OPENAI_IMAGE_MODEL` / `OPENAI_IMAGE_EDIT_MODEL` | Optional — DALL·E / gpt-image when `AI_COVER_PROVIDER=openai` |
 
+## Troubleshooting: model `404` / “no longer available”
+
+Google retired **`gemini-2.5-flash`** for new API keys. Set in Supabase secrets:
+
+```bash
+supabase secrets set GEMINI_MODEL=gemini-3.8-flash --project-ref YOUR_REF
+```
+
+Then redeploy edge functions. Latest app code defaults to `gemini-3.8-flash` if `GEMINI_MODEL` is unset.
+
 ## Troubleshooting: `Invalid API Key` (401) when generating campaigns
 
 If the app shows **AI request failed (401)** or **invalid_api_key** on **Generate campaign**:

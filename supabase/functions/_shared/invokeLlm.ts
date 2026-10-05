@@ -219,6 +219,11 @@ export async function invokeLlmChat(args: {
           : "AI API key rejected (401). Check OPENAI_API_KEY and OPENAI_BASE_URL in Supabase Edge Function secrets. See docs/FREE_AI.md."
       );
     }
+    if (res.status === 404 && /no longer available|NOT_FOUND|models\//i.test(raw)) {
+      throw new Error(
+        "Gemini model not available (404). Set Supabase secret GEMINI_MODEL=gemini-3.8-flash (or redeploy latest edge functions). See docs/FREE_AI.md."
+      );
+    }
     throw new Error(`AI request failed (${res.status}): ${raw.slice(0, 400)}`);
   }
 
