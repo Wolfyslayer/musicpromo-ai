@@ -1,7 +1,7 @@
 import { db } from '@/api/base44Client';
 import { sortReleaseTracks } from "@/services/releaseTracks";
 import { normalizeArtistRow } from "@/services/artistSocial";
-import { loadPosts } from "@/services/socialService";
+import { cancelCampaignAutoPublish, loadPosts } from "@/services/socialService";
 
 /**
  * Data-access helpers. Pages keep importing these joins. The `db` client
@@ -55,6 +55,17 @@ export async function loadReleases() {
  * Remove a release from the catalog. Songs are unlinked (not deleted); campaigns keep their plans
  * but lose release_id so launch board no longer groups them under this release.
  */
+/**
+ * Delete a campaign and its plan. Cancels queued auto-publish first (scheduled SocialPosts + days).
+ */
+export async function deleteCampaign(campaignId) {
+  const id = String(campaignId || "");
+  if (!id) throw new Error("Campaign id is required.");
+  await cancelCampaignAutoPublish(id);
+  await db.entities.CampaignDay.deleteMany({ campaign_id: id });
+  await db.entities.Campaign.delete(id);
+}
+
 export async function deleteRelease(releaseId) {
   const [songs, campaigns] = await Promise.all([
     db.entities.Song.list("-created_date", L),
