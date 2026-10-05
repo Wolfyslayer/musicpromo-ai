@@ -62,6 +62,8 @@ SQL under `supabase/migrations/` (e.g. native **`push_devices`**, billing **`use
 
 Optional: add a dedicated workflow with `supabase db push` and a database password secret later.
 
+**Daily stats on Analytics** needs columns on `public.users` — run [migrations/20261005_daily_stats_full.sql](../supabase/migrations/20261005_daily_stats_full.sql) once if you see `daily_stats_email_enabled does not exist` ([DAILY_STATS.md](./DAILY_STATS.md)).
+
 ### 4. Supabase Edge Function secrets (not in GitHub)
 
 AI and OAuth handlers read secrets from **Supabase**, not from the frontend bundle. Set these once in the dashboard (**Project Settings → Edge Functions → Secrets**) or via CLI:

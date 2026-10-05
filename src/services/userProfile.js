@@ -9,17 +9,46 @@ function googleAvatarFromSessionUser(sessionUser) {
   return String(meta.avatar_url || meta.picture || "").trim();
 }
 
+const PROFILE_SELECT_BASE =
+  "id, email, full_name, display_name, handle, avatar_url, avatar_override, bio, profile_public, hide_artists_on_profile, role, featured_release_id, show_active_campaign_badge, allow_public_contact, community_collab_intents, launch_digest_enabled, push_digest_enabled";
+
+const PROFILE_SELECT_DAILY_STATS =
+  "daily_stats_email_enabled, daily_stats_push_enabled, daily_stats_notify_time, timezone";
+
+export function dailyStatsSchemaMigrationHint() {
+  return (
+    "Database update needed: in Supabase → SQL, run supabase/migrations/20261005_daily_stats_full.sql " +
+    "(see docs/DAILY_STATS.md)."
+  );
+}
+
+export function isDailyStatsSchemaError(message) {
+  return /daily_stats_|column users\.(daily_stats|timezone)/i.test(String(message || ""));
+}
+
+function withDailyStatsDefaults(row, schemaReady) {
+  if (!row) return row;
+  return {
+    ...row,
+    daily_stats_email_enabled: row.daily_stats_email_enabled === true,
+    daily_stats_push_enabled: row.daily_stats_push_enabled === true,
+    daily_stats_notify_time: row.daily_stats_notify_time || "08:00",
+    timezone: row.timezone ?? null,
+    dailyStatsSchemaReady: schemaReady,
+  };
+}
+
 export async function fetchOwnProfile(userId) {
   if (!isSupabaseConfigured || !supabase || !userId) return null;
-  const { data, error } = await supabase
-    .from("users")
-    .select(
-      "id, email, full_name, display_name, handle, avatar_url, avatar_override, bio, profile_public, hide_artists_on_profile, role, featured_release_id, show_active_campaign_badge, allow_public_contact, community_collab_intents, launch_digest_enabled, push_digest_enabled, daily_stats_email_enabled, daily_stats_push_enabled, daily_stats_notify_time, timezone"
-    )
-    .eq("id", userId)
-    .maybeSingle();
+  const fullSelect = `${PROFILE_SELECT_BASE}, ${PROFILE_SELECT_DAILY_STATS}`;
+  let { data, error } = await supabase.from("users").select(fullSelect).eq("id", userId).maybeSingle();
+  if (error && isDailyStatsSchemaError(error.message)) {
+    const legacy = await supabase.from("users").select(PROFILE_SELECT_BASE).eq("id", userId).maybeSingle();
+    if (legacy.error) throw new Error(legacy.error.message);
+    return withDailyStatsDefaults(legacy.data, false);
+  }
   if (error) throw new Error(error.message);
-  return data;
+  return withDailyStatsDefaults(data, true);
 }
 
 /** Apply Google profile photo when the user has not uploaded a custom avatar. */
@@ -95,6 +124,9 @@ export async function updateOwnProfile(userId, patch) {
   if (error) {
     if (error.code === "23505") {
       throw new Error("That handle is already taken. Try another one.");
+    }
+    if (isDailyStatsSchemaError(error.message)) {
+      throw new Error(dailyStatsSchemaMigrationHint());
     }
     throw new Error(error.message);
   }

@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
 import { loadDailyStatsDigest } from "@/services/communityService";
 import {
+  dailyStatsSchemaMigrationHint,
   fetchOwnProfile,
   syncBrowserTimezoneIfNeeded,
   updateOwnProfile,
@@ -28,6 +29,7 @@ export default function DailyStatsNotifyPanel({ compact = false }) {
   const [emailSaving, setEmailSaving] = useState(false);
   const [pushSaving, setPushSaving] = useState(false);
   const [timeSaving, setTimeSaving] = useState(false);
+  const [schemaReady, setSchemaReady] = useState(true);
   const nativePush = canUseNativePush();
 
   useEffect(() => {
@@ -44,6 +46,9 @@ export default function DailyStatsNotifyPanel({ compact = false }) {
         const d = await loadDailyStatsDigest();
         if (!cancelled) {
           setDigest(d);
+          const ready =
+            profile?.dailyStatsSchemaReady !== false && d?.schemaReady !== false;
+          setSchemaReady(ready);
           setTimeZone(d?.timeZone || tz);
           setNotifyTime(normalizeNotifyTime(d?.notifyTime || profile?.daily_stats_notify_time));
           setEmailOn(profile?.daily_stats_email_enabled === true || d?.emailEnabled === true);
@@ -52,8 +57,15 @@ export default function DailyStatsNotifyPanel({ compact = false }) {
       } catch (e) {
         if (!cancelled) {
           setDigest(null);
+          setSchemaReady(false);
           if (!compact) {
-            toast({ variant: "destructive", title: "Daily stats unavailable", description: e.message });
+            toast({
+              variant: "destructive",
+              title: "Daily stats unavailable",
+              description: e?.message?.includes("daily_stats")
+                ? dailyStatsSchemaMigrationHint()
+                : e.message,
+            });
           }
         }
       } finally {
@@ -146,6 +158,11 @@ export default function DailyStatsNotifyPanel({ compact = false }) {
 
   return (
     <SurfacePanel className="space-y-4">
+      {!schemaReady ? (
+        <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/95">
+          {digest?.schemaHint || dailyStatsSchemaMigrationHint()}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/12 text-primary">
@@ -167,7 +184,7 @@ export default function DailyStatsNotifyPanel({ compact = false }) {
             <Switch
               id="daily-stats-email"
               checked={emailOn}
-              disabled={emailSaving}
+              disabled={emailSaving || !schemaReady}
               onCheckedChange={toggleEmail}
             />
           </div>
@@ -177,7 +194,12 @@ export default function DailyStatsNotifyPanel({ compact = false }) {
               <Label htmlFor="daily-stats-push" className="text-xs font-normal">
                 Push
               </Label>
-              <Switch id="daily-stats-push" checked={pushOn} disabled={pushSaving} onCheckedChange={togglePush} />
+              <Switch
+                id="daily-stats-push"
+                checked={pushOn}
+                disabled={pushSaving || !schemaReady}
+                onCheckedChange={togglePush}
+              />
             </div>
           ) : (
             <p className="text-[11px] text-muted-foreground">Install the mobile app for push alerts.</p>
@@ -200,7 +222,7 @@ export default function DailyStatsNotifyPanel({ compact = false }) {
               id="daily-stats-time"
               type="time"
               value={notifyTime}
-              disabled={timeSaving}
+              disabled={timeSaving || !schemaReady}
               onChange={(e) => saveNotifyTime(e.target.value)}
               className="rounded-xl"
             />
