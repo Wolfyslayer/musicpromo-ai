@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bell, CalendarRange, Loader2, Mail } from "lucide-react";
-import { canUseNativePush } from "@/services/pushNotifications";
+import { canUseNativePush, syncNativePushRegistration } from "@/services/pushNotifications";
 import SurfacePanel from "@/components/SurfacePanel";
 import StatusBadge from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,21 @@ export default function LaunchDigestPanel() {
     setPushOn(checked);
     setPushSaving(true);
     try {
+      if (checked && nativePush) {
+        const reg = await syncNativePushRegistration(null);
+        if (!reg?.ok) {
+          setPushOn(false);
+          toast({
+            variant: "destructive",
+            title: "Notifications blocked",
+            description:
+              reg?.denied
+                ? "Allow notifications in Android Settings → Apps → MusicPromo AI → Notifications."
+                : "Could not register for push on this device.",
+          });
+          return;
+        }
+      }
       await updateOwnProfile(user.id, { push_digest_enabled: checked });
       toast({ title: checked ? "Weekly push notifications on" : "Weekly push notifications off" });
     } catch (e) {

@@ -2,7 +2,11 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { initNativeShell } from "@/lib/nativeApp";
-import { syncNativePushRegistration, unregisterNativePushToken } from "@/services/pushNotifications";
+import {
+  attachPushListeners,
+  syncNativePushRegistration,
+  unregisterNativePushToken,
+} from "@/services/pushNotifications";
 import { initializeNativeGoogleAuth } from "@/lib/googleAuthNativeSdk";
 import { installNativeGoogleAuthListener } from "@/lib/googleAuthNative";
 
@@ -14,6 +18,7 @@ export default function NativeAppBootstrap() {
   useEffect(() => {
     initNativeShell();
     initializeNativeGoogleAuth();
+    attachPushListeners(navigate);
     // Fallback if an OAuth callback still opens via App Link (older builds / webView tests).
     installNativeGoogleAuthListener(navigate);
   }, [navigate]);
@@ -24,7 +29,13 @@ export default function NativeAppBootstrap() {
       unregisterNativePushToken();
       return;
     }
-    syncNativePushRegistration(navigate);
+    // Defer so the post-login UI is visible before the system permission sheet (Android 13+ / iOS).
+    const timer = window.setTimeout(() => {
+      syncNativePushRegistration(navigate).catch((e) => {
+        console.warn("[push] sync registration", e);
+      });
+    }, 600);
+    return () => window.clearTimeout(timer);
   }, [isAuthenticated, authChecked, navigate]);
 
   return null;

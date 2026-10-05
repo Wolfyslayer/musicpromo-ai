@@ -8,7 +8,8 @@ import {
   authSignupUserMetadata,
   stashPendingSignupHandle,
 } from "@/services/signupHandle";
-import { unregisterNativePushToken } from "@/services/pushNotifications";
+import { isNativeApp } from "@/lib/nativeApp";
+import { syncNativePushRegistration, unregisterNativePushToken } from "@/services/pushNotifications";
 
 const AuthContext = createContext();
 
@@ -228,6 +229,11 @@ export const AuthProvider = ({ children }) => {
     setAuthPulse(true);
     window.setTimeout(() => setAuthPulse(false), 900);
     toast({ title: "You're signed in" });
+    if (isNativeApp()) {
+      window.setTimeout(() => {
+        syncNativePushRegistration(null).catch((e) => console.warn("[push] after login", e));
+      }, 800);
+    }
     window.setTimeout(() => {
       if (typeof action === "function") action();
       else window.dispatchEvent(new CustomEvent(WORKSPACE_REFRESH_EVENT));

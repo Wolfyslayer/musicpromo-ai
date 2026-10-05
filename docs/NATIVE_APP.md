@@ -124,9 +124,10 @@ npm run cap:ios     # or cap:android → Run on device
 ### Phase 6 — Verify on a real device
 
 1. Install debug/release build on phone.
-2. Log in → app should request **notification permission** (`NativeAppBootstrap` → `syncNativePushRegistration`).
-3. Supabase **Table Editor → `push_devices`** — row with your `user_id`, `platform`, and `token`.
-4. **Launch digest** screen — **Weekly push** toggle appears only in the native app; toggling updates `users.push_digest_enabled`.
+2. Log in → after ~1s the app requests **notification permission** (Android 13+ / iOS). On Android 12 and below there is no system prompt — notifications are allowed by default.
+3. If you dismissed the prompt, open **Launch digest** and turn **Weekly push** on to ask again (or enable in system Settings).
+4. Supabase **Table Editor → `push_devices`** — row with your `user_id`, `platform`, and `token`.
+5. **Launch digest** screen — **Weekly push** toggle appears only in the native app; toggling updates `users.push_digest_enabled`.
 5. Log out → token should be removed via `unregisterPushToken` (best effort).
 
 Push **delivery** for the weekly digest requires the roadmap FCM work in `sendLaunchDigest`; registration and preferences work without it.
