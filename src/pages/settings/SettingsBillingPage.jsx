@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Loader2, Sparkles } from "lucide-react";
 import DailyClaimPanel from "@/components/billing/DailyClaimPanel";
-import SubscriptionPlanPicker from "@/components/billing/SubscriptionPlanPicker";
+import PlanAndCreditsPicker from "@/components/billing/PlanAndCreditsPicker";
 import { useToast } from "@/components/ui/use-toast";
 import { CREDIT_ACTION_LABELS, fetchBillingStatus, PLAN_LABELS } from "@/services/billingService";
 
@@ -39,15 +39,28 @@ export default function SettingsBillingPage() {
   useEffect(() => {
     const checkout = searchParams.get("checkout");
     if (checkout === "success") {
+      const purchase = searchParams.get("purchase");
+      const pack = searchParams.get("pack");
       const plan = searchParams.get("plan");
-      toast({
-        title: "Subscription started",
-        description: plan
-          ? `Your ${PLAN_LABELS[plan] || plan} plan will activate when Stripe confirms payment.`
-          : "Credits refresh when Stripe confirms payment.",
-      });
+      const interval = searchParams.get("interval");
+      if (purchase === "credits" && pack) {
+        toast({
+          title: "Credit purchase complete",
+          description: "Your balance updates when Stripe confirms payment (usually within a minute).",
+        });
+      } else {
+        toast({
+          title: "Subscription started",
+          description: plan
+            ? `Your ${PLAN_LABELS[plan] || plan} plan${interval ? ` (${interval}ly)` : ""} activates when Stripe confirms payment.`
+            : "Credits refresh when Stripe confirms payment.",
+        });
+      }
       searchParams.delete("checkout");
       searchParams.delete("plan");
+      searchParams.delete("interval");
+      searchParams.delete("purchase");
+      searchParams.delete("pack");
       setSearchParams(searchParams, { replace: true });
       load();
     } else if (checkout === "cancel") {
@@ -119,11 +132,14 @@ export default function SettingsBillingPage() {
       </Card>
 
       {!exempt ? (
-        <Card title="Choose a plan">
-          <SubscriptionPlanPicker
+        <Card title="Plans & credit packs">
+          <PlanAndCreditsPicker
             catalog={billing?.planCatalog}
-            currentPlan={paidPlan ? billing.plan : "free"}
+            planComparison={billing?.planComparison}
+            creditPackCatalog={billing?.creditPackCatalog}
             stripeConfigured={billing?.stripeConfigured}
+            creditPacksConfigured={billing?.creditPacksConfigured}
+            currentPlan={paidPlan ? billing.plan : "free"}
             onCheckoutStart={(err) => {
               if (err) toast({ variant: "destructive", title: "Checkout unavailable", description: err.message });
             }}

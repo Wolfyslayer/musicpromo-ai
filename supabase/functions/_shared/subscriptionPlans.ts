@@ -148,6 +148,78 @@ export function stripePlansConfigured(): boolean {
   );
 }
 
+export type PlanComparisonRow = {
+  key: string;
+  label: string;
+  free: string | boolean;
+  creator: string | boolean;
+  pro: string | boolean;
+  studio: string | boolean;
+};
+
+/** Feature matrix for the plan picker "Compare" tab. */
+export function publicPlanComparison(): PlanComparisonRow[] {
+  const freeCredits = monthlyCreditsForPlan("free");
+  return [
+    {
+      key: "monthly_credits",
+      label: "Monthly AI credits",
+      free: String(freeCredits),
+      creator: String(monthlyCreditsForPlan("creator")),
+      pro: String(monthlyCreditsForPlan("pro")),
+      studio: String(monthlyCreditsForPlan("studio")),
+    },
+    {
+      key: "campaign",
+      label: "Campaign plan generation",
+      free: true,
+      creator: true,
+      pro: true,
+      studio: true,
+    },
+    {
+      key: "video_clip",
+      label: "Cloud AI video clips",
+      free: true,
+      creator: true,
+      pro: true,
+      studio: true,
+    },
+    {
+      key: "suno",
+      label: "AI song generation (Suno)",
+      free: false,
+      creator: true,
+      pro: true,
+      studio: true,
+    },
+    {
+      key: "stems",
+      label: "Stem splitter",
+      free: false,
+      creator: true,
+      pro: true,
+      studio: true,
+    },
+    {
+      key: "daily_claim",
+      label: "Daily 🎁 credit streak",
+      free: true,
+      creator: true,
+      pro: true,
+      studio: true,
+    },
+    {
+      key: "credit_packs",
+      label: "Buy extra credits anytime",
+      free: true,
+      creator: true,
+      pro: true,
+      studio: true,
+    },
+  ];
+}
+
 export function publicPlanCatalog() {
   return PAID_PLANS.map((p) => ({
     id: p.id,

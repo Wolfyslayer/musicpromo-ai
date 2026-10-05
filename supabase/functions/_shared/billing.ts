@@ -7,8 +7,10 @@ import {
   monthlyCreditsForPlan,
   planHasPremiumFeature,
   publicPlanCatalog,
+  publicPlanComparison,
   stripePlansConfigured,
 } from "./subscriptionPlans.ts";
+import { creditPacksConfigured, publicCreditPackCatalog, type CreditPackId, creditsForPack } from "./creditPacks.ts";
 
 export type BillingPlan = BillingPlanId;
 
@@ -206,6 +208,9 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
       billingInterval: null,
       stripeConfigured: stripePlansConfigured(),
       planCatalog: publicPlanCatalog(),
+      planComparison: publicPlanComparison(),
+      creditPackCatalog: publicCreditPackCatalog(),
+      creditPacksConfigured: creditPacksConfigured(),
       premiumFeatures,
       costs: publicCreditCosts(),
       freeFeatures: ["generate_campaign", "ai_video_clip"],
@@ -235,6 +240,9 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
     billingInterval: row?.billing_interval || null,
     stripeConfigured: stripePlansConfigured(),
     planCatalog: publicPlanCatalog(),
+    planComparison: publicPlanComparison(),
+    creditPackCatalog: publicCreditPackCatalog(),
+    creditPacksConfigured: creditPacksConfigured(),
     premiumFeatures: {
       suno_generation: paidPremium("suno_generation"),
       stem_split: paidPremium("stem_split"),
@@ -243,6 +251,44 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
     freeFeatures: ["generate_campaign", "ai_video_clip"],
     dailyClaim: await getDailyClaimStatus(admin, userId),
   };
+}
+
+/** One-time credit purchase (Stripe Checkout payment mode). Idempotent via sessionId. */
+export async function grantCreditPackPurchase(
+  admin: SupabaseClient,
+  userId: string,
+  packId: CreditPackId,
+  sessionId: string
+) {
+  const { data: prior } = await admin
+    .from("credit_ledger")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("action", "credit_pack_purchase")
+    .contains("metadata", { stripeSessionId: sessionId })
+    .maybeSingle();
+  if (prior?.id) return { alreadyProcessed: true as const };
+
+  await ensureUserBilling(admin, userId);
+  const amount = creditsForPack(packId);
+  const { data: row } = await admin.from("user_billing").select("credits_balance").eq("user_id", userId).maybeSingle();
+  const balanceAfter = Number(row?.credits_balance ?? 0) + amount;
+
+  const { error: updErr } = await admin
+    .from("user_billing")
+    .update({ credits_balance: balanceAfter, updated_at: new Date().toISOString() })
+    .eq("user_id", userId);
+  if (updErr) throw new Error(updErr.message);
+
+  await admin.from("credit_ledger").insert({
+    user_id: userId,
+    delta: amount,
+    balance_after: balanceAfter,
+    action: "credit_pack_purchase",
+    metadata: { packId, stripeSessionId: sessionId },
+  });
+
+  return { alreadyProcessed: false as const, creditsAdded: amount, creditsBalance: balanceAfter };
 }
 
 /** Deduct credits before an AI call. Refund manually if the call fails after deduct (optional). */

@@ -36,7 +36,29 @@ Premium: **`/premium`** (AI songs & stems). Requires Creator, Pro, or Studio (or
 
 Plus `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PUBLIC_APP_URL`.
 
-Checkout: `{ "plan": "creator"|"pro"|"studio", "interval": "month"|"year" }`.
+Checkout (subscription): `{ "plan": "creator"|"pro"|"studio", "interval": "month"|"year" }`.
+
+### One-time credit packs
+
+| Pack ID | Credits | Target USD |
+|---------|---------|------------|
+| `boost_100` | 100 | $5 |
+| `boost_300` | 300 | $12 |
+| `boost_800` | 800 | $28 |
+| `boost_2000` | 2000 | $60 |
+
+| Secret | Target USD |
+|--------|------------|
+| `STRIPE_CREDIT_PACK_BOOST_100_PRICE_ID` | $5 |
+| `STRIPE_CREDIT_PACK_BOOST_300_PRICE_ID` | $12 |
+| `STRIPE_CREDIT_PACK_BOOST_800_PRICE_ID` | $28 |
+| `STRIPE_CREDIT_PACK_BOOST_2000_PRICE_ID` | $60 |
+
+Optional credit overrides: `CREDIT_PACK_100_CREDITS`, `CREDIT_PACK_300_CREDITS`, etc.
+
+Checkout (pack): `{ "checkoutType": "credit_pack", "packId": "boost_100"|"boost_300"|"boost_800"|"boost_2000" }`.
+
+Credits are granted on `checkout.session.completed` (webhook). Catalog in `creditPacks.ts`.
 
 ## Premium backends
 
