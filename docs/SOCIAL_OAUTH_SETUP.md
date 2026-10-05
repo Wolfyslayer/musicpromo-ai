@@ -107,13 +107,13 @@ The hostname `<YOUR_PUBLISHED_APP_ORIGIN>` is assigned when your app is publishe
 After a successful or failed OAuth callback, the browser is redirected to:
 
 ```text
-{PUBLIC_APP_URL}/social?social_connected=instagram
+{PUBLIC_APP_URL}/social/connect?social_connected=instagram
 ```
 
 or
 
 ```text
-{PUBLIC_APP_URL}/social?social_error=<code>
+{PUBLIC_APP_URL}/social/connect?social_error=<code>
 ```
 
 Codes are safe enums only (`cancelled`, `invalid_state`, `provider_error`, etc.) — never tokens, codes, or ciphertext.
@@ -260,7 +260,7 @@ Meta documentation and requirements change; treat Meta’s dashboard as authorit
 3. User approves scopes `instagram_business_basic` and `instagram_business_content_publish` (reconnect uses `force_reauth=true`).
 4. Meta → GET `META_REDIRECT_URI` with `code` and `state` (handled server-side only).
 5. `socialOAuthCallback` validates state, exchanges code, stores **granted** permissions from Meta, encrypts token, upserts `SocialAccount`.
-6. Browser redirect → `{PUBLIC_APP_URL}/social?social_connected=instagram`.
+6. Browser redirect → `{PUBLIC_APP_URL}/social/connect?social_connected=instagram`.
 7. Social Hub reloads status via `socialConnectionStatus` and shows **Connected** with username / name / profile image when available. Publishing requires granted `instagram_business_content_publish`.
 
 No access token, authorization code, or `encrypted_credentials` should appear in the final URL or in browser storage.
@@ -269,7 +269,7 @@ No access token, authorization code, or `encrypted_credentials` should appear in
 
 ## Error flow (expected)
 
-Failed OAuth redirects to `{PUBLIC_APP_URL}/social?social_error=<code>` when `PUBLIC_APP_URL` is set.
+Failed OAuth redirects to `{PUBLIC_APP_URL}/social/connect?social_error=<code>` when `PUBLIC_APP_URL` is set.
 
 Safe codes handled in `SocialHub.jsx`:
 

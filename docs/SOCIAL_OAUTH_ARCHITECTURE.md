@@ -252,7 +252,7 @@ User → Social Hub → Connect
   → Provider redirects to Base44 function URL: /functions/socialOAuthCallback?provider=…
   → Backend: validate state, exchange code, fetch profile
   → Backend: store credentials securely + upsert SocialAccount metadata
-  → Redirect browser to /social?connected=provider
+  → Redirect browser to /social/connect?social_connected=provider
   → Social Hub loads accounts via socialOAuthStatus (safe fields only)
 ```
 

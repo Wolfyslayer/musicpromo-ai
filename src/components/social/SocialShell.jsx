@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import PageHeader from "@/components/PageHeader";
 import SectionNavMenu from "@/components/navigation/SectionNavMenu";
 import { SocialHubProvider } from "@/contexts/SocialHubContext";
@@ -30,5 +30,6 @@ export default function SocialShell() {
 }
 
 export function SocialIndexRedirect() {
-  return <Navigate to="/social/connect" replace />;
+  const { search } = useLocation();
+  return <Navigate to={`/social/connect${search}`} replace />;
 }
