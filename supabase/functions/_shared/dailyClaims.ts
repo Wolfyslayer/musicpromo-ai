@@ -31,12 +31,6 @@ function utcDateString(d = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
-function previousUtcDateString(dateStr: string): string {
-  const d = new Date(`${dateStr}T12:00:00.000Z`);
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
-
 function startOfUtcMonth(d = new Date()): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0));
 }
@@ -48,21 +42,14 @@ type ClaimRow = {
   credits_balance?: number | null;
 };
 
-/** Effective streak after missed days (display + next claim). Does not write. */
-export function effectiveClaimDaysCompleted(row: ClaimRow, today = utcDateString()): number {
+/** Days claimed this UTC month (1–7). Missing calendar days do not reset progress. */
+export function effectiveClaimDaysCompleted(row: ClaimRow, _today = utcDateString()): number {
   const monthStart = startOfUtcMonth();
   const storedMonth = row.claim_month_start ? Date.parse(String(row.claim_month_start)) : 0;
   if (!storedMonth || storedMonth < monthStart.getTime()) return 0;
 
   const completed = Number(row.claim_days_completed ?? 0);
-  const last = row.last_claim_utc_date ? String(row.last_claim_utc_date) : "";
-  if (!last) return completed;
-
-  if (last === today) return completed;
-
-  const yesterday = previousUtcDateString(today);
-  if (last !== yesterday) return 0;
-  return completed;
+  return Math.max(0, Math.min(DAILY_CLAIM_STREAK_DAYS, completed));
 }
 
 export function canClaimToday(row: ClaimRow, today = utcDateString()): boolean {
@@ -180,13 +167,7 @@ export async function performDailyClaim(admin: SupabaseClient, userId: string) {
     throw new DailyClaimError("CLAIM_COMPLETE", "All 7 daily claims finished for this month.", 400);
   }
 
-  let completed = effectiveClaimDaysCompleted(synced, today);
-  const last = synced.last_claim_utc_date ? String(synced.last_claim_utc_date) : "";
-  const yesterday = previousUtcDateString(today);
-  if (last && last !== yesterday && last !== today) {
-    completed = 0;
-  }
-
+  const completed = effectiveClaimDaysCompleted(synced, today);
   const nextDay = completed + 1;
   const reward = dailyClaimRewardForDay(nextDay);
   const balanceAfter = Number(synced.credits_balance ?? 0) + reward;
