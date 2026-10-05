@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Loader2, Rocket, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,11 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
 import PageHeader from "@/components/PageHeader";
 import SurfacePanel from "@/components/SurfacePanel";
-import ArtworkImage from "@/components/ArtworkImage";
 import ReleasePickOrCreateStep from "@/components/releases/ReleasePickOrCreateStep";
-import { loadRelease } from "@/services/data";
+import ReleaseInfoStep from "@/components/releases/ReleaseInfoStep";
+import ReleaseTracksUploadStep from "@/components/releases/ReleaseTracksUploadStep";
+import { loadArtists, loadRelease } from "@/services/data";
+import { allSongsHaveAudio } from "@/services/releaseDefaults";
 import { CAMPAIGN_DURATIONS, CAMPAIGN_GOALS } from "@/services/constants";
 import { generateCampaignForAlbum, generateCampaignForSong } from "@/services/createCampaignCore";
 import { resolveReleaseCampaignState } from "@/services/releaseCampaignMode";
@@ -19,13 +21,15 @@ import { todayISO } from "@/services/format";
 import { billingFailureToast } from "@/lib/billingErrors";
 import { getSettings } from "@/services/settings";
 
-const STEPS_WITH_RELEASE = ["Tracks", "Rollout", "Generate", "Social"];
+const STEPS_WITH_RELEASE = ["Details", "Upload", "Rollout", "Generate", "Social"];
 const STEPS_WITHOUT_RELEASE = ["Release", ...STEPS_WITH_RELEASE];
 
 export default function ReleaseCampaignPlanner() {
   const [searchParams] = useSearchParams();
   const releaseId = searchParams.get("release") || "";
+  const focusSongId = searchParams.get("song") || "";
   const navigate = useNavigate();
+  const [artists, setArtists] = useState([]);
   const { toast } = useToast();
   const { user, requireAuth } = useAuth();
   const [step, setStep] = useState(0);
@@ -34,10 +38,13 @@ export default function ReleaseCampaignPlanner() {
   const [generating, setGenerating] = useState(false);
   const [stage, setStage] = useState("");
   const [results, setResults] = useState([]);
+  const [savingDetails, setSavingDetails] = useState(false);
+  const detailsStepRef = useRef(null);
 
   const stepLabels = releaseId ? STEPS_WITH_RELEASE : STEPS_WITHOUT_RELEASE;
-  const tracksStepIndex = releaseId ? 0 : 1;
-  const rolloutStepIndex = tracksStepIndex + 1;
+  const detailsStepIndex = releaseId ? 0 : 1;
+  const uploadStepIndex = detailsStepIndex + 1;
+  const rolloutStepIndex = uploadStepIndex + 1;
   const generateStepIndex = rolloutStepIndex + 1;
   const socialStepIndex = generateStepIndex + 1;
 
@@ -56,6 +63,10 @@ export default function ReleaseCampaignPlanner() {
       .catch(() => setData(null));
 
   useEffect(() => {
+    loadArtists().then(setArtists).catch(() => setArtists([]));
+  }, []);
+
+  useEffect(() => {
     if (!releaseId) {
       setData(null);
       setLoading(false);
@@ -64,6 +75,12 @@ export default function ReleaseCampaignPlanner() {
     setLoading(true);
     reload().finally(() => setLoading(false));
   }, [releaseId]);
+
+  useEffect(() => {
+    if (releaseId && focusSongId && data?.release && !loading) {
+      setStep(uploadStepIndex);
+    }
+  }, [releaseId, focusSongId, data?.release, loading, uploadStepIndex]);
 
   useEffect(() => {
     if (data?.release?.release_date) {
@@ -77,8 +94,20 @@ export default function ReleaseCampaignPlanner() {
     () => resolveReleaseCampaignState(data?.release, songs, campaigns),
     [data?.release, songs, campaigns]
   );
-  const { isAlbum, albumCampaign, campaignBySong, needsGeneration, pendingTrackCount, tracksNeedingCampaign } =
-    campaignState;
+  const { isAlbum, needsGeneration, pendingTrackCount, tracksNeedingCampaign } = campaignState;
+  const uploadsReady = allSongsHaveAudio(songs);
+
+  const continueFromDetails = async () => {
+    setSavingDetails(true);
+    try {
+      const ok = await detailsStepRef.current?.saveAll?.({ quiet: false });
+      if (!ok) return;
+      await reload();
+      setStep((s) => s + 1);
+    } finally {
+      setSavingDetails(false);
+    }
+  };
 
   const toggleGoal = (g) =>
     setRollout((r) => ({
@@ -121,6 +150,8 @@ export default function ReleaseCampaignPlanner() {
           const { campaign } = await generateCampaignForSong({
             song,
             artist: data.artist,
+            release: data.release,
+            songs,
             releaseId,
             goals: rollout.goals,
             durationDays: rollout.durationDays,
@@ -166,7 +197,7 @@ export default function ReleaseCampaignPlanner() {
       <PageHeader
         eyebrow="Release → Campaign → Social"
         title="Plan your campaign"
-        description="Same flow for singles, EPs, and albums: choose a release, set rollout, generate plans per track, then publish from Social Hub."
+        description="Same flow for singles, EPs, and albums: release details → upload audio per track → generate hooks & day-by-day plan → social."
       />
 
       <div className="flex flex-wrap gap-2">
@@ -197,16 +228,17 @@ export default function ReleaseCampaignPlanner() {
           </p>
         ) : null}
 
-        {releaseId && !loading && data?.release && step === tracksStepIndex ? (
-          <TracksStep
+        {releaseId && !loading && data?.release && step === detailsStepIndex ? (
+          <ReleaseInfoStep ref={detailsStepRef} release={data.release} artists={artists} onSaved={reload} />
+        ) : null}
+
+        {releaseId && !loading && data?.release && step === uploadStepIndex ? (
+          <ReleaseTracksUploadStep
             release={data.release}
-            artist={data.artist}
-            releaseId={releaseId}
             songs={songs}
-            isAlbum={isAlbum}
-            albumCampaign={albumCampaign}
-            campaignBySong={campaignBySong}
-            navigate={navigate}
+            focusSongId={focusSongId}
+            onSaved={reload}
+            requireAuth={requireAuth}
           />
         ) : null}
 
@@ -234,9 +266,9 @@ export default function ReleaseCampaignPlanner() {
               type="button"
               variant="ghost"
               className="rounded-full"
-              disabled={(step === tracksStepIndex && !releaseId) || generating}
+              disabled={(step === detailsStepIndex && !releaseId) || generating}
               onClick={() => {
-                if (step === tracksStepIndex) {
+                if (step === detailsStepIndex) {
                   navigate("/create", { replace: true });
                   setStep(0);
                   return;
@@ -250,16 +282,31 @@ export default function ReleaseCampaignPlanner() {
               <Button
                 type="button"
                 className="rounded-full"
-                disabled={step === tracksStepIndex && !songs.length}
-                onClick={() => setStep((s) => s + 1)}
+                disabled={
+                  savingDetails ||
+                  (step === uploadStepIndex && !uploadsReady)
+                }
+                onClick={() => {
+                  if (step === detailsStepIndex) {
+                    requireAuth(continueFromDetails);
+                    return;
+                  }
+                  setStep((s) => s + 1);
+                }}
               >
-                Continue <ArrowRight className="ml-1.5 h-4 w-4" />
+                {savingDetails ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowRight className="ml-1.5 h-4 w-4" />
+                )}
+                Continue
               </Button>
             )}
             {step === generateStepIndex && !generating && (
               <Button
                 type="button"
                 className="rounded-full"
+                disabled={!uploadsReady}
                 onClick={() => requireAuth(needsGeneration ? runBatch : () => setStep(socialStepIndex))}
               >
                 {needsGeneration ? (isAlbum ? "Generate album campaign" : "Generate campaigns") : "Continue"}
@@ -273,94 +320,6 @@ export default function ReleaseCampaignPlanner() {
           </div>
         ) : null}
       </SurfacePanel>
-    </div>
-  );
-}
-
-function TracksStep({ release, artist, releaseId, songs, isAlbum, albumCampaign, campaignBySong, navigate }) {
-  return (
-    <div className="space-y-4">
-      <div className="flex gap-4">
-        <ArtworkImage src={release.artwork_url} alt={release.title} className="h-20 w-20 shrink-0" rounded="rounded-xl" />
-        <div>
-          <p className="font-heading text-lg font-semibold">{release.title}</p>
-          <p className="text-sm text-muted-foreground">
-            {artist?.name}
-            {release.release_type ? ` · ${release.release_type}` : ""}
-          </p>
-          {isAlbum ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Albums get <strong className="font-medium text-foreground">one campaign</strong> for the whole release.
-              {albumCampaign ? (
-                <>
-                  {" "}
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="h-auto p-0 text-xs"
-                    onClick={() => navigate(`/campaigns/${albumCampaign.id}/plan`)}
-                  >
-                    Open album plan
-                  </Button>
-                </>
-              ) : (
-                " Generate it in the next steps."
-              )}
-            </p>
-          ) : null}
-        </div>
-      </div>
-      {!songs.length ? (
-        <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-          Add tracks on the release editor, then return here.
-          <Button type="button" variant="link" className="h-auto p-0 pl-1" onClick={() => navigate(`/releases/${releaseId}/edit`)}>
-            Edit release & tracklist
-          </Button>
-        </div>
-      ) : (
-        <ul className="divide-y divide-border/50 rounded-xl border border-border/60">
-          {songs.map((s, i) => {
-            const camp = campaignBySong[s.id];
-            return (
-              <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
-                <span>
-                  <span className="mr-2 tabular-nums text-muted-foreground">{i + 1}.</span>
-                  {s.title}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {isAlbum
-                    ? albumCampaign
-                      ? "Included in album campaign"
-                      : "Included when you generate the album plan"
-                    : camp
-                      ? "Campaign ready"
-                      : "Needs campaign"}
-                  {!s.audio_url ? " · add audio in track setup" : ""}
-                </span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="rounded-full"
-                  onClick={() => {
-                    if (isAlbum && albumCampaign) {
-                      navigate(`/campaigns/${albumCampaign.id}/plan`);
-                      return;
-                    }
-                    if (!isAlbum && camp) {
-                      navigate(`/campaigns/${camp.id}/plan`);
-                      return;
-                    }
-                    navigate(`/create/track?release=${releaseId}&song=${s.id}`);
-                  }}
-                >
-                  {isAlbum && albumCampaign ? "Open album plan" : !isAlbum && camp ? "Open plan" : "Full track setup"}
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
     </div>
   );
 }
@@ -449,7 +408,7 @@ function GenerateStep({ generating, stage, isAlbum, needsGeneration, pendingTrac
           <p className="text-sm text-muted-foreground">
             {isAlbum ? (
               <>
-                Creates <strong>one</strong> AI campaign plan for the full album
+                Creates <strong>one</strong> AI campaign plan (hooks, captions, and daily posts) for the full album
                 {pendingTrackCount ? (
                   <>
                     {" "}
@@ -459,7 +418,7 @@ function GenerateStep({ generating, stage, isAlbum, needsGeneration, pendingTrac
               </>
             ) : (
               <>
-                Creates AI campaign plans for <strong>{pendingTrackCount}</strong> track
+                Creates AI campaign plans (hooks, captions, daily posts) for <strong>{pendingTrackCount}</strong> track
                 {pendingTrackCount === 1 ? "" : "s"} without campaigns. Tracks that already have campaigns are skipped.
               </>
             )}

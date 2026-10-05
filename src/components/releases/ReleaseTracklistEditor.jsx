@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { GripVertical, Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,19 @@ function emptyRow(n) {
 /**
  * Manage album/EP track list on a release (creates Song rows with release_id + track_number).
  */
-export default function ReleaseTracklistEditor({ releaseId, artistId, releaseArtworkUrl = "", releaseDate = "", onSaved }) {
+function ReleaseTracklistEditorInner(
+  {
+    releaseId,
+    artistId,
+    releaseArtworkUrl = "",
+    releaseDate = "",
+    releaseGenre = "",
+    releaseLanguage = "English",
+    onSaved,
+    hideSaveButton = false,
+  },
+  ref
+) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -69,11 +81,11 @@ export default function ReleaseTracklistEditor({ releaseId, artistId, releaseArt
     });
   };
 
-  const save = async () => {
+  const save = async ({ quiet = false } = {}) => {
     const titles = rows.map((r) => r.title.trim()).filter(Boolean);
     if (!titles.length) {
-      toast({ variant: "destructive", title: "Add at least one track title" });
-      return;
+      if (!quiet) toast({ variant: "destructive", title: "Add at least one track title" });
+      return false;
     }
     setBusy(true);
     try {
@@ -90,6 +102,8 @@ export default function ReleaseTracklistEditor({ releaseId, artistId, releaseArt
           track_number,
           release_date: releaseDate || null,
           artwork_url: releaseArtworkUrl || "",
+          genre: releaseGenre || "",
+          language: releaseLanguage || "English",
           is_demo: false,
         };
         if (r.id) {
@@ -107,14 +121,21 @@ export default function ReleaseTracklistEditor({ releaseId, artistId, releaseArt
         await db.entities.Song.update(o.id, { release_id: null, track_number: null });
       }
 
-      toast({ title: "Tracklist saved" });
+      if (!quiet) toast({ title: "Tracklist saved" });
       onSaved?.();
+      return true;
     } catch (e) {
-      toast({ variant: "destructive", title: "Could not save tracks", description: e.message });
+      if (!quiet) toast({ variant: "destructive", title: "Could not save tracks", description: e.message });
+      return false;
     } finally {
       setBusy(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    save,
+    hasTitles: () => rows.some((r) => r.title.trim()),
+  }));
 
   if (loading) {
     return (
@@ -168,12 +189,17 @@ export default function ReleaseTracklistEditor({ releaseId, artistId, releaseArt
         ))}
       </ul>
       <p className="text-xs text-muted-foreground">
-        Add every song on the album here. You can attach audio and run campaigns per track next.
+        These names appear on the upload step and in generated hooks and captions.
       </p>
-      <Button type="button" onClick={save} disabled={busy} className="rounded-full">
-        {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-        Save tracklist
-      </Button>
+      {!hideSaveButton ? (
+        <Button type="button" onClick={() => save()} disabled={busy} className="rounded-full">
+          {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Save tracklist
+        </Button>
+      ) : null}
     </div>
   );
 }
+
+const ReleaseTracklistEditor = forwardRef(ReleaseTracklistEditorInner);
+export default ReleaseTracklistEditor;

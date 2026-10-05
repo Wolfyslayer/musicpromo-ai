@@ -1,3 +1,4 @@
+import { formatTracklistForAI } from "@/services/releaseDefaults";
 import { sortReleaseTracks } from "@/services/releaseTracks";
 
 export function isAlbumRelease(release) {
@@ -19,12 +20,10 @@ export function buildAlbumSongForAI(release, songs, artistName) {
   const anchor = pickAnchorSong(release, songs);
   if (!anchor) return null;
   const ordered = sortReleaseTracks(songs);
-  const tracklist = ordered.map((s, i) => `${i + 1}. ${s.title}`).join("\n");
   const descriptionParts = [
     release.description,
-    `This is a full album release (${ordered.length} tracks). Plan one cohesive album promo campaign — tease singles, tracklist reveals, release day, and post-release momentum.`,
-    "Tracklist:",
-    tracklist,
+    `This is a full album release (${ordered.length} tracks). Plan one cohesive album promo campaign — tease singles, tracklist reveals, release day, and post-release momentum. Reference individual track titles by name in hooks and captions when promoting specific songs.`,
+    formatTracklistForAI(release, ordered),
   ].filter(Boolean);
 
   return {
@@ -33,7 +32,32 @@ export function buildAlbumSongForAI(release, songs, artistName) {
     description: descriptionParts.join("\n\n"),
     artwork_url: release.artwork_url || anchor.artwork_url,
     release_date: release.release_date || anchor.release_date,
+    genre: release.genre || anchor.genre,
+    language: release.language || anchor.language || "English",
     artistName: artistName || anchor.artistName,
+  };
+}
+
+/** Per-track campaign: keep the song title the user entered; add release + tracklist context for EPs. */
+export function buildTrackSongForAI(release, song, songs, artistName) {
+  const ordered = sortReleaseTracks(songs || []);
+  const focusTitle = song.title?.trim() || "Untitled";
+  const parts = [
+    song.description,
+    release?.title ? `Release: ${release.title}` : "",
+    ordered.length > 1 ? formatTracklistForAI(release, ordered) : "",
+    `This campaign promotes the track "${focusTitle}" — use this exact title in hooks, captions, and CTAs.`,
+  ].filter(Boolean);
+
+  return {
+    ...song,
+    title: focusTitle,
+    description: parts.join("\n\n"),
+    artwork_url: song.artwork_url || release?.artwork_url || "",
+    release_date: song.release_date || release?.release_date || null,
+    genre: release?.genre || song.genre,
+    language: release?.language || song.language || "English",
+    artistName: artistName || song.artistName,
   };
 }
 

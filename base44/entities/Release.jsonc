@@ -37,6 +37,15 @@
       "type": "string",
       "title": "Description"
     },
+    "genre": {
+      "type": "string",
+      "title": "Genre"
+    },
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "default": "English"
+    },
     "release_type": {
       "type": "string",
       "enum": [
