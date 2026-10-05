@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
-  Bell,
   CalendarClock,
   CheckCircle2,
   Link2,
@@ -59,11 +58,11 @@ const STEPS = [
     highlight: "[data-tour='launch-checklist']",
   },
   {
-    id: "inbox",
-    title: "Activity bell",
-    body: "Schedule errors and publish failures show up in the activity inbox (bell in the header) so nothing gets lost.",
-    icon: Bell,
-    highlight: "[data-tour='activity-bell']",
+    id: "daily-claim",
+    title: "Daily credits",
+    body: "Tap the 🎁 in the header any time to claim free AI credits — day 3 and day 7 pay bonus amounts each month.",
+    icon: Sparkles,
+    highlight: "[data-tour='daily-claim-gift']",
   },
   {
     id: "ready",
