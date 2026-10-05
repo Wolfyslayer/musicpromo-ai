@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast";
 
 import { loadArtists } from "@/services/data";
-import { RELEASE_STATUSES, RELEASE_TYPES } from "@/services/constants";
+import { GENRES, LANGUAGES, RELEASE_STATUSES, RELEASE_TYPES } from "@/services/constants";
 import ReleaseTracklistEditor from "@/components/releases/ReleaseTracklistEditor";
 import { todayISO } from "@/services/format";
 import ArtworkUpload from "@/components/ArtworkUpload";
@@ -40,6 +40,8 @@ export default function ReleaseEditor() {
     description: "",
     presave_url: "",
     release_type: "single",
+    genre: "",
+    language: "English",
   });
 
   useEffect(() => {
@@ -63,6 +65,8 @@ export default function ReleaseEditor() {
           description: r.description || "",
           presave_url: r.presave_url || "",
           release_type: r.release_type || "single",
+          genre: r.genre || "",
+          language: r.language || "English",
         });
       })
       .catch((e) => {
@@ -94,6 +98,8 @@ export default function ReleaseEditor() {
         description: form.description || "",
         presave_url: form.presave_url || "",
         release_type: form.release_type || "single",
+        genre: form.genre || "",
+        language: form.language || "English",
         is_demo: false,
       };
       if (isNew) {
@@ -176,6 +182,26 @@ export default function ReleaseEditor() {
               </SelectContent>
             </Select>
           </Field>
+          <Field label="Genre">
+            <Select value={form.genre} onValueChange={(v) => set("genre", v)}>
+              <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select genre" /></SelectTrigger>
+              <SelectContent>
+                {GENRES.map((g) => (
+                  <SelectItem key={g} value={g}>{g}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Language">
+            <Select value={form.language} onValueChange={(v) => set("language", v)}>
+              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {LANGUAGES.map((lang) => (
+                  <SelectItem key={lang} value={lang}>{lang}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
           <Field label="Status">
             <Select value={form.status} onValueChange={(v) => set("status", v)}>
               <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
@@ -219,6 +245,8 @@ export default function ReleaseEditor() {
             artistId={form.artist_id}
             releaseArtworkUrl={form.artwork_url}
             releaseDate={form.release_date}
+            releaseGenre={form.genre}
+            releaseLanguage={form.language}
           />
         </SurfacePanel>
       ) : null}

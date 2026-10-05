@@ -191,7 +191,7 @@ export default function ReleaseDetail() {
                       ? navigate(`/campaigns/${albumCampaign.id}/plan`)
                       : related
                         ? navigate(`/campaigns/${related.id}/plan`)
-                        : navigate(`/create/track?release=${id}&song=${s.id}`)
+                        : navigate(`/create?release=${id}&song=${s.id}`)
                   }
                   className="flex w-full items-center gap-3 rounded-xl border border-border/50 bg-card/40 p-3 text-left transition hover:border-primary/40"
                 >

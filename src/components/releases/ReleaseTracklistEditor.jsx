@@ -14,7 +14,15 @@ function emptyRow(n) {
 /**
  * Manage album/EP track list on a release (creates Song rows with release_id + track_number).
  */
-export default function ReleaseTracklistEditor({ releaseId, artistId, releaseArtworkUrl = "", releaseDate = "", onSaved }) {
+export default function ReleaseTracklistEditor({
+  releaseId,
+  artistId,
+  releaseArtworkUrl = "",
+  releaseDate = "",
+  releaseGenre = "",
+  releaseLanguage = "English",
+  onSaved,
+}) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -90,6 +98,8 @@ export default function ReleaseTracklistEditor({ releaseId, artistId, releaseArt
           track_number,
           release_date: releaseDate || null,
           artwork_url: releaseArtworkUrl || "",
+          genre: releaseGenre || "",
+          language: releaseLanguage || "English",
           is_demo: false,
         };
         if (r.id) {

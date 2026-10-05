@@ -33,6 +33,8 @@ export function buildAlbumSongForAI(release, songs, artistName) {
     description: descriptionParts.join("\n\n"),
     artwork_url: release.artwork_url || anchor.artwork_url,
     release_date: release.release_date || anchor.release_date,
+    genre: release.genre || anchor.genre,
+    language: release.language || anchor.language || "English",
     artistName: artistName || anchor.artistName,
   };
 }

@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import ArtworkUpload from "@/components/ArtworkUpload";
 import { loadArtists, loadReleases } from "@/services/data";
-import { RELEASE_TYPES } from "@/services/constants";
+import { GENRES, LANGUAGES, RELEASE_TYPES } from "@/services/constants";
 import { todayISO } from "@/services/format";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -32,6 +32,8 @@ export default function ReleasePickOrCreateStep({ onReleaseReady }) {
     release_date: todayISO(),
     artwork_url: "",
     presave_url: "",
+    genre: "",
+    language: "English",
     trackTitles: "Track 1",
   });
 
@@ -67,6 +69,10 @@ export default function ReleasePickOrCreateStep({ onReleaseReady }) {
       toast({ variant: "destructive", title: "Add at least one track title" });
       return;
     }
+    if (!form.genre || !form.language) {
+      toast({ variant: "destructive", title: "Genre and language required" });
+      return;
+    }
     setBusy(true);
     try {
       const release = await db.entities.Release.create({
@@ -76,6 +82,8 @@ export default function ReleasePickOrCreateStep({ onReleaseReady }) {
         release_date: form.release_date || null,
         artwork_url: form.artwork_url || "",
         presave_url: form.presave_url || "",
+        genre: form.genre,
+        language: form.language,
         status: "draft",
         is_demo: false,
       });
@@ -87,6 +95,8 @@ export default function ReleasePickOrCreateStep({ onReleaseReady }) {
           track_number: i + 1,
           release_date: form.release_date || null,
           artwork_url: form.artwork_url || "",
+          genre: form.genre,
+          language: form.language,
           is_demo: false,
         });
       }
@@ -110,8 +120,8 @@ export default function ReleasePickOrCreateStep({ onReleaseReady }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Every campaign belongs to a <strong>release</strong> (single, EP, or album). Pick one you already have or create
-        it here — then you will plan rollout and social posts for each track.
+        Start with a <strong>release</strong> (single, EP, or album). Set genre and language once, upload audio per
+        track, then generate your campaign plan.
       </p>
 
       <div className="inline-flex rounded-full bg-muted/50 p-1">
@@ -201,6 +211,36 @@ export default function ReleasePickOrCreateStep({ onReleaseReady }) {
               </Select>
             </div>
             <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Genre (all tracks)</Label>
+              <Select value={form.genre} onValueChange={(v) => set("genre", v)}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="Select genre" />
+                </SelectTrigger>
+                <SelectContent>
+                  {GENRES.map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {g}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Language (all tracks)</Label>
+              <Select value={form.language} onValueChange={(v) => set("language", v)}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LANGUAGES.map((lang) => (
+                    <SelectItem key={lang} value={lang}>
+                      {lang}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Release date</Label>
               <Input type="date" value={form.release_date} onChange={(e) => set("release_date", e.target.value)} className="rounded-xl" />
             </div>
@@ -219,7 +259,7 @@ export default function ReleasePickOrCreateStep({ onReleaseReady }) {
               placeholder={"Intro\nSingle name\nOutro"}
             />
             <p className="text-xs text-muted-foreground">
-              Singles & EPs: one campaign per track. Albums: one line per song, then one shared album campaign in the next steps.
+              One line per song. Singles use one line; EPs and albums list every track.
             </p>
           </div>
           <Button type="button" className="rounded-full" disabled={busy} onClick={() => requireAuth(createAndContinue)}>
