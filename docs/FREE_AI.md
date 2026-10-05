@@ -1,6 +1,8 @@
 # Free AI (Google Gemini — default)
 
-Campaign **analyze**, **plan**, **support chat**, cover **prompt polish**, and optional **motion prompt** wording all use **`invokeLlm`** — an **OpenAI-compatible** HTTP API pointed at **Gemini** by default.
+Campaign **plan**, **support chat**, cover **prompt polish**, and optional **motion prompt** wording use **`invokeLlm`** — an **OpenAI-compatible** HTTP API pointed at **Gemini** by default (or Groq when `AI_PROVIDER=openai`).
+
+**Song analysis** (`analyzeSong`) **always** calls **Google Gemini** (`GEMINI_API_KEY` + `GEMINI_MODEL`), even if you use Groq for other text features.
 
 **Promo video pixels** still render **on your device** (Remotion/WebCodecs). Optional cloud video clips still use **fal/Replicate** when configured (see [PROMO_VIDEO.md](./PROMO_VIDEO.md)).
 
