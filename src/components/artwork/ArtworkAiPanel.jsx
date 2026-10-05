@@ -125,16 +125,16 @@ export default function ArtworkAiPanel({ onImageReady, requireAuth }) {
           <div>
             <h2 className="font-heading text-lg font-semibold">AI album cover</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Start from a prompt, or upload a photo and describe edits — like ChatGPT image chat. Square output;
-              add titles in the Design tab.
+              Start from a prompt, or upload a photo and describe edits (Gemini). Square output; add titles in the
+              Design tab.
             </p>
           </div>
         </div>
 
         {!status?.configured ? (
           <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100/90">
-            AI covers need <strong className="font-semibold">OPENAI_API_KEY</strong> (OpenAI Images — same Supabase
-            Edge Function secrets as chat). You can still use the Design editor below.
+            AI covers need <strong className="font-semibold">GEMINI_API_KEY</strong> (Google AI Studio — same Supabase
+            secrets as campaign AI). You can still use the Design editor below.
           </p>
         ) : null}
 
@@ -197,7 +197,7 @@ export default function ArtworkAiPanel({ onImageReady, requireAuth }) {
             </Button>
           ) : null}
           {status?.configured && !status?.supportsImageEdit ? (
-            <p className="text-xs text-amber-200/80">Photo edits need OpenAI (not fal/Replicate-only setups).</p>
+            <p className="text-xs text-amber-200/80">Photo edits need Gemini or OpenAI (not fal/Replicate-only).</p>
           ) : null}
         </div>
 

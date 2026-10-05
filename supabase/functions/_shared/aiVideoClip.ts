@@ -1,5 +1,5 @@
 /**
- * Optional pay-per-use image→video. Groq/OpenAI is used only to *wordsmith* the motion prompt (text).
+ * Optional pay-per-use image→video. Gemini (default) / OpenAI is used only to *wordsmith* the motion prompt (text).
  * Pixel generation requires fal.ai or Replicate — Groq cannot render video.
  *
  * Secrets (Supabase Edge Functions):
@@ -10,6 +10,7 @@
  */
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { hasLlmConfigured } from "./aiProvider.ts";
 import { invokeLlm } from "./invokeLlm.ts";
 
 const BUCKET = "music-promo-assets";
@@ -38,7 +39,7 @@ export function aiVideoProviderStatus() {
     configured: paidEnabled,
     /** When false, the editor hides pay-per-use cloud clip UI. */
     showPaidClipUi: paidEnabled,
-    groqPromptAssist: Boolean(Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY")),
+    groqPromptAssist: hasLlmConfigured(),
     falModel: Deno.env.get("FAL_VIDEO_MODEL") || DEFAULT_FAL_MODEL,
     replicateModel: Deno.env.get("REPLICATE_VIDEO_MODEL") || DEFAULT_REPLICATE_MODEL,
     note:
@@ -52,7 +53,7 @@ export function aiVideoProviderStatus() {
 
 export async function expandMotionPromptWithLlm(userPrompt: string, songTitle = ""): Promise<string> {
   const base = String(userPrompt || "").trim() || "Slow cinematic motion from album artwork, music promo.";
-  if (!(Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY"))) return base;
+  if (!hasLlmConfigured()) return base;
   try {
     const result = (await invokeLlm({
       prompt: `Write ONE image-to-video motion prompt for animating album cover art into a vertical music promo clip.
@@ -67,7 +68,7 @@ Artist note: ${base}`,
     })) as { prompt?: string };
     return String(result?.prompt || base).trim() || base;
   } catch (err) {
-    console.warn("[aiVideoClip] Groq/LLM prompt assist skipped:", (err as Error).message);
+    console.warn("[aiVideoClip] LLM prompt assist skipped:", (err as Error).message);
     return base;
   }
 }

@@ -60,8 +60,8 @@ async function handler(req: Request) {
       motionPrompt: generated.motionPrompt,
       billingNote: generated.billingNote,
       groqNote: aiVideoProviderStatus().groqPromptAssist
-        ? "Motion prompt was refined with your Groq/OpenAI text API (Groq does not render video)."
-        : "Set OPENAI_BASE_URL to Groq for free motion prompt wording; video pixels still use fal/Replicate.",
+        ? "Motion prompt was refined with Gemini (text only — video pixels still use fal/Replicate if enabled)."
+        : "Set GEMINI_API_KEY for free motion prompt wording; video pixels still use fal/Replicate.",
     });
   } catch (error) {
     return jsonWithCors(req, { error: (error as Error).message }, 500);

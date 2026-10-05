@@ -1,17 +1,17 @@
 /**
- * Text → album cover image (optional pay-per-use).
+ * Text → album cover image.
  *
- * Secrets (preferred):
- * - OPENAI_API_KEY or OPENAI_IMAGE_API_KEY — OpenAI Images API (DALL·E / gpt-image)
- * - OPENAI_IMAGE_MODEL — optional, default dall-e-3
- * - OPENAI_IMAGE_BASE_URL — optional, default https://api.openai.com/v1 (use real OpenAI even if OPENAI_BASE_URL is Groq)
+ * Default: Google Gemini image models (GEMINI_API_KEY from AI Studio).
  *
- * Legacy fallbacks:
- * - FAL_KEY, REPLICATE_API_TOKEN — when AI_COVER_PROVIDER=fal|replicate or no OpenAI image key
- * - AI_COVER_PROVIDER — openai | fal | replicate | off
+ * Legacy:
+ * - OPENAI_IMAGE_* — OpenAI Images (DALL·E / gpt-image)
+ * - FAL_KEY, REPLICATE_API_TOKEN — AI_COVER_PROVIDER=fal|replicate
+ * - AI_COVER_PROVIDER — gemini | openai | fal | replicate | off
  */
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { hasLlmConfigured, resolveGeminiApiKey } from "./aiProvider.ts";
+import { geminiGenerateImage, resolveGeminiImageModel } from "./geminiImages.ts";
 import { invokeLlm } from "./invokeLlm.ts";
 
 const BUCKET = "music-promo-assets";
@@ -21,7 +21,7 @@ const DEFAULT_OPENAI_IMAGE_MODEL = "dall-e-3";
 const DEFAULT_OPENAI_IMAGE_EDIT_MODEL = "gpt-image-1";
 const DEFAULT_OPENAI_IMAGE_SIZE = "1024x1024";
 
-export type CoverArtProvider = "openai" | "fal" | "replicate" | "off";
+export type CoverArtProvider = "gemini" | "openai" | "fal" | "replicate" | "off";
 
 function openAiImageApiKey(): string {
   return (Deno.env.get("OPENAI_IMAGE_API_KEY") || Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY") || "")
@@ -35,6 +35,7 @@ function openAiImageApiBase(): string {
 
 export function resolveCoverArtProvider(): CoverArtProvider {
   const mode = (Deno.env.get("AI_COVER_PROVIDER") || "").trim().toLowerCase();
+  const geminiKey = resolveGeminiApiKey();
   const openaiKey = openAiImageApiKey();
   const falKey = (Deno.env.get("FAL_KEY") || "").trim();
   const repToken = (Deno.env.get("REPLICATE_API_TOKEN") || "").trim();
@@ -42,10 +43,12 @@ export function resolveCoverArtProvider(): CoverArtProvider {
   if (mode === "off" || mode === "none" || mode === "false" || mode === "0") {
     return "off";
   }
+  if (mode === "gemini") return geminiKey ? "gemini" : "off";
   if (mode === "openai") return openaiKey ? "openai" : "off";
   if (mode === "fal") return falKey ? "fal" : "off";
   if (mode === "replicate") return repToken ? "replicate" : "off";
 
+  if (geminiKey) return "gemini";
   if (openaiKey) return "openai";
   if (falKey) return "fal";
   if (repToken) return "replicate";
@@ -57,19 +60,22 @@ export function coverArtProviderStatus() {
   return {
     provider,
     configured: provider !== "off",
-    supportsImageEdit: provider === "openai",
+    supportsImageEdit: provider === "gemini" || provider === "openai",
+    geminiImageModel: resolveGeminiImageModel(),
     openAiImageModel: Deno.env.get("OPENAI_IMAGE_MODEL") || DEFAULT_OPENAI_IMAGE_MODEL,
     openAiImageEditModel: Deno.env.get("OPENAI_IMAGE_EDIT_MODEL") || DEFAULT_OPENAI_IMAGE_EDIT_MODEL,
     falModel: Deno.env.get("FAL_COVER_MODEL") || DEFAULT_FAL_COVER,
     replicateModel: Deno.env.get("REPLICATE_COVER_MODEL") || DEFAULT_REPLICATE_COVER,
     note:
-      provider === "openai"
-        ? "Cover art billed by OpenAI (Images API — pay-as-you-go)."
-        : provider === "fal"
-          ? "Cover art billed by fal.ai (Flux — pay-as-you-go)."
-          : provider === "replicate"
-            ? "Cover art billed by Replicate (Flux Schnell)."
-            : "Set OPENAI_API_KEY (or OPENAI_IMAGE_API_KEY) in Supabase Edge Function secrets to enable AI covers.",
+      provider === "gemini"
+        ? "Cover art via Gemini (Google AI Studio free tier limits apply)."
+        : provider === "openai"
+          ? "Cover art billed by OpenAI (Images API — pay-as-you-go)."
+          : provider === "fal"
+            ? "Cover art billed by fal.ai (Flux — pay-as-you-go)."
+            : provider === "replicate"
+              ? "Cover art billed by Replicate (Flux Schnell)."
+              : "Set GEMINI_API_KEY in Supabase Edge Function secrets to enable AI covers.",
   };
 }
 
@@ -91,7 +97,7 @@ export async function expandCoverPromptWithLlm(input: {
     .filter(Boolean)
     .join(" ");
 
-  if (!(Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY"))) {
+  if (!hasLlmConfigured()) {
     return base || "Square album cover art, cinematic lighting, no text, no logos, music release artwork.";
   }
 
@@ -136,9 +142,7 @@ export async function expandCoverEditPromptWithLlm(input: {
 
   const base = `Image 1: square music album cover artwork. Apply this edit: ${instruction}. ${context} Preserve the overall composition unless the edit requires a big change. Do not add on-image text, logos, or watermarks unless the user explicitly asked for text.`;
 
-  if (!(Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY"))) {
-    return base;
-  }
+  if (!hasLlmConfigured()) return base;
 
   try {
     const result = (await invokeLlm({
@@ -371,30 +375,41 @@ export async function generateCloudCoverArt(input: {
 }> {
   const provider = resolveCoverArtProvider();
   if (provider === "off") {
-    throw new Error(
-      "AI cover art is not configured. Set OPENAI_API_KEY (or OPENAI_IMAGE_API_KEY) in Supabase Edge Function secrets."
-    );
+    throw new Error("AI cover art is not configured. Set GEMINI_API_KEY in Supabase Edge Function secrets.");
   }
 
   const hasReference = Boolean(input.referenceImageBytes?.byteLength);
 
   if (hasReference) {
-    if (provider !== "openai") {
-      throw new Error("Upload-and-edit requires OpenAI Images (OPENAI_IMAGE_API_KEY). Text-only fal/Replicate cannot edit photos.");
-    }
     const imagePrompt =
       input.useLlmPrompt !== false
         ? await expandCoverEditPromptWithLlm(input)
         : `Image 1: album cover. ${String(input.prompt || "").trim()}`;
 
-    const edited = await openAiEditImage(imagePrompt, input.referenceImageBytes!);
-    return {
-      ...edited,
-      provider: "openai",
-      imagePrompt,
-      billingNote: "Billed by OpenAI (image edit with your upload).",
-      mode: "edit",
-    };
+    if (provider === "gemini") {
+      const gemini = await geminiGenerateImage({
+        prompt: imagePrompt,
+        referenceImageBytes: input.referenceImageBytes,
+      });
+      return {
+        imageBytes: gemini.imageBytes,
+        provider: "gemini",
+        imagePrompt,
+        billingNote: "Edited with Gemini (Google AI Studio).",
+        mode: "edit",
+      };
+    }
+    if (provider === "openai") {
+      const edited = await openAiEditImage(imagePrompt, input.referenceImageBytes!);
+      return {
+        ...edited,
+        provider: "openai",
+        imagePrompt,
+        billingNote: "Billed by OpenAI (image edit with your upload).",
+        mode: "edit",
+      };
+    }
+    throw new Error("Upload-and-edit requires Gemini or OpenAI Images (not fal/Replicate-only).");
   }
 
   const imagePrompt =
@@ -402,6 +417,17 @@ export async function generateCloudCoverArt(input: {
       ? await expandCoverPromptWithLlm(input)
       : String(input.prompt || "").trim() ||
         "Square album cover artwork, cinematic, no text, no logos, music release.";
+
+  if (provider === "gemini") {
+    const gemini = await geminiGenerateImage({ prompt: imagePrompt });
+    return {
+      imageBytes: gemini.imageBytes,
+      provider: "gemini",
+      imagePrompt,
+      billingNote: "Generated with Gemini (Google AI Studio).",
+      mode: "generate",
+    };
+  }
 
   const result =
     provider === "openai"

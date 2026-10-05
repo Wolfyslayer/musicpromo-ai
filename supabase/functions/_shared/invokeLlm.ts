@@ -1,11 +1,25 @@
 /**
  * OpenAI-compatible chat completion used by migrated Base44 InvokeLLM call sites.
  *
- * Supabase secrets:
- * - OPENAI_API_KEY (required)
- * - OPENAI_MODEL (optional, default gpt-4o-mini)
- * - OPENAI_BASE_URL (optional, default https://api.openai.com/v1)
+ * Defaults to Google Gemini (free tier) via OpenAI-compatible endpoint.
+ *
+ * Supabase secrets (Gemini — recommended):
+ * - GEMINI_API_KEY — from https://aistudio.google.com/apikey
+ * - GEMINI_MODEL — optional, default gemini-2.5-flash
+ * - AI_PROVIDER=gemini (default) | openai
+ *
+ * Legacy OpenAI / Groq:
+ * - OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL
  */
+
+import {
+  hasLlmConfigured,
+  llmSetupHint,
+  resolveAiProvider,
+  resolveLlmApiKey,
+  resolveLlmBaseUrl,
+  resolveLlmModel,
+} from "./aiProvider.ts";
 
 type InvokeLlmArgs = {
   prompt?: string;
@@ -13,15 +27,6 @@ type InvokeLlmArgs = {
   add_context_from_internet?: boolean;
   file_urls?: string[];
 };
-
-function modelName(): string {
-  return Deno.env.get("OPENAI_MODEL") || Deno.env.get("AI_MODEL") || "gpt-4o-mini";
-}
-
-function apiBase(): string {
-  const base = Deno.env.get("OPENAI_BASE_URL") || "https://api.openai.com/v1";
-  return base.replace(/\/+$/, "");
-}
 
 function extractJson(text: string): unknown {
   const trimmed = String(text || "").trim();
@@ -39,11 +44,9 @@ function extractJson(text: string): unknown {
 }
 
 export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<string, unknown>> {
-  const apiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY") || "";
+  const apiKey = resolveLlmApiKey();
   if (!apiKey) {
-    throw new Error(
-      "Set OPENAI_API_KEY in Supabase Edge Function secrets (Project Settings → Edge Functions)."
-    );
+    throw new Error(llmSetupHint());
   }
 
   const prompt = String(args.prompt || "").trim();
@@ -58,12 +61,12 @@ export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<st
 
   const schema = args.response_json_schema;
   const baseBody: Record<string, unknown> = {
-    model: modelName(),
+    model: resolveLlmModel(),
     messages: [{ role: "user", content: prompt }],
   };
 
   async function requestWithBody(body: Record<string, unknown>): Promise<Response> {
-    return fetch(`${apiBase()}/chat/completions`, {
+    return fetch(`${resolveLlmBaseUrl()}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -88,7 +91,7 @@ export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<st
   let res = await requestWithBody(body);
   let raw = await res.text();
 
-  // Groq / some free tiers reject json_schema — retry with json_object + prompt JSON hint.
+  // Gemini / Groq / some tiers reject json_schema — retry with json_object + prompt JSON hint.
   if (!res.ok && schema && (res.status === 400 || res.status === 422)) {
     console.warn("[invokeLlm] json_schema rejected; retrying with json_object");
     body = {
@@ -106,9 +109,12 @@ export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<st
   }
 
   if (!res.ok) {
-    if (res.status === 429 && /insufficient_quota|credit_balance|rate_limit/i.test(raw)) {
+    if (res.status === 429 && /insufficient_quota|credit_balance|rate_limit|RESOURCE_EXHAUSTED/i.test(raw)) {
+      const provider = resolveAiProvider();
       throw new Error(
-        "AI quota exceeded. Add OpenAI credits or switch to a free provider (Groq): set OPENAI_BASE_URL=https://api.groq.com/openai/v1 and a Groq API key — see docs/FREE_AI.md."
+        provider === "gemini"
+          ? "Gemini quota exceeded. Wait for the free-tier reset or enable billing in Google AI Studio — see docs/FREE_AI.md."
+          : "AI quota exceeded. See docs/FREE_AI.md for Gemini (free) or Groq setup."
       );
     }
     throw new Error(`AI request failed (${res.status}): ${raw.slice(0, 400)}`);
@@ -136,11 +142,9 @@ export async function invokeLlmChat(args: {
   messages: ChatMessage[];
   response_json_schema?: Record<string, unknown>;
 }): Promise<string | Record<string, unknown>> {
-  const apiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY") || "";
+  const apiKey = resolveLlmApiKey();
   if (!apiKey) {
-    throw new Error(
-      "Set OPENAI_API_KEY in Supabase Edge Function secrets (Project Settings → Edge Functions)."
-    );
+    throw new Error(llmSetupHint());
   }
 
   const messages = (args.messages || [])
@@ -153,12 +157,12 @@ export async function invokeLlmChat(args: {
 
   const schema = args.response_json_schema;
   const baseBody: Record<string, unknown> = {
-    model: modelName(),
+    model: resolveLlmModel(),
     messages,
   };
 
   async function requestWithBody(body: Record<string, unknown>): Promise<Response> {
-    return fetch(`${apiBase()}/chat/completions`, {
+    return fetch(`${resolveLlmBaseUrl()}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -206,3 +210,5 @@ export async function invokeLlmChat(args: {
   if (schema) return extractJson(content) as Record<string, unknown>;
   return content;
 }
+
+export { hasLlmConfigured };
