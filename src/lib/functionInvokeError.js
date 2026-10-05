@@ -7,6 +7,10 @@ export async function messageFromFunctionInvokeError(err) {
       const body = await context.json();
       if (body?.error) message = body.error;
       else if (body?.message) message = body.message;
+      const detail = body?.details ? String(body.details).trim() : "";
+      if (detail && detail !== message) {
+        message = `${message} (${detail})`;
+      }
     } catch {
       /* keep default */
     }

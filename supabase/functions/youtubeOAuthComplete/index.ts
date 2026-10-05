@@ -58,10 +58,25 @@ async function handler(req: Request): Promise<Response> {
     const oauthClientId =
       record.oauth_client_id != null ? String(record.oauth_client_id).trim() : "";
 
+    const boundArtistId =
+      record.artist_id != null ? String(record.artist_id).trim() : "";
+    if (!boundArtistId) {
+      return jsonWithCors(
+        req,
+        {
+          error:
+            "Missing artist on this connection. Select an artist in Social Hub and connect YouTube again.",
+          code: "ARTIST_REQUIRED",
+        },
+        400
+      );
+    }
+
     await completeYouTubeConnect({
       base44,
       code,
       boundUserId: String(user.id),
+      boundArtistId,
       encryptionKey,
       redirectUri,
       oauthClientId: oauthClientId || null,
