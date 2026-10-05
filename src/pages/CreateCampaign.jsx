@@ -127,6 +127,7 @@ export default function CreateCampaign() {
           audioUri: s.audio_url || f.audioUri,
           audioSignedUrl: s.audio_url || f.audioSignedUrl,
           audioDuration: s.audio_duration ?? f.audioDuration,
+          audioName: s.audio_filename || f.audioName,
           lyrics: s.lyrics || f.lyrics,
         }));
       } catch {
@@ -264,7 +265,10 @@ export default function CreateCampaign() {
       const songPayload = {
         artist_id: artistId, title: form.title.trim(), genre: form.genre, release_date: form.releaseDate,
         language: form.language, description: form.description, artwork_url: form.artworkUrl,
-        audio_url: form.audioUri, audio_duration: form.audioDuration, lyrics: form.lyrics,
+        audio_url: form.audioUri,
+        audio_duration: form.audioDuration,
+        audio_filename: form.audioName || "",
+        lyrics: form.lyrics,
         analysis: form.assetProfile ? { assetProfile: form.assetProfile } : null, is_demo: false,
       };
       if (form.releaseId) songPayload.release_id = form.releaseId;
@@ -681,6 +685,8 @@ function StepAudio({ form, setForm, analyzingAssets, onEnergy }) {
         guard={requireAuth}
         value={form.audioUri}
         signedUrl={form.audioSignedUrl}
+        fileName={form.audioName}
+        durationSec={form.audioDuration}
         onChange={({ file_uri, signed_url, duration, name, file }) => {
           setForm((f) => ({
             ...f,
