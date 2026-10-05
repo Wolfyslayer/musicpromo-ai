@@ -18,6 +18,7 @@ const BUCKET = "music-promo-assets";
 const DEFAULT_FAL_COVER = "fal-ai/flux/dev";
 const DEFAULT_REPLICATE_COVER = "black-forest-labs/flux-schnell";
 const DEFAULT_OPENAI_IMAGE_MODEL = "dall-e-3";
+const DEFAULT_OPENAI_IMAGE_EDIT_MODEL = "gpt-image-1";
 const DEFAULT_OPENAI_IMAGE_SIZE = "1024x1024";
 
 export type CoverArtProvider = "openai" | "fal" | "replicate" | "off";
@@ -56,7 +57,9 @@ export function coverArtProviderStatus() {
   return {
     provider,
     configured: provider !== "off",
+    supportsImageEdit: provider === "openai",
     openAiImageModel: Deno.env.get("OPENAI_IMAGE_MODEL") || DEFAULT_OPENAI_IMAGE_MODEL,
+    openAiImageEditModel: Deno.env.get("OPENAI_IMAGE_EDIT_MODEL") || DEFAULT_OPENAI_IMAGE_EDIT_MODEL,
     falModel: Deno.env.get("FAL_COVER_MODEL") || DEFAULT_FAL_COVER,
     replicateModel: Deno.env.get("REPLICATE_COVER_MODEL") || DEFAULT_REPLICATE_COVER,
     note:
@@ -108,6 +111,60 @@ ${base}`,
     console.warn("[aiCoverArt] LLM prompt assist skipped:", (err as Error).message);
     return base || "Square album cover art, cinematic lighting, no text, no logos.";
   }
+}
+
+export async function expandCoverEditPromptWithLlm(input: {
+  prompt: string;
+  title?: string;
+  artistName?: string;
+  genre?: string;
+  mood?: string;
+}): Promise<string> {
+  const instruction = String(input.prompt || "").trim();
+  if (!instruction) {
+    throw new Error("Describe what to change (e.g. “make the sky purple” or “add neon rain”).");
+  }
+
+  const context = [
+    input.title ? `Album title (for mood only, do not render as text): ${input.title}.` : "",
+    input.artistName ? `Artist: ${input.artistName}.` : "",
+    input.genre ? `Genre: ${input.genre}.` : "",
+    input.mood ? `Mood: ${input.mood}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const base = `Image 1: square music album cover artwork. Apply this edit: ${instruction}. ${context} Preserve the overall composition unless the edit requires a big change. Do not add on-image text, logos, or watermarks unless the user explicitly asked for text.`;
+
+  if (!(Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY"))) {
+    return base;
+  }
+
+  try {
+    const result = (await invokeLlm({
+      prompt: `Rewrite as ONE clear instruction for an image-editing model (Image 1 = uploaded album cover).
+User edit request: ${instruction}
+${context}
+Output only the final edit instruction, one paragraph.`,
+      response_json_schema: {
+        type: "object",
+        properties: { prompt: { type: "string" } },
+        required: ["prompt"],
+      },
+    })) as { prompt?: string };
+    const out = String(result?.prompt || base).trim();
+    return out.startsWith("Image 1") ? out : `Image 1: square album cover. ${out}`;
+  } catch (err) {
+    console.warn("[aiCoverArt] edit prompt assist skipped:", (err as Error).message);
+    return base;
+  }
+}
+
+function decodeBase64Image(b64: string): Uint8Array {
+  const binary = atob(b64.replace(/\s/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 async function falTextToImage(prompt: string): Promise<{ sourceUrl: string; provider: "fal" }> {
@@ -243,6 +300,59 @@ async function openAiTextToImage(prompt: string): Promise<{ sourceUrl: string; p
   return { sourceUrl: String(imageUrl), provider: "openai" };
 }
 
+type OpenAiImageResult = {
+  sourceUrl?: string;
+  imageBytes?: Uint8Array;
+  provider: "openai";
+};
+
+async function openAiEditImage(prompt: string, imagePng: Uint8Array): Promise<OpenAiImageResult> {
+  const apiKey = openAiImageApiKey();
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY (or OPENAI_IMAGE_API_KEY) is not set.");
+  }
+  if (imagePng.byteLength > 12 * 1024 * 1024) {
+    throw new Error("Reference image is too large after processing (max 12 MB).");
+  }
+
+  const editModel = (Deno.env.get("OPENAI_IMAGE_EDIT_MODEL") || DEFAULT_OPENAI_IMAGE_EDIT_MODEL).trim();
+  const form = new FormData();
+  form.append("model", editModel);
+  form.append("prompt", prompt.slice(0, 4000));
+  form.append("image", new Blob([imagePng], { type: "image/png" }), "cover.png");
+  form.append("size", "1024x1024");
+  form.append("output_format", "png");
+
+  if (editModel.startsWith("gpt-image") || editModel.includes("chatgpt-image")) {
+    form.append("quality", (Deno.env.get("OPENAI_IMAGE_EDIT_QUALITY") || "medium").trim());
+    form.append("input_fidelity", (Deno.env.get("OPENAI_IMAGE_INPUT_FIDELITY") || "high").trim());
+  } else if (editModel.startsWith("dall-e-2")) {
+    form.append("response_format", "url");
+  }
+
+  const res = await fetch(`${openAiImageApiBase()}/images/edits`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error?.message || data?.error || JSON.stringify(data);
+    throw new Error(`OpenAI image edit error (${res.status}): ${msg}`);
+  }
+
+  const item = data?.data?.[0];
+  const url = item?.url;
+  if (url && /^https?:\/\//i.test(String(url))) {
+    return { sourceUrl: String(url), provider: "openai" };
+  }
+  const b64 = item?.b64_json;
+  if (b64) {
+    return { imageBytes: decodeBase64Image(String(b64)), provider: "openai" };
+  }
+  throw new Error("OpenAI edit returned no image.");
+}
+
 export async function generateCloudCoverArt(input: {
   prompt: string;
   title?: string;
@@ -250,12 +360,41 @@ export async function generateCloudCoverArt(input: {
   genre?: string;
   mood?: string;
   useLlmPrompt?: boolean;
-}): Promise<{ sourceUrl: string; provider: CoverArtProvider; imagePrompt: string; billingNote: string }> {
+  referenceImageBytes?: Uint8Array;
+}): Promise<{
+  sourceUrl?: string;
+  imageBytes?: Uint8Array;
+  provider: CoverArtProvider;
+  imagePrompt: string;
+  billingNote: string;
+  mode: "generate" | "edit";
+}> {
   const provider = resolveCoverArtProvider();
   if (provider === "off") {
     throw new Error(
       "AI cover art is not configured. Set OPENAI_API_KEY (or OPENAI_IMAGE_API_KEY) in Supabase Edge Function secrets."
     );
+  }
+
+  const hasReference = Boolean(input.referenceImageBytes?.byteLength);
+
+  if (hasReference) {
+    if (provider !== "openai") {
+      throw new Error("Upload-and-edit requires OpenAI Images (OPENAI_IMAGE_API_KEY). Text-only fal/Replicate cannot edit photos.");
+    }
+    const imagePrompt =
+      input.useLlmPrompt !== false
+        ? await expandCoverEditPromptWithLlm(input)
+        : `Image 1: album cover. ${String(input.prompt || "").trim()}`;
+
+    const edited = await openAiEditImage(imagePrompt, input.referenceImageBytes!);
+    return {
+      ...edited,
+      provider: "openai",
+      imagePrompt,
+      billingNote: "Billed by OpenAI (image edit with your upload).",
+      mode: "edit",
+    };
   }
 
   const imagePrompt =
@@ -278,7 +417,29 @@ export async function generateCloudCoverArt(input: {
         ? "Billed by fal.ai (Flux image — pay-as-you-go)."
         : "Billed by Replicate (Flux Schnell image).";
 
-  return { ...result, provider: result.provider, imagePrompt, billingNote };
+  return { ...result, provider: result.provider, imagePrompt, billingNote, mode: "generate" };
+}
+
+export async function persistCoverArtFromBytes(
+  supabase: SupabaseClient,
+  userId: string,
+  bytes: Uint8Array,
+  contentType = "image/png"
+): Promise<string> {
+  if (bytes.byteLength > 15 * 1024 * 1024) {
+    throw new Error("Cover image is too large to store (>15MB).");
+  }
+  const ext = contentType.includes("jpeg") ? "jpg" : "png";
+  const path = `cover-art/${userId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, bytes, {
+    contentType,
+    upsert: false,
+  });
+  if (error) throw new Error(error.message);
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  const publicUrl = data?.publicUrl || "";
+  if (!publicUrl) throw new Error("Upload succeeded but public URL is missing.");
+  return publicUrl;
 }
 
 export async function persistCoverArtToStorage(
