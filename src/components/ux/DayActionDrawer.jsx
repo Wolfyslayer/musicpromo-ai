@@ -182,7 +182,7 @@ export default function DayActionDrawer({
             compact
           />
 
-          <LaunchDayScheduleControls day={day} onScheduled={onRefresh} />
+          <LaunchDayScheduleControls day={day} campaignId={campaign?.id} onScheduled={onRefresh} />
 
           {uxStatus.id !== "live" ? (
             <ComposeInlinePanel

@@ -15,6 +15,7 @@ import { loadArtists, loadRelease } from "@/services/data";
 import { allSongsHaveAudio } from "@/services/releaseDefaults";
 import { CAMPAIGN_DURATIONS, CAMPAIGN_GOALS } from "@/services/constants";
 import { generateCampaignForAlbum, generateCampaignForSong } from "@/services/createCampaignCore";
+import { triggerCampaignAutoVideo } from "@/services/socialService";
 import { resolveReleaseCampaignState } from "@/services/releaseCampaignMode";
 import { sortReleaseTracks, staggeredStartDate } from "@/services/releaseTracks";
 import { todayISO } from "@/services/format";
@@ -55,6 +56,8 @@ export default function ReleaseCampaignPlanner() {
     startDate: todayISO(),
     daysBetweenTracks: 7,
     promoStylePreset: settings.defaultTemplate ? "viral-pop" : "viral-pop",
+    encodePromos: true,
+    renderMode: "all",
   });
 
   const reload = () =>
@@ -128,7 +131,7 @@ export default function ReleaseCampaignPlanner() {
     try {
       if (isAlbum) {
         setStage(`Album: ${data.release.title}`);
-        const { campaign } = await generateCampaignForAlbum({
+        const { campaign, renderSummary } = await generateCampaignForAlbum({
           release: data.release,
           songs,
           artist: data.artist,
@@ -138,8 +141,15 @@ export default function ReleaseCampaignPlanner() {
           promoStylePreset: rollout.promoStylePreset,
           userId: user?.id || "",
           onStage: setStage,
+          renderVideos: rollout.encodePromos,
+          renderMode: rollout.renderMode,
+          triggerCampaignAutoVideo,
         });
-        out.push({ campaignId: campaign.id, title: data.release.title });
+        out.push({
+          campaignId: campaign.id,
+          title: data.release.title,
+          videosRendered: renderSummary?.rendered || 0,
+        });
       } else {
         const queue = tracksNeedingCampaign || [];
         for (let i = 0; i < queue.length; i++) {
@@ -147,8 +157,8 @@ export default function ReleaseCampaignPlanner() {
           const trackIndex = songs.findIndex((s) => s.id === song.id);
           const startDate = staggeredStartDate(rollout.startDate, trackIndex, rollout.daysBetweenTracks);
           setStage(`Track ${trackIndex + 1}/${songs.length}: ${song.title}`);
-          const { campaign } = await generateCampaignForSong({
-            song,
+          const { campaign, renderSummary } = await generateCampaignForSong({
+            song: { ...song, artwork_url: song.artwork_url || data.release?.artwork_url },
             artist: data.artist,
             release: data.release,
             songs,
@@ -159,11 +169,20 @@ export default function ReleaseCampaignPlanner() {
             promoStylePreset: rollout.promoStylePreset,
             userId: user?.id || "",
             onStage: setStage,
+            renderVideos: rollout.encodePromos,
+            renderMode: rollout.renderMode,
+            triggerCampaignAutoVideo,
           });
-          out.push({ songId: song.id, campaignId: campaign.id, title: song.title });
+          out.push({
+            songId: song.id,
+            campaignId: campaign.id,
+            title: song.title,
+            videosRendered: renderSummary?.rendered || 0,
+          });
         }
       }
       setResults(out);
+      const totalVideos = out.reduce((n, r) => n + (r.videosRendered || 0), 0);
       toast({
         title: out.length
           ? isAlbum
@@ -172,6 +191,12 @@ export default function ReleaseCampaignPlanner() {
           : isAlbum
             ? "Album already has a campaign"
             : "All tracks already had campaigns",
+        description:
+          totalVideos > 0
+            ? `${totalVideos} promo video${totalVideos === 1 ? "" : "s"} encoded — edit any day in Campaign → Videos.`
+            : rollout.encodePromos
+              ? "Video drafts created — open Campaign → Videos to render on this device."
+              : undefined,
       });
       await reload();
       setStep(socialStepIndex);
@@ -374,6 +399,21 @@ function RolloutStep({ rollout, setRollout, toggleGoal, isAlbum }) {
           </div>
         </div>
       </div>
+      <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border/60 bg-muted/15 p-3 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={rollout.encodePromos !== false}
+          onChange={(e) => setRollout((r) => ({ ...r, encodePromos: e.target.checked }))}
+        />
+        <span>
+          <span className="font-500 text-foreground">Encode promo videos after the plan</span>
+          <span className="mt-0.5 block text-xs text-muted-foreground">
+            Uses the AI hook + best clip of each track (browser encode). Required for TikTok/YouTube auto-publish.
+            Edit any clip in Campaign → Videos.
+          </span>
+        </span>
+      </label>
       <div className="space-y-2">
         <Label className="text-xs text-muted-foreground">Goals</Label>
         <div className="flex flex-wrap gap-2">

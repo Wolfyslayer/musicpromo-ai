@@ -7,6 +7,7 @@ import {
   normalizeVisualStyle,
 } from "@/remotion/styles";
 import { normalizePromoStyleChoice } from "@/services/promoStylePresets";
+import { resolveBestAudioStartOffset } from "@/services/audioHighlight";
 
 const TEMPLATES = new Set(["HOOK", "LYRICS", "CINEMATIC", "WAVEFORM", "RELEASE", "MINIMAL"]);
 
@@ -62,6 +63,15 @@ export function buildDraftVideoProject({
   const duration = promoDurationForTemplate(look.template, look.promoDurationSec);
   const videoType = look.template === "LYRICS" ? "lyrics" : "promo";
   const text = hookTextForDay(aiDay, song, song?.analysis?.assetProfile);
+  const audioDurationSec =
+    Number(song?.duration) || Number(song?.audio_duration) || Number(aiDay?.audioDuration) || 0;
+  const audioStartTimeOffset = resolveBestAudioStartOffset({
+    song,
+    analysis: song?.analysis,
+    aiDay,
+    audioDurationSec,
+    clipDurationSec: duration,
+  });
   const lyricCues = buildLyricCues(lyrics || song?.lyrics || "", duration, []);
   const artworkMotion = normalizeArtworkMotion("ai-feel");
 
@@ -85,6 +95,8 @@ export function buildDraftVideoProject({
     editor_look: normalizeEditorLook(null),
     lyric_cues: lyricCues,
     duration,
+    audioStartTimeOffset,
+    audio_duration: audioDurationSec || undefined,
     video_type: videoType,
     aspect_ratio: "9:16",
     output_format: "mp4",
@@ -98,6 +110,7 @@ export function buildDraftVideoProject({
       outroCta: String(aiDay?.cta || "Listen now").slice(0, 80),
       dayNumber,
       videoConcept: aiDay?.videoConcept || aiDay?.video_concept || "",
+      highlightOffsetSec: audioStartTimeOffset,
     },
   };
 }
@@ -170,6 +183,7 @@ export async function renderPromoForProject({
     particleEffect: project.particle_effect,
     lyricCues,
     videoType,
+    audioStartTimeOffset: project.audioStartTimeOffset || project.animation_settings?.highlightOffsetSec || 0,
     outroCta: project.outro_cta || project.animation_settings?.outroCta || "",
     onProgress,
   });

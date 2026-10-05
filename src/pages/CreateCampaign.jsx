@@ -23,15 +23,15 @@ import { analyzeCampaignAssets, hooksForVibe, resolvePromoStyleFromVisual, saveA
 import VideoRenderProgress from "@/components/VideoRenderProgress";
 import PromoStylePicker from "@/components/video/PromoStylePicker";
 import { getPromoStylePreset, normalizePromoStyleChoice, suggestPromoStyleFromProfile } from "@/services/promoStylePresets";
-import { linkDraftProjectsToCampaignDays, renderPromoForProject } from "@/services/campaignVideoBridge";
+import { linkDraftProjectsToCampaignDays } from "@/services/campaignVideoBridge";
+import { renderCampaignDayProjects } from "@/services/campaignVideoRenderBatch";
 import {
   applyBestPlatformMatch,
   buildGeneratedContentFromPlan,
   ensureDayCopyFields,
   renderModeLabel,
-  resolveRenderCount,
 } from "@/services/campaignPlanEnrichment";
-import { getConnectionStatus, scheduleCampaignDay } from "@/services/socialService";
+import { getConnectionStatus } from "@/services/socialService";
 import PageHeader from "@/components/PageHeader";
 import SurfacePanel from "@/components/SurfacePanel";
 import { useAuth } from "@/lib/AuthContext";
@@ -392,48 +392,39 @@ export default function CreateCampaign() {
       let scheduledCount = 0;
       let scheduleSkipped = 0;
       const canRender = form.artworkUrl && (form.audioFile || form.audioSignedUrl || form.audioUri);
-      const renderCount = resolveRenderCount(form.renderMode, dayProjects.length);
 
-      if (canRender && renderCount > 0) {
+      if (canRender && form.renderMode !== "skip") {
         try {
-          for (let i = 0; i < renderCount; i++) {
-            const { project, aiDay, dayId } = dayProjects[i];
-            const dayLabel = aiDay?.dayNumber || i + 1;
-            setStage(`Rendering Day ${dayLabel} promo on your device…`);
-            setRenderProgress({ progress: 0, message: `Day ${dayLabel} — starting…` });
-            await renderPromoForProject({
-              db,
-              project,
-              songTitle: form.title.trim(),
-              artistName: artist.name || form.newArtistName || "",
-              artworkUrl: form.artworkUrl,
-              artworkFile: form.artworkFile,
-              audioUri: form.audioUri,
-              audioSignedUrl: form.audioSignedUrl,
-              audioFile: form.audioFile,
-              audioDuration: form.audioDuration,
+          const batch = await renderCampaignDayProjects({
+            db,
+            dayProjects,
+            song: {
+              title: form.title.trim(),
+              artwork_url: form.artworkUrl,
+              audio_url: form.audioUri || form.audioSignedUrl,
               lyrics: form.lyrics,
-              linkCampaignId: i === 0 ? campaign.id : "",
-              triggerCampaignAutoVideo: i === 0 ? triggerCampaignAutoVideo : null,
-              onProgress: (info) => {
-                const slice = renderCount > 1 ? (i / renderCount) + info.progress / 100 / renderCount : info.progress / 100;
-                setRenderProgress({
-                  progress: Math.round(slice * 100),
-                  message: info.message || `Day ${dayLabel}…`,
-                });
-                setStage(info.message || `Rendering Day ${dayLabel}…`);
-              },
-            });
-            renderedCount += 1;
-
-            if (form.autoSchedule && dayId) {
-              setStage(`Scheduling Day ${dayLabel} for auto-publish…`);
-              const res = await scheduleCampaignDay({ campaignDayId: dayId });
-              if (res?.ok) scheduledCount += 1;
-              else scheduleSkipped += 1;
-            }
-          }
-          setRenderProgress({ progress: 100, message: "Done" });
+              duration: form.audioDuration,
+              analysis: { ...analysis, assetProfile: form.assetProfile },
+            },
+            artistName: artist.name || form.newArtistName || "",
+            lyrics: form.lyrics,
+            artworkFile: form.artworkFile,
+            audioFile: form.audioFile,
+            renderMode: form.renderMode,
+            autoSchedule: form.autoSchedule,
+            triggerCampaignAutoVideo,
+            onStage: setStage,
+            onProgress: (info) => {
+              setRenderProgress({
+                progress: info.progress ?? 0,
+                message: info.message || "Encoding…",
+              });
+              if (info.message) setStage(info.message);
+            },
+          });
+          renderedCount = batch.rendered;
+          scheduledCount = batch.scheduled;
+          scheduleSkipped = batch.scheduleSkipped;
         } catch (err) {
           console.warn("[CreateCampaign] Remotion video render", err?.message || err);
           toast({
@@ -444,7 +435,8 @@ export default function CreateCampaign() {
         }
       } else if (form.autoSchedule && dayProjects.length) {
         setStage("Scheduling plan days for auto-publish…");
-        for (const { dayId, aiDay } of dayProjects) {
+        const { scheduleCampaignDay } = await import("@/services/socialService");
+        for (const { dayId } of dayProjects) {
           if (!dayId) continue;
           const res = await scheduleCampaignDay({ campaignDayId: dayId });
           if (res?.ok) scheduledCount += 1;
@@ -759,7 +751,7 @@ function StepGoals({ form, set, toggleGoal, setForm, styleSuggestion }) {
           <span>
             <span className="font-500 text-foreground">Auto-schedule posts after generation</span>
             <span className="mt-0.5 block text-xs text-muted-foreground">
-              Queues each day on its matched platform at the planned time. Requires a connected TikTok, Instagram, or YouTube account.
+              Queues each day after promo videos are encoded. Connect TikTok, Instagram, or YouTube in Social Hub.
             </span>
           </span>
         </label>

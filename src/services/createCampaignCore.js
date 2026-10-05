@@ -27,6 +27,11 @@ async function createCampaignPlanFromAI({
   release = null,
   allSongs = null,
   onStage,
+  renderVideos = false,
+  renderMode = "all",
+  autoScheduleAfterRender = false,
+  onRenderProgress,
+  triggerCampaignAutoVideo = null,
 }) {
   const stage = (msg) => onStage?.(msg);
   const artistName = artist?.name || "Artist";
@@ -139,7 +144,38 @@ async function createCampaignPlanFromAI({
     }
   }
 
-  return { campaign, song: { ...song, analysis }, dayProjects, enrichedDays };
+  let renderSummary = { rendered: 0, scheduled: 0, scheduleSkipped: 0 };
+  const artworkUrl = song?.artwork_url || release?.artwork_url || "";
+  const canRender = Boolean(artworkUrl && song?.audio_url);
+  if (renderVideos && canRender && dayProjects.length) {
+    stage?.("Encoding promo videos (best hook clip) on this device…");
+    try {
+      const { renderCampaignDayProjects } = await import("@/services/campaignVideoRenderBatch.js");
+      renderSummary = await renderCampaignDayProjects({
+        db,
+        dayProjects,
+        song: { ...song, artwork_url: artworkUrl, analysis },
+        artistName,
+        lyrics: song.lyrics || "",
+        renderMode,
+        onStage: stage,
+        onProgress: onRenderProgress,
+        autoSchedule: autoScheduleAfterRender,
+        triggerCampaignAutoVideo,
+      });
+    } catch (err) {
+      console.warn("[createCampaignCore] video render", err?.message || err);
+      throw err;
+    }
+  }
+
+  return {
+    campaign,
+    song: { ...song, analysis },
+    dayProjects,
+    enrichedDays,
+    renderSummary,
+  };
 }
 
 /**
@@ -155,6 +191,11 @@ export async function generateCampaignForAlbum({
   promoStylePreset = "viral-pop",
   userId = "",
   onStage,
+  renderVideos = false,
+  renderMode = "all",
+  autoScheduleAfterRender = false,
+  onRenderProgress,
+  triggerCampaignAutoVideo = null,
 }) {
   const anchor = pickAnchorSong(release, songs);
   if (!anchor) {
@@ -178,6 +219,11 @@ export async function generateCampaignForAlbum({
     campaignNameOverride: campaignName,
     releaseScope: "album",
     onStage,
+    renderVideos,
+    renderMode,
+    autoScheduleAfterRender,
+    onRenderProgress,
+    triggerCampaignAutoVideo,
   });
 }
 
@@ -198,6 +244,11 @@ export async function generateCampaignForSong({
   userId = "",
   campaignNameSuffix = "",
   onStage,
+  renderVideos = false,
+  renderMode = "all",
+  autoScheduleAfterRender = false,
+  onRenderProgress,
+  triggerCampaignAutoVideo = null,
 }) {
   const artistName = artist?.name || "Artist";
   const songForAI = release
@@ -216,6 +267,11 @@ export async function generateCampaignForSong({
     release,
     allSongs: songs,
     onStage,
+    renderVideos,
+    renderMode,
+    autoScheduleAfterRender,
+    onRenderProgress,
+    triggerCampaignAutoVideo,
   });
   if (campaignNameSuffix && result.campaign) {
     const name = `${result.campaign.name} ${campaignNameSuffix}`.trim();
