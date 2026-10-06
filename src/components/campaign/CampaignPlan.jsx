@@ -256,7 +256,7 @@ export default function CampaignPlan({
   const scheduleDay = async (day) => {
     setSchedulingId(day.id);
     try {
-      const res = await scheduleCampaignDay({ campaignDayId: day.id });
+      const res = await scheduleCampaignDay({ campaignDayId: day.id, day });
       if (!res?.ok) {
         pushActivity({
           level: "error",

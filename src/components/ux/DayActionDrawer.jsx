@@ -72,7 +72,7 @@ export default function DayActionDrawer({
   const runSchedule = async () => {
     setScheduling(true);
     try {
-      const res = await scheduleCampaignDay({ campaignDayId: day.id });
+      const res = await scheduleCampaignDay({ campaignDayId: day.id, day });
       if (!res?.ok) {
         pushActivity({
           level: "error",

@@ -69,8 +69,16 @@ export const aiService = {
   },
 
   /** 8. Generate a day-by-day campaign. Returns { campaignName, summary, days[] }. */
-  async generateCampaign({ song, analysis, goals, durationDays, startDate, promoStyle }) {
-    return invoke("generateCampaign", { song, analysis, goals, durationDays, startDate, promoStyle });
+  async generateCampaign({ song, analysis, goals, durationDays, startDate, releaseDate, promoStyle }) {
+    return invoke("generateCampaign", {
+      song,
+      analysis,
+      goals,
+      durationDays,
+      startDate,
+      releaseDate,
+      promoStyle,
+    });
   },
 
   /** 9. Analyze entered performance data. Returns { summary, insights[], recommendations[] }. */

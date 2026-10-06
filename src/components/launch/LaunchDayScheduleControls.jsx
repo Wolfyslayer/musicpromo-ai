@@ -65,7 +65,7 @@ export default function LaunchDayScheduleControls({ day, campaignId, onScheduled
     }
     setBusy(true);
     try {
-      const res = await scheduleCampaignDay({ campaignDayId: day.id, scheduledAt: iso });
+      const res = await scheduleCampaignDay({ campaignDayId: day.id, scheduledAt: iso, day });
       if (!res?.ok) {
         const skipped = Array.isArray(res?.skipped)
           ? res.skipped.map((s) => `${s.provider}: ${s.reason}`).join("; ")

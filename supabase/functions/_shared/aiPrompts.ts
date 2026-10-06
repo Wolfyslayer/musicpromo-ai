@@ -398,7 +398,7 @@ Return JSON: { startTime, endTime, reason, suggestedContentType, isEstimated: tr
 // 8. CAMPAIGN GENERATOR
 // ---------------------------------------------------------------------------
 export function buildGenerateCampaignPrompt(input) {
-  const { song, analysis, goals, durationDays, startDate, promoStyle } = input;
+  const { song, analysis, goals, durationDays, startDate, releaseDate, promoStyle } = input;
   const platforms = (analysis?.recommendedPlatforms && analysis.recommendedPlatforms.length)
     ? analysis.recommendedPlatforms
     : ["TikTok", "Instagram Reels", "YouTube Shorts"];
@@ -424,6 +424,7 @@ ${(goals && goals.length ? goals : ["Promote a new release"]).join(", ")}
 
 CAMPAIGN START DATE
 ${startDate || "today"}
+${releaseDate ? `\nRELEASE DATE (final plan day must land on this date)\n${releaseDate}\n- Days 1 through ${Number(durationDays) - 1 || 0}: pre-release teasers, countdown, BTS, snippets — use HOOK, CINEMATIC, LYRICS, WAVEFORM, MINIMAL.\n- Day ${durationDays} (release date): release announcement — videoTemplate MUST be RELEASE, contentType release_announcement, hook celebrates the drop.\n` : ""}
 
 ${styleHint}
 

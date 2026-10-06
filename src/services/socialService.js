@@ -9,7 +9,9 @@ import { getSessionAccessToken } from "@/lib/app-params";
 import { SOCIAL_PROVIDERS, getSocialProviderConfig } from "@/services/social/providers";
 import { CONNECTION_STATUS, CONNECTION_STATUS_META } from "@/services/social/provider";
 import { connectionForProvider, getSocialArtistId } from "@/services/socialArtistScope";
-import { primaryProviderForDayPlatform } from "@/services/social/dayPlatform";
+import { primaryProviderForDayPlatform, resolveDayPublishProviders } from "@/services/social/dayPlatform";
+
+export { resolveDayPublishProviders };
 
 export const OAUTH_PROVIDERS = new Set(["instagram", "tiktok", "youtube", "x"]);
 
@@ -235,7 +237,12 @@ export async function publishPost(postId) {
  * @param {{ campaignDayId: string, scheduledAt?: string, providers?: string[] }} payload
  */
 export async function scheduleCampaignDay(payload) {
-  const result = await invoke("campaignSchedule", payload || {});
+  const body = { ...(payload || {}) };
+  if (!body.providers?.length && body.day) {
+    body.providers = resolveDayPublishProviders(body.day);
+    delete body.day;
+  }
+  const result = await invoke("campaignSchedule", body);
   if (result?.ok && result?.workerNudged !== false) {
     invoke("kickCampaignWorker", { skipVideo: true, skipStats: true }).catch(() => {});
   }

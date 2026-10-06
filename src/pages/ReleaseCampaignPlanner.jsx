@@ -19,6 +19,10 @@ import { triggerCampaignAutoVideo } from "@/services/socialService";
 import { resolveReleaseCampaignState } from "@/services/releaseCampaignMode";
 import { sortReleaseTracks, staggeredStartDate } from "@/services/releaseTracks";
 import { todayISO } from "@/services/format";
+import {
+  campaignEndDate,
+  computeCampaignStartForReleaseDate,
+} from "@/services/campaignReleaseTimeline";
 import { billingFailureToast } from "@/lib/billingErrors";
 import { getSettings } from "@/services/settings";
 
@@ -54,6 +58,8 @@ export default function ReleaseCampaignPlanner() {
     goals: ["Promote an album", "Increase streams"],
     durationDays: settings.defaultDuration || 14,
     startDate: todayISO(),
+    anchorToReleaseDate: true,
+    publishPlatforms: ["tiktok", "instagram", "youtube"],
     daysBetweenTracks: 7,
     promoStylePreset: settings.defaultTemplate ? "viral-pop" : "viral-pop",
     encodePromos: true,
@@ -86,10 +92,22 @@ export default function ReleaseCampaignPlanner() {
   }, [releaseId, focusSongId, data?.release, loading, uploadStepIndex]);
 
   useEffect(() => {
-    if (data?.release?.release_date) {
-      setRollout((r) => ({ ...r, startDate: data.release.release_date }));
-    }
+    const releaseDate = data?.release?.release_date;
+    if (!releaseDate) return;
+    setRollout((r) => {
+      if (!r.anchorToReleaseDate) return { ...r, startDate: releaseDate };
+      const startDate = computeCampaignStartForReleaseDate(releaseDate, r.durationDays) || releaseDate;
+      return { ...r, startDate, anchorToReleaseDate: true };
+    });
   }, [data?.release?.release_date]);
+
+  useEffect(() => {
+    const releaseDate = data?.release?.release_date;
+    if (!releaseDate || rollout.anchorToReleaseDate === false) return;
+    const startDate = computeCampaignStartForReleaseDate(releaseDate, rollout.durationDays);
+    if (!startDate) return;
+    setRollout((r) => (r.startDate === startDate ? r : { ...r, startDate }));
+  }, [data?.release?.release_date, rollout.durationDays, rollout.anchorToReleaseDate]);
 
   const songs = useMemo(() => sortReleaseTracks(data?.songs || []), [data?.songs]);
   const campaigns = data?.campaigns || [];
@@ -139,6 +157,7 @@ export default function ReleaseCampaignPlanner() {
           durationDays: rollout.durationDays,
           startDate: rollout.startDate,
           promoStylePreset: rollout.promoStylePreset,
+          publishProviderIds: rollout.publishPlatforms,
           userId: user?.id || "",
           onStage: setStage,
           renderVideos: rollout.encodePromos,
@@ -166,7 +185,9 @@ export default function ReleaseCampaignPlanner() {
             goals: rollout.goals,
             durationDays: rollout.durationDays,
             startDate,
+            staggeredStartDate: startDate,
             promoStylePreset: rollout.promoStylePreset,
+            publishProviderIds: rollout.publishPlatforms,
             userId: user?.id || "",
             onStage: setStage,
             renderVideos: rollout.encodePromos,
@@ -268,7 +289,13 @@ export default function ReleaseCampaignPlanner() {
         ) : null}
 
         {releaseId && data?.release && step === rolloutStepIndex ? (
-          <RolloutStep rollout={rollout} setRollout={setRollout} toggleGoal={toggleGoal} isAlbum={isAlbum} />
+          <RolloutStep
+            rollout={rollout}
+            setRollout={setRollout}
+            toggleGoal={toggleGoal}
+            isAlbum={isAlbum}
+            releaseDate={data.release.release_date || ""}
+          />
         ) : null}
 
         {releaseId && data?.release && step === generateStepIndex ? (
@@ -349,23 +376,72 @@ export default function ReleaseCampaignPlanner() {
   );
 }
 
-function RolloutStep({ rollout, setRollout, toggleGoal, isAlbum }) {
+const PUBLISH_PLATFORM_OPTIONS = [
+  { id: "tiktok", label: "TikTok" },
+  { id: "instagram", label: "Instagram Reels" },
+  { id: "youtube", label: "YouTube Shorts" },
+  { id: "x", label: "X" },
+];
+
+function RolloutStep({ rollout, setRollout, toggleGoal, isAlbum, releaseDate }) {
+  const planEnd = campaignEndDate(rollout.startDate, rollout.durationDays);
+  const togglePlatform = (id) =>
+    setRollout((r) => {
+      const set = new Set(r.publishPlatforms || []);
+      if (set.has(id)) set.delete(id);
+      else set.add(id);
+      const publishPlatforms = [...set];
+      return { ...r, publishPlatforms: publishPlatforms.length ? publishPlatforms : [id] };
+    });
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         {isAlbum
-          ? "One album-wide plan: teases, tracklist moments, release day, and post-launch posts in a single timeline."
-          : "Shared plan settings for each new campaign. Stagger start dates so singles can drop before the full release day."}
+          ? "One album-wide plan: teaser videos before release day, a RELEASE promo on drop day, then post-launch posts."
+          : "Each track gets a plan ending on release day (when set). Stagger starts when there is room before the release."}
       </p>
+      {releaseDate ? (
+        <div className="rounded-xl border border-primary/25 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          Release day: <strong className="text-foreground">{releaseDate}</strong>
+          {planEnd ? (
+            <>
+              {" "}
+              · Plan runs <strong className="text-foreground">{rollout.startDate}</strong> →{" "}
+              <strong className="text-foreground">{planEnd}</strong>
+            </>
+          ) : null}
+        </div>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">{isAlbum ? "Campaign start" : "Campaign start (track 1)"}</Label>
           <Input
             type="date"
             value={rollout.startDate}
-            onChange={(e) => setRollout((r) => ({ ...r, startDate: e.target.value }))}
+            disabled={Boolean(releaseDate && rollout.anchorToReleaseDate)}
+            onChange={(e) => setRollout((r) => ({ ...r, startDate: e.target.value, anchorToReleaseDate: false }))}
             className="rounded-xl"
           />
+          {releaseDate ? (
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={rollout.anchorToReleaseDate !== false}
+                onChange={(e) => {
+                  const anchor = e.target.checked;
+                  setRollout((r) => ({
+                    ...r,
+                    anchorToReleaseDate: anchor,
+                    startDate: anchor
+                      ? computeCampaignStartForReleaseDate(releaseDate, r.durationDays) || r.startDate
+                      : r.startDate,
+                  }));
+                }}
+              />
+              End plan on release day (auto teaser run-up)
+            </label>
+          ) : null}
         </div>
         {!isAlbum ? (
           <div className="space-y-1.5">
@@ -414,6 +490,29 @@ function RolloutStep({ rollout, setRollout, toggleGoal, isAlbum }) {
           </span>
         </span>
       </label>
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">Auto-publish platforms (each plan day)</Label>
+        <p className="text-xs text-muted-foreground">
+          When you schedule or encode with auto-publish, we queue a post on every platform you select (connected
+          accounts required).
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {PUBLISH_PLATFORM_OPTIONS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => togglePlatform(p.id)}
+              className={`rounded-full border px-3 py-1.5 text-xs ${
+                (rollout.publishPlatforms || []).includes(p.id)
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="space-y-2">
         <Label className="text-xs text-muted-foreground">Goals</Label>
         <div className="flex flex-wrap gap-2">

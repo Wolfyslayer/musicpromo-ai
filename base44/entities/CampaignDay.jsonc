@@ -19,6 +19,12 @@
       "type": "string",
       "title": "Platform"
     },
+    "publish_platforms": {
+      "type": "array",
+      "title": "Publish platforms",
+      "description": "Provider ids to auto-publish each day: instagram, tiktok, youtube, x",
+      "items": { "type": "string" }
+    },
     "content_type": {
       "type": "string",
       "title": "Content Type"

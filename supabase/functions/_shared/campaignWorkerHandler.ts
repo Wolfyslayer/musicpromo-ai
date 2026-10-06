@@ -2,8 +2,8 @@ import { createClientFromRequest } from "../_shared/runtime.ts";
 import { secrets } from "../_shared/runtime.ts";
 import {
   buildDayCaption,
-  mapDayPlatformToProviders,
   publishSocialPostCore,
+  resolveDayPublishProviders,
   resolveScheduledAt,
   safeSocialPost,
 } from "../_shared/socialPublishCore.ts";
@@ -269,7 +269,7 @@ export async function handleCampaignWorkerRequest(req: Request): Promise<Respons
         continue;
       }
 
-      const providers = mapDayPlatformToProviders(day.platform);
+      const providers = resolveDayPublishProviders(day as Record<string, unknown>);
       if (!providers.length) {
         await base44.asServiceRole.entities.CampaignDay.update(day.id, {
           status: "failed",

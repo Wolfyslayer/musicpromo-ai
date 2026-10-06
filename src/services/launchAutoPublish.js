@@ -25,7 +25,7 @@ export async function bulkAutoPublishCampaignDays(days, postingTime) {
     }
     try {
       await db.entities.CampaignDay.update(day.id, { posting_time: time });
-      const res = await scheduleCampaignDay({ campaignDayId: day.id, scheduledAt });
+      const res = await scheduleCampaignDay({ campaignDayId: day.id, scheduledAt, day });
       if (res?.ok) {
         results.scheduled += 1;
       } else {

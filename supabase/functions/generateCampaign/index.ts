@@ -29,6 +29,7 @@ async function handler(req: Request) {
           goals: body.goals,
           durationDays,
           startDate: body.startDate,
+          releaseDate: body.releaseDate,
           promoStyle: body.promoStyle,
         });
         return runGeminiCampaignLlm({
