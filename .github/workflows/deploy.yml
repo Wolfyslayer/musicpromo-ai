@@ -67,7 +67,21 @@ jobs:
             echo "::error::Add SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF repository secrets (see docs/GITHUB_DEPLOY.md)."
             exit 1
           fi
-          supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
+          # Supabase occasionally returns transient 500s (e.g. "FGA Authentication Error") mid-deploy.
+          max_attempts=4
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "Edge function deploy attempt ${attempt}/${max_attempts}…"
+            if supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              sleep_seconds=$((attempt * 30))
+              echo "Deploy failed; waiting ${sleep_seconds}s before retry…"
+              sleep "$sleep_seconds"
+            fi
+          done
+          echo "::error::Edge function deploy failed after ${max_attempts} attempts."
+          exit 1
 
   deploy-frontend:
     name: Frontend (GitHub Pages)
