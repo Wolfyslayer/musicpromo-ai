@@ -95,7 +95,7 @@ export default function ReleaseCampaignPlanner() {
     const releaseDate = data?.release?.release_date;
     if (!releaseDate) return;
     setRollout((r) => {
-      if (!r.anchorToReleaseDate) return { ...r, startDate: releaseDate };
+      if (!r.anchorToReleaseDate) return r;
       const startDate = computeCampaignStartForReleaseDate(releaseDate, r.durationDays) || releaseDate;
       return { ...r, startDate, anchorToReleaseDate: true };
     });

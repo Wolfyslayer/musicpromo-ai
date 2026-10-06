@@ -119,6 +119,7 @@ supabase functions deploy --project-ref YOUR_REF
 | Symptom | Check |
 | --- | --- |
 | Deploy job fails immediately on Supabase step | `SUPABASE_ACCESS_TOKEN` / `SUPABASE_PROJECT_REF` missing or token lacks Edge Functions deploy scope |
+| Deploy fails mid-run with **FGA Authentication Error** / 500 on one function | Transient Supabase API issue. **Actions → Deploy → Run workflow** again (the workflow retries up to 4 times). If it persists, regenerate the [access token](https://supabase.com/dashboard/account/tokens) with Edge Functions deploy scope. Frontend may still deploy; edge code can be ahead/behind until a full deploy succeeds. |
 | App loads but auth/API fails | `VITE_*` secrets wrong or from a different project than deployed functions |
 | Routes 404 on refresh (GitHub Pages) | Workflow copies `index.html` → `404.html`; ensure Pages source is **GitHub Actions** |
 | Blank page, gray/white screen | **Wrong `VITE_BASE_PATH`.** For `musicpromoai.site` use **`/`** only — never the domain (`/MusicPromoAi.site/`). Delete the bad variable or set `VITE_BASE_PATH` = `/`, then re-run **Deploy**. View page source: script `src` should be `/assets/...`, not `/yourdomain/...`. |
