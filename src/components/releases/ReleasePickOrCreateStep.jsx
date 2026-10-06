@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { db } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -130,8 +131,13 @@ export default function ReleasePickOrCreateStep({ onReleaseReady }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Start with a <strong>release</strong> (single, EP, or album). Set genre and language once, upload audio per
-        track, then generate your campaign plan.
+        Promo starts with a <strong>release</strong> you already have (single, EP, or album). Set metadata once, upload
+        your track audio in the next steps, then we build hooks, captions, and promo videos — not AI-generated songs. Need
+        cover art?{" "}
+        <Link to="/artwork" className="font-medium text-primary underline underline-offset-2">
+          Open Cover lab
+        </Link>
+        .
       </p>
 
       <div className="inline-flex rounded-full bg-muted/50 p-1">

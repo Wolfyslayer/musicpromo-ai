@@ -13,7 +13,6 @@ import {
   Film,
   Globe2,
   Palette,
-  Music2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
@@ -28,20 +27,19 @@ import SupportChatWidget from "@/components/support/SupportChatWidget";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/community", label: "Community", icon: Globe2 },
-  { to: "/studio", label: "Studio", icon: Film },
+  { to: "/create", label: "New promo", icon: Plus },
   { to: "/campaigns", label: "Campaigns", icon: ListMusic },
-  { to: "/create", label: "Create", icon: Plus },
+  { to: "/studio", label: "Video studio", icon: Film },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/community", label: "Community", icon: Globe2 },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 const SECONDARY = [
-  { to: "/artwork", label: "Cover lab", icon: Palette },
-  { to: "/premium", label: "AI songs", icon: Music2 },
-  { to: "/artists", label: "Artists", icon: Users },
   { to: "/releases", label: "Releases", icon: Disc3 },
+  { to: "/artwork", label: "Cover lab", icon: Palette },
   { to: "/social/connect", label: "Social", icon: Share2 },
+  { to: "/artists", label: "Artists", icon: Users },
 ];
 
 function SideLink({ item, active }) {

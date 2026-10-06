@@ -94,14 +94,12 @@ export default function BillingPlansModal({ open, onOpenChange }) {
               <p className="text-sm text-muted-foreground">Credits are not deducted for dev/admin accounts.</p>
             ) : (
               <>
-                {billing?.premiumFeatures?.suno_generation ? (
-                  <p className="mb-3 text-xs text-primary">
-                    Premium:{" "}
-                    <Link to="/premium" className="underline" onClick={() => onOpenChange(false)}>
-                      AI songs & stems
-                    </Link>
-                  </p>
-                ) : null}
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Credits power promo campaign plans, AI cover art, and optional cloud clips.{" "}
+                  <Link to="/artwork" className="text-primary underline" onClick={() => onOpenChange(false)}>
+                    Open Cover lab
+                  </Link>
+                </p>
                 <PlanAndCreditsPicker
                   catalog={billing?.planCatalog}
                   planComparison={billing?.planComparison}

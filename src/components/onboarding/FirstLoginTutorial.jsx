@@ -33,7 +33,7 @@ const STEPS = [
   {
     id: "welcome",
     title: "Welcome to MusicPromo AI",
-    body: "This app turns your release into a day-by-day promo plan — hooks, captions, platform picks, and short-form videos — then helps you schedule posts.",
+    body: "MusicPromo AI is built for promotion: turn your release into a day-by-day plan with hooks, captions, promo videos, and scheduled posts — not AI song generation.",
     icon: Sparkles,
   },
   {
@@ -52,10 +52,10 @@ const STEPS = [
   },
   {
     id: "campaign",
-    title: "Create your first campaign",
-    body: "Use Create Campaign to add artwork and audio, set goals and length, then generate. Each plan day gets its own hook, CTA, matched platform, and video draft.",
+    title: "Create your first promo",
+    body: "Use New promo to pick a release, upload track audio, set rollout options, then generate. Each plan day gets hooks, captions, platforms, and a video draft.",
     icon: ListMusic,
-    cta: { label: "Start a campaign", to: "/create" },
+    cta: { label: "Start new promo", to: "/create" },
   },
   {
     id: "ready",

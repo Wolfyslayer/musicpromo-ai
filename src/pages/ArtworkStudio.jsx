@@ -19,9 +19,10 @@ export default function ArtworkStudio() {
           <Palette className="h-6 w-6" />
           <span className="text-xs font-600 uppercase tracking-widest">Cover lab</span>
         </div>
-        <h1 className="font-heading text-2xl font-bold tracking-tight md:text-3xl">Album art studio</h1>
+        <h1 className="font-heading text-2xl font-bold tracking-tight md:text-3xl">AI cover art for your promos</h1>
         <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
-          Start with a long prompt and refine in chat, or design in the layered editor — then use the URL on a{" "}
+          The only generative AI we focus on here is artwork for your release. Prompt or refine in chat, or use the
+          layered editor — then attach the URL on a{" "}
           <Link to="/releases" className="text-primary underline underline-offset-2">
             release
           </Link>

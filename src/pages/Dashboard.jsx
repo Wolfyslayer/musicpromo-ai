@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Sparkles, BarChart3, ArrowRight, PlayCircle, Globe2, Rocket, Activity } from "lucide-react";
+import { Plus, BarChart3, ArrowRight, PlayCircle, Globe2, Rocket, Activity, Film, Palette } from "lucide-react";
 import ReleaseCommandHero from "@/components/ux/ReleaseCommandHero";
 import DashboardProfileNudge from "@/components/ux/DashboardProfileNudge";
 import { Link } from "react-router-dom";
@@ -15,6 +15,7 @@ import EmptyState from "@/components/EmptyState";
 import CampaignCard from "@/components/CampaignCard";
 import { useAuth, useWorkspaceRefresh } from "@/lib/AuthContext";
 import PageHeader from "@/components/PageHeader";
+import PromoPathCards from "@/components/ux/PromoPathCards";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -71,33 +72,36 @@ export default function Dashboard() {
   const launchReleaseId = active?.release_id || active?.release?.id || null;
 
   const quickActions = [
+    { label: "New promo", icon: Plus, to: "/create" },
+    { label: "Video studio", icon: Film, to: "/studio" },
+    { label: "Cover lab", icon: Palette, to: "/artwork" },
     {
       label: "Launch board",
       icon: Rocket,
       to: launchReleaseId ? `/releases/${launchReleaseId}/launch` : active ? `/campaigns/${active.id}/plan` : "/campaigns",
     },
-    { label: "New Campaign", icon: Plus, to: "/create" },
-    { label: "Generate Content", icon: Sparkles, to: active ? `/campaigns/${active.id}/library` : "/campaigns" },
     { label: "Social health", icon: Activity, to: "/social/health" },
-    { label: "View Analytics", icon: BarChart3, to: "/analytics" },
+    { label: "Analytics", icon: BarChart3, to: "/analytics" },
   ];
 
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Overview"
+        eyebrow="Promo command center"
         title={
           <>
-            MusicPromo <span className="text-gradient">AI</span>
+            Release promos, <span className="text-gradient">on autopilot</span>
           </>
         }
-        description="Hands-off promo: auto videos, scheduled publishing, and live analytics."
+        description="Short-form promo videos, day-by-day posting plans, and scheduled publishing for your real releases — not AI song generation."
         actions={
           <Button onClick={() => navigate("/create")} className="rounded-full px-5" size="lg">
-            <Plus className="mr-1.5 h-4 w-4" /> New Campaign
+            <Plus className="mr-1.5 h-4 w-4" /> New promo
           </Button>
         }
       />
+
+      <PromoPathCards />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -220,10 +224,10 @@ export default function Dashboard() {
         ) : (
           data && (
             <EmptyState
-              icon={Sparkles}
-              title="No campaigns yet"
-              description="Create your first campaign and let AI build a complete promotion plan with auto videos."
-              action={<Button onClick={() => navigate("/create")} className="rounded-full"><Plus className="mr-1.5 h-4 w-4" />New Campaign</Button>}
+              icon={Plus}
+              title="No promo campaigns yet"
+              description="Start with your release and audio — we'll build hooks, captions, and video drafts for each plan day."
+              action={<Button onClick={() => navigate("/create")} className="rounded-full"><Plus className="mr-1.5 h-4 w-4" />New promo</Button>}
             />
           )
         )}

@@ -30,7 +30,7 @@ export default function Releases() {
       <PageHeader
         eyebrow="Catalog"
         title="Releases"
-        description="Group songs and campaigns under a release."
+        description="Your catalog — attach cover art, upload audio, then run New promo from any release."
         actions={
           <Button onClick={() => navigate("/releases/new")} className="rounded-full">
             <Plus className="mr-1.5 h-4 w-4" /> New release

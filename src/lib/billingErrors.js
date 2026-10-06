@@ -75,7 +75,7 @@ export function billingFailureToast(err) {
   if (isPremiumRequiredError(err)) {
     return {
       title: "Creator plan required",
-      description: `${err?.message || "Upgrade to unlock Suno songs and stem splitting."} Tap your credit balance in the header to upgrade.`,
+      description: `${err?.message || "Upgrade for more promo and cover-art credits."} Tap your credit balance in the header to upgrade.`,
     };
   }
   if (isInsufficientCreditsError(err)) {
