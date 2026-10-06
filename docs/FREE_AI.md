@@ -1,5 +1,7 @@
 # Free AI (Google Gemini — default)
 
+**Want one vendor bill that stays cheap?** See **[BUDGET_ONE_INVOICE.md](./BUDGET_ONE_INVOICE.md)** (Gemini-only promo stack + when you still need a second provider).
+
 Campaign **analyze**, **plan**, **content**, **support chat**, cover **prompt polish**, and **motion prompt** text all use **Google Gemini** via **`invokeLlm`** (OpenAI-compatible Gemini endpoint). Set **`AI_PROVIDER=openai`** only if you want a non-Gemini stack for legacy call sites that still use the default provider — campaign features listed above pin **`provider: gemini`** in code.
 
 **Cover / artwork pixels** use **Nano Banana** (Gemini native image models) via the **Interactions API** for Gemini 3.x image models, with **`generateContent`** fallback for **`gemini-2.5-flash-image`**.
