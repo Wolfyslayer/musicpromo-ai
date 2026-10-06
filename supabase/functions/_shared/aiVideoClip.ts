@@ -3,27 +3,30 @@
  * Pixel generation requires fal.ai or Replicate — Groq cannot render video.
  *
  * Secrets (Supabase Edge Functions):
- * - AI_VIDEO_PROVIDER: fal | replicate | off (default off — must be set to fal/replicate to enable paid clips)
+ * - AI_VIDEO_PROVIDER: atlas | fal | replicate | off (default off)
+ * - ATLASCLOUD_API_KEY — when AI_VIDEO_PROVIDER=atlas (Wan 3.0 I2V on Atlas Cloud)
  * - FAL_KEY — fal.ai (recommended; default model fal-ai/wan-i2v @ 480p ≈ $0.20/clip)
  * - FAL_VIDEO_MODEL — optional, default fal-ai/wan-i2v
  * - REPLICATE_API_TOKEN + REPLICATE_VIDEO_MODEL (default wavespeedai/wan-2.1-i2v-480p)
  */
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { hasLlmConfigured } from "./aiProvider.ts";
+import { hasLlmConfigured, resolveAiProvider } from "./aiProvider.ts";
 import { invokeLlm } from "./invokeLlm.ts";
+import { atlasGenerateVideo, hasAtlasConfigured, resolveAtlasWanI2vModel } from "./atlasCloud.ts";
 
 const BUCKET = "music-promo-assets";
 const DEFAULT_FAL_MODEL = "fal-ai/wan-i2v";
 const DEFAULT_REPLICATE_MODEL = "wavespeedai/wan-2.1-i2v-480p";
 
-export type AiVideoProvider = "fal" | "replicate" | "off";
+export type AiVideoProvider = "atlas" | "fal" | "replicate" | "off";
 
 export function resolveAiVideoProvider(): AiVideoProvider {
   const mode = (Deno.env.get("AI_VIDEO_PROVIDER") || "").trim().toLowerCase();
   if (!mode || mode === "off" || mode === "none" || mode === "false" || mode === "0") {
     return "off";
   }
+  if ((mode === "atlas" || mode === "atlascloud" || mode === "wan") && hasAtlasConfigured()) return "atlas";
   if (mode === "fal" && (Deno.env.get("FAL_KEY") || "").trim()) return "fal";
   if (mode === "replicate" && (Deno.env.get("REPLICATE_API_TOKEN") || "").trim()) {
     return "replicate";
@@ -33,21 +36,24 @@ export function resolveAiVideoProvider(): AiVideoProvider {
 
 export function aiVideoProviderStatus() {
   const provider = resolveAiVideoProvider();
-  const paidEnabled = provider === "fal" || provider === "replicate";
+  const paidEnabled = provider === "atlas" || provider === "fal" || provider === "replicate";
   return {
     provider,
     configured: paidEnabled,
     /** When false, the editor hides pay-per-use cloud clip UI. */
     showPaidClipUi: paidEnabled,
     groqPromptAssist: hasLlmConfigured(),
+    atlasModel: resolveAtlasWanI2vModel(),
     falModel: Deno.env.get("FAL_VIDEO_MODEL") || DEFAULT_FAL_MODEL,
     replicateModel: Deno.env.get("REPLICATE_VIDEO_MODEL") || DEFAULT_REPLICATE_MODEL,
     note:
-      provider === "fal"
-        ? "fal.ai Wan 480p ≈ $0.20 per short clip (pay-as-you-go)."
-        : provider === "replicate"
-          ? "Replicate Wan 480p ≈ $0.09/sec of output (pay-as-you-go)."
-          : "No cloud video API configured — use free cinematic motion in the editor.",
+      provider === "atlas"
+        ? "Atlas Cloud Wan 3.0 I2V — billed by output seconds (see ATLAS_WAN_USD_PER_SEC)."
+        : provider === "fal"
+          ? "fal.ai Wan 480p ≈ $0.20 per short clip (pay-as-you-go)."
+          : provider === "replicate"
+            ? "Replicate Wan 480p ≈ $0.09/sec of output (pay-as-you-go)."
+            : "No cloud video API configured — use free cinematic motion in the editor.",
   };
 }
 
@@ -55,8 +61,9 @@ export async function expandMotionPromptWithLlm(userPrompt: string, songTitle = 
   const base = String(userPrompt || "").trim() || "Slow cinematic motion from album artwork, music promo.";
   if (!hasLlmConfigured()) return base;
   try {
+    const llmProvider = resolveAiProvider() === "atlas" ? "atlas" : "gemini";
     const result = (await invokeLlm({
-      provider: "gemini",
+      provider: llmProvider,
       modelSlot: "video_prompt",
       prompt: `Write ONE image-to-video motion prompt for animating album cover art into a vertical music promo clip.
 Rules: under 45 words; describe camera/motion/light only; no on-screen text, logos, subtitles, or UI.
@@ -181,16 +188,19 @@ export async function generateCloudImageToVideo(input: {
   prompt: string;
   songTitle?: string;
   useLlmPrompt?: boolean;
+  durationSec?: number;
+  resolution?: string;
 }): Promise<{
   sourceUrl: string;
   provider: AiVideoProvider;
   motionPrompt: string;
   billingNote: string;
+  durationSec?: number;
 }> {
   const provider = resolveAiVideoProvider();
   if (provider === "off") {
     throw new Error(
-      "Cloud AI video is not configured. Use free Cinematic motion in the editor, or set FAL_KEY (recommended) or REPLICATE_API_TOKEN in Supabase secrets. Groq cannot generate video — it only helps write motion prompts."
+      "Cloud AI video is not configured. Use free Cinematic motion in the editor, or set ATLASCLOUD_API_KEY (AI_VIDEO_PROVIDER=atlas), FAL_KEY, or REPLICATE_API_TOKEN in Supabase secrets."
     );
   }
 
@@ -202,6 +212,22 @@ export async function generateCloudImageToVideo(input: {
   const motionPrompt = input.useLlmPrompt !== false
     ? await expandMotionPromptWithLlm(input.prompt, input.songTitle)
     : input.prompt;
+
+  if (provider === "atlas") {
+    const atlas = await atlasGenerateVideo({
+      imageUrl,
+      prompt: motionPrompt,
+      durationSec: input.durationSec,
+      resolution: input.resolution,
+    });
+    return {
+      sourceUrl: atlas.outputUrl,
+      provider: "atlas",
+      motionPrompt,
+      durationSec: atlas.durationSec,
+      billingNote: `Atlas Wan 3.0 I2V · ${atlas.durationSec}s output (~$${(atlas.durationSec * 0.05).toFixed(2)} list).`,
+    };
+  }
 
   const result =
     provider === "fal"

@@ -1,8 +1,11 @@
 import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
 import { buildContentPrompt } from "../_shared/aiPrompts.ts";
-import { billingErrorResponse, withCreditCharge } from "../_shared/billing.ts";
+import { billingErrorResponse } from "../_shared/billing.ts";
 import { jsonWithCors, servePostApi } from "../_shared/cors.ts";
-import { invokeLlm } from "../_shared/invokeLlm.ts";
+import { chargeForLlmJson } from "../_shared/meteredLlmHandlers.ts";
+import { invokeLlmWithUsage } from "../_shared/invokeLlm.ts";
+import { resolveAiProvider } from "../_shared/aiProvider.ts";
+import { creditsFromTokenUsage, usageBasedCreditsEnabled } from "../_shared/usageCredits.ts";
 
 async function handler(req: Request) {
   try {
@@ -18,24 +21,33 @@ async function handler(req: Request) {
     const admin = serviceClient();
     const uid = String(user.id);
     try {
-      const { result, spend } = await withCreditCharge(admin, uid, "generate_content", {}, async () => {
-        const { prompt, schema } = buildContentPrompt({
-          song: body.song,
-          analysis: body.analysis,
-          platform: body.platform,
-          contentType: body.contentType,
-          campaignGoals: body.campaignGoals,
-        });
-        return invokeLlm({
+      const { prompt, schema } = buildContentPrompt({
+        song: body.song,
+        analysis: body.analysis,
+        platform: body.platform,
+        contentType: body.contentType,
+        campaignGoals: body.campaignGoals,
+      });
+      const llmProvider = resolveAiProvider() === "atlas" ? "atlas" : "gemini";
+      const { result, balanceAfter } = await chargeForLlmJson(admin, uid, "generate_content", prompt, async () => {
+        const { content, usage } = await invokeLlmWithUsage({
           prompt,
           response_json_schema: schema,
-          provider: "gemini",
+          provider: llmProvider,
           modelSlot: "generate_content",
         });
+        const base =
+          typeof content === "object" && content ? (content as Record<string, unknown>) : { result: content };
+        if (!usageBasedCreditsEnabled()) return base;
+        return {
+          ...base,
+          _usageCredits: creditsFromTokenUsage(usage),
+          _tokenUsage: usage,
+        };
       });
       return jsonWithCors(req, {
         ...(typeof result === "object" ? result : { result }),
-        creditsRemaining: spend.balanceAfter,
+        creditsRemaining: balanceAfter,
       });
     } catch (creditErr) {
       const billed = billingErrorResponse(creditErr);

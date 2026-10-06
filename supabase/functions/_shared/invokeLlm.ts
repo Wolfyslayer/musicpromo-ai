@@ -17,8 +17,10 @@ import {
   geminiLlmSetupHint,
   hasLlmConfigured,
   llmSetupHint,
+  resolveAiProvider,
   resolveLlmRuntime,
 } from "./aiProvider.ts";
+import type { TokenUsage } from "./usageCredits.ts";
 import type { GeminiChatModelSlot } from "./geminiModels.ts";
 
 type InvokeLlmArgs = {
@@ -48,7 +50,12 @@ function extractJson(text: string): unknown {
   }
 }
 
-export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<string, unknown>> {
+export type InvokeLlmResult = {
+  content: string | Record<string, unknown>;
+  usage?: TokenUsage;
+};
+
+export async function invokeLlmWithUsage(args: InvokeLlmArgs): Promise<InvokeLlmResult> {
   const runtime = resolveLlmRuntime({
     provider: args.provider,
     modelSlot: args.modelSlot,
@@ -140,7 +147,7 @@ export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<st
     throw new Error(`AI request failed (${res.status}): ${raw.slice(0, 400)}`);
   }
 
-  let parsed: { choices?: { message?: { content?: string } }[] };
+  let parsed: { choices?: { message?: { content?: string } }[]; usage?: TokenUsage };
   try {
     parsed = JSON.parse(raw);
   } catch {
@@ -150,9 +157,15 @@ export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<st
   const content = parsed.choices?.[0]?.message?.content;
   if (content == null) throw new Error("AI provider returned no message content.");
 
+  const usage = parsed.usage;
   if (schema) {
-    return extractJson(content) as Record<string, unknown>;
+    return { content: extractJson(content) as Record<string, unknown>, usage };
   }
+  return { content, usage };
+}
+
+export async function invokeLlm(args: InvokeLlmArgs): Promise<string | Record<string, unknown>> {
+  const { content } = await invokeLlmWithUsage(args);
   return content;
 }
 

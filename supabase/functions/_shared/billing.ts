@@ -12,6 +12,7 @@ import {
 } from "./subscriptionPlans.ts";
 import { creditPacksConfigured, publicCreditPackCatalog, type CreditPackId, creditsForPack } from "./creditPacks.ts";
 import { stripeEmbeddedCheckoutReady, stripePublishableKey } from "./stripeCustomer.ts";
+import { usageBasedCreditsEnabled } from "./usageCredits.ts";
 
 export type BillingPlan = BillingPlanId;
 
@@ -37,7 +38,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   stem_split: 18,
 };
 
-/** Shown in API/docs — always free regardless of env overrides for these actions. */
+/** Shown in API/docs — always free regardless of env overrides for these actions (when not usage-based). */
 export const ALWAYS_FREE_CREDIT_ACTIONS = new Set<CreditAction>(["generate_campaign", "ai_video_clip"]);
 
 export class InsufficientCreditsError extends Error {
@@ -56,6 +57,12 @@ export class InsufficientCreditsError extends Error {
 }
 
 function costForAction(action: CreditAction): number {
+  if (
+    usageBasedCreditsEnabled() &&
+    (action === "ai_video_clip" || action === "analyze_song" || action === "generate_content")
+  ) {
+    return 0;
+  }
   if (ALWAYS_FREE_CREDIT_ACTIONS.has(action)) return 0;
   const envKey = `CREDIT_COST_${action.toUpperCase()}`;
   const raw = Deno.env.get(envKey);
@@ -216,7 +223,8 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
       creditPacksConfigured: creditPacksConfigured(),
       premiumFeatures,
       costs: publicCreditCosts(),
-      freeFeatures: ["generate_campaign", "ai_video_clip"],
+      freeFeatures: usageBasedCreditsEnabled() ? ["generate_campaign"] : ["generate_campaign", "ai_video_clip"],
+      usageBasedCredits: usageBasedCreditsEnabled(),
     };
   }
 
@@ -253,7 +261,8 @@ export async function getBillingSnapshot(admin: SupabaseClient, userId: string) 
       stem_split: paidPremium("stem_split"),
     },
     costs: publicCreditCosts(),
-    freeFeatures: ["generate_campaign", "ai_video_clip"],
+    freeFeatures: usageBasedCreditsEnabled() ? ["generate_campaign"] : ["generate_campaign", "ai_video_clip"],
+    usageBasedCredits: usageBasedCreditsEnabled(),
     dailyClaim: await getDailyClaimStatus(admin, userId),
   };
 }
@@ -316,18 +325,65 @@ export async function withCreditCharge<T>(
   }
 }
 
+/** Pre-hold credits, run metered work, refund overage or charge shortfall. */
+export async function withMeteredCreditCharge<T>(
+  admin: SupabaseClient,
+  userId: string,
+  action: CreditAction,
+  metadata: Record<string, unknown>,
+  estimateHold: number,
+  work: () => Promise<{ result: T; creditCost: number; usageDetail?: Record<string, unknown> }>
+): Promise<{ result: T; spend: { cost: number; balanceAfter: number; plan: BillingPlan; billingExempt?: boolean } }> {
+  if (await isBillingExempt(admin, userId)) {
+    const { result } = await work();
+    return { result, spend: { cost: 0, balanceAfter: 0, plan: "studio", billingExempt: true } };
+  }
+
+  const hold = Math.max(1, Math.floor(estimateHold || 1));
+  const spend = await spendCredits(admin, userId, action, { ...metadata, meteredHold: hold }, { overrideCost: hold });
+  try {
+    const { result, creditCost, usageDetail } = await work();
+    const actual = Math.max(0, Math.floor(creditCost || 0));
+    const delta = spend.cost - actual;
+    if (delta > 0) {
+      await refundCredits(admin, userId, delta, "usage_meter_refund").catch(() => {});
+    } else if (delta < 0) {
+      await spendCredits(
+        admin,
+        userId,
+        action,
+        { ...metadata, meteredTopUp: -delta, ...(usageDetail || {}) },
+        { overrideCost: -delta }
+      );
+    }
+    return {
+      result,
+      spend: { ...spend, cost: actual || spend.cost, balanceAfter: spend.balanceAfter },
+    };
+  } catch (err) {
+    if (spend.cost > 0) {
+      await refundCredits(admin, userId, spend.cost, (err as Error).message).catch(() => {});
+    }
+    throw err;
+  }
+}
+
 /** Deduct credits before an AI call. Prefer {@link withCreditCharge} so failures refund automatically. */
 export async function spendCredits(
   admin: SupabaseClient,
   userId: string,
   action: CreditAction,
-  metadata: Record<string, unknown> = {}
+  metadata: Record<string, unknown> = {},
+  options: { overrideCost?: number } = {}
 ): Promise<{ cost: number; balanceAfter: number; plan: BillingPlan; billingExempt?: boolean }> {
   if (await isBillingExempt(admin, userId)) {
     return { cost: 0, balanceAfter: 0, plan: "studio", billingExempt: true };
   }
 
-  const cost = costForAction(action);
+  const cost =
+    options.overrideCost != null && Number.isFinite(options.overrideCost)
+      ? Math.max(0, Math.floor(options.overrideCost))
+      : costForAction(action);
   if (cost <= 0) {
     const snap = await ensureUserBilling(admin, userId);
     return { cost: 0, balanceAfter: snap.credits_balance, plan: snap.plan };

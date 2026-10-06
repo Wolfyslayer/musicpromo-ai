@@ -8,8 +8,9 @@ import {
   resolveGeminiChatModel,
   resolveGeminiModelForSlot,
 } from "./geminiModels.ts";
+import { atlasChatCompletionsUrl, hasAtlasConfigured, resolveAtlasChatModel } from "./atlasCloud.ts";
 
-export type AiProviderMode = "gemini" | "openai";
+export type AiProviderMode = "gemini" | "openai" | "atlas";
 
 export { resolveGeminiChatModel } from "./geminiModels.ts";
 
@@ -30,12 +31,15 @@ function normalizeSecret(value: string): string {
 
 export function resolveAiProvider(): AiProviderMode {
   const mode = normalizeSecret(Deno.env.get("AI_PROVIDER") || "gemini").toLowerCase();
+  if (mode === "atlas" || mode === "atlascloud") return "atlas";
   if (mode === "openai") return "openai";
   return "gemini";
 }
 
 /** Chat / JSON LLM key (Gemini AI Studio key by default). */
 export function resolveLlmApiKey(): string {
+  const atlas = normalizeSecret(Deno.env.get("ATLASCLOUD_API_KEY") || Deno.env.get("ATLAS_CLOUD_API_KEY") || "");
+  if (resolveAiProvider() === "atlas") return atlas;
   const gemini = normalizeSecret(Deno.env.get("GEMINI_API_KEY") || "");
   const legacy = normalizeSecret(
     Deno.env.get("OPENAI_API_KEY") || Deno.env.get("AI_API_KEY") || ""
@@ -57,10 +61,12 @@ export function resolveGeminiApiKey(): string {
 }
 
 export function hasLlmConfigured(): boolean {
+  if (resolveAiProvider() === "atlas") return hasAtlasConfigured();
   return Boolean(resolveLlmApiKey());
 }
 
 export function resolveLlmBaseUrl(): string {
+  if (resolveAiProvider() === "atlas") return atlasChatCompletionsUrl().replace(/\/chat\/completions$/, "");
   const custom = normalizeSecret(Deno.env.get("OPENAI_BASE_URL") || "");
   // Groq/OpenAI base URL applies only in openai mode — otherwise Gemini requests hit the wrong host.
   if (custom && resolveAiProvider() === "openai") return custom.replace(/\/+$/, "");
@@ -81,6 +87,9 @@ export function resolveGeminiLlmApiKey(): string {
 export function resolveLlmModelForProvider(provider: AiProviderMode): string {
   if (provider === "gemini") {
     return resolveGeminiChatModel();
+  }
+  if (provider === "atlas") {
+    return resolveAtlasChatModel();
   }
   const custom = (Deno.env.get("OPENAI_MODEL") || Deno.env.get("AI_MODEL") || "").trim();
   return custom || DEFAULT_OPENAI_CHAT_MODEL;
@@ -109,6 +118,14 @@ export function resolveLlmRuntime(options?: AiProviderMode | LlmRuntimeOptions):
   const opts: LlmRuntimeOptions =
     options === "gemini" || options === "openai" ? { provider: options } : options ?? {};
   const provider = opts.provider ?? resolveAiProvider();
+  if (provider === "atlas") {
+    return {
+      provider,
+      apiKey: resolveLlmApiKey(),
+      baseUrl: atlasChatCompletionsUrl().replace(/\/chat\/completions$/, ""),
+      model: opts.model?.trim() || resolveAtlasChatModel(),
+    };
+  }
   if (provider === "gemini") {
     const model =
       opts.model?.trim() ||
@@ -134,6 +151,9 @@ export function geminiLlmSetupHint(): string {
 }
 
 export function llmSetupHint(): string {
+  if (resolveAiProvider() === "atlas") {
+    return "Set AI_PROVIDER=atlas and ATLASCLOUD_API_KEY (https://www.atlascloud.ai/console/api-keys) in Supabase Edge Function secrets.";
+  }
   if (resolveAiProvider() === "gemini") {
     return "Set GEMINI_API_KEY from Google AI Studio (https://aistudio.google.com/apikey) in Supabase Edge Function secrets. Remove stale OPENAI_API_KEY (sk-…) and OPENAI_BASE_URL unless AI_PROVIDER=openai.";
   }
