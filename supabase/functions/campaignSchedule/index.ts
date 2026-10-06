@@ -3,7 +3,7 @@ import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
 import { normalizeTimeZone } from "../_shared/timezone.ts";
 import {
   buildDayCaption,
-  mapDayPlatformToProviders,
+  resolveDayPublishProviders,
   resolveScheduledAt,
   safeSocialPost,
 } from "../_shared/socialPublishCore.ts";
@@ -56,7 +56,7 @@ async function handler (req: Request): Promise<Response> {
 
     const requestedProviders = Array.isArray(body?.providers)
       ? body.providers.map((p: unknown) => String(p).toLowerCase())
-      : mapDayPlatformToProviders(day.platform);
+      : resolveDayPublishProviders(day as Record<string, unknown>);
     const providers = requestedProviders.filter((p: string) =>
       ["instagram", "tiktok", "youtube", "x"].includes(p)
     );

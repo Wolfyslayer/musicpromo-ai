@@ -75,7 +75,13 @@ export async function renderCampaignDayProjects({
 
     if (autoSchedule && dayId) {
       onStage?.(`Scheduling Day ${dayLabel}…`);
-      const res = await scheduleCampaignDay({ campaignDayId: dayId });
+      const res = await scheduleCampaignDay({
+        campaignDayId: dayId,
+        day: {
+          platform: row?.aiDay?.platform,
+          publish_platforms: row?.aiDay?.publish_platforms,
+        },
+      });
       if (res?.ok) scheduled += 1;
       else scheduleSkipped += 1;
     }

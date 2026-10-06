@@ -82,6 +82,29 @@ export function safeSocialPost(row: Record<string, unknown>) {
   };
 }
 
+const ALLOWED_PROVIDERS = new Set(["instagram", "tiktok", "youtube", "x"]);
+
+function normalizeProviderId(raw: unknown): string {
+  const p = String(raw || "").toLowerCase().trim();
+  if (p === "twitter") return "x";
+  return ALLOWED_PROVIDERS.has(p) ? p : "";
+}
+
+/** User-selected providers on a plan day, or infer from legacy single `platform` label. */
+export function resolveDayPublishProviders(day: Record<string, unknown> | null | undefined): string[] {
+  if (!day) return ["instagram", "tiktok", "youtube", "x"];
+  const raw = day.publish_platforms ?? day.publishPlatforms;
+  if (Array.isArray(raw) && raw.length) {
+    const ids = raw.map(normalizeProviderId).filter(Boolean);
+    if (ids.length) return [...new Set(ids)];
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    const ids = raw.split(/[,;\s]+/).map(normalizeProviderId).filter(Boolean);
+    if (ids.length) return [...new Set(ids)];
+  }
+  return mapDayPlatformToProviders(day.platform as string);
+}
+
 /** Map CampaignDay.platform labels → SocialPost provider ids. */
 export function mapDayPlatformToProviders(platform: string | null | undefined): string[] {
   const p = String(platform || "").toLowerCase();

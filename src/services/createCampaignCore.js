@@ -3,6 +3,7 @@ import { aiService } from "@/services/aiService";
 import { getConnectionStatus } from "@/services/socialService";
 import {
   applyBestPlatformMatch,
+  applyUserPublishPlatforms,
   buildGeneratedContentFromPlan,
   ensureDayCopyFields,
 } from "@/services/campaignPlanEnrichment";
@@ -12,7 +13,10 @@ import { addDaysISO, todayISO } from "@/services/format";
 import { buildAlbumSongForAI, buildTrackSongForAI, pickAnchorSong } from "@/services/releaseCampaignMode";
 import { buildAiSongPayload } from "@/services/aiSongPayload";
 import { sortReleaseTracks } from "@/services/releaseTracks";
-
+import {
+  normalizePlanDayDates,
+  resolveTrackCampaignStart,
+} from "@/services/campaignReleaseTimeline";
 async function createCampaignPlanFromAI({
   song,
   artist,
@@ -32,6 +36,8 @@ async function createCampaignPlanFromAI({
   autoScheduleAfterRender = false,
   onRenderProgress,
   triggerCampaignAutoVideo = null,
+  releaseDate = "",
+  publishProviderIds = null,
 }) {
   const stage = (msg) => onStage?.(msg);
   const artistName = artist?.name || "Artist";
@@ -64,12 +70,14 @@ async function createCampaignPlanFromAI({
 
   stage?.("Generating campaign plan…");
   const promoStyle = normalizePromoStyleChoice(promoStylePreset);
+  const releaseDateIso = releaseDate || release?.release_date || "";
   const result = await aiService.generateCampaign({
     song: songForAI,
     analysis,
     goals,
     durationDays,
     startDate,
+    releaseDate: releaseDateIso,
     promoStyle,
   });
 
@@ -84,12 +92,26 @@ async function createCampaignPlanFromAI({
     .filter((c) => c.status === "connected" && c.canPublish !== false)
     .map((c) => c.provider);
 
-  const enrichedDays = applyBestPlatformMatch(
+  let enrichedDays = applyBestPlatformMatch(
     ensureDayCopyFields(result.days || [], { song: songForAI, analysis }),
     { analysis, goals, connectedProviders }
   );
 
-  const endDate = addDaysISO(startDate, durationDays - 1);
+  enrichedDays = normalizePlanDayDates(enrichedDays, {
+    startDate,
+    durationDays,
+    releaseDate: releaseDate || release?.release_date || "",
+    songTitle: song?.title || "",
+    releaseTitle: release?.title || "",
+  });
+
+  if (publishProviderIds?.length) {
+    enrichedDays = applyUserPublishPlatforms(enrichedDays, publishProviderIds, { connectedProviders });
+  } else {
+    enrichedDays = applyUserPublishPlatforms(enrichedDays, null, { connectedProviders });
+  }
+
+  const endDate = releaseDateIso || addDaysISO(startDate, durationDays - 1);
   const baseName = campaignNameOverride || result.campaignName || `${song.title} Campaign`;
   const campaignPayload = {
     song_id: song.id,
@@ -120,6 +142,7 @@ async function createCampaignPlanFromAI({
     hashtags: d.hashtags,
     cta: d.cta,
     posting_time: d.postingTime,
+    publish_platforms: d.publish_platforms || [],
     status: "planned",
     user_id: userId,
   }));
@@ -196,6 +219,7 @@ export async function generateCampaignForAlbum({
   autoScheduleAfterRender = false,
   onRenderProgress,
   triggerCampaignAutoVideo = null,
+  publishProviderIds = null,
 }) {
   const anchor = pickAnchorSong(release, songs);
   if (!anchor) {
@@ -218,6 +242,8 @@ export async function generateCampaignForAlbum({
     userId,
     campaignNameOverride: campaignName,
     releaseScope: "album",
+    releaseDate: release?.release_date || "",
+    publishProviderIds,
     onStage,
     renderVideos,
     renderMode,
@@ -249,23 +275,33 @@ export async function generateCampaignForSong({
   autoScheduleAfterRender = false,
   onRenderProgress,
   triggerCampaignAutoVideo = null,
+  publishProviderIds = null,
+  staggeredStartDate = null,
 }) {
   const artistName = artist?.name || "Artist";
   const songForAI = release
     ? buildTrackSongForAI(release, song, songs || [song], artistName)
     : song;
+  const effectiveStart = resolveTrackCampaignStart({
+    releaseDate: release?.release_date || "",
+    durationDays,
+    staggeredStart: staggeredStartDate,
+    fallbackStart: startDate,
+  });
   const result = await createCampaignPlanFromAI({
     song: { ...song, ...songForAI, artist_id: song.artist_id },
     artist,
     releaseId: releaseId || release?.id || "",
     goals,
     durationDays,
-    startDate,
+    startDate: effectiveStart,
     promoStylePreset,
     userId,
     releaseScope: "track",
     release,
     allSongs: songs,
+    releaseDate: release?.release_date || "",
+    publishProviderIds,
     onStage,
     renderVideos,
     renderMode,

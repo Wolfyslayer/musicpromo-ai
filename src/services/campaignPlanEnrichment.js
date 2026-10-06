@@ -1,5 +1,10 @@
 import { getSettings } from "@/services/settings";
 import { getPlanCopyFallbacks } from "@/services/songLanguage";
+import {
+  formatPublishProvidersLabel,
+  mapDayPlatformToProviders,
+  normalizeProviderId,
+} from "@/services/social/dayPlatform";
 
 const SHORT_FORM_PLATFORMS = ["TikTok", "Instagram Reels", "YouTube Shorts"];
 
@@ -65,6 +70,42 @@ function scorePlatform(platform, aiDay, analysis, goals) {
  * Pick the best short-form platform per plan day using content type, goals,
  * song analysis, connected accounts, and light rotation across the pool.
  */
+/**
+ * Apply the user's multi-platform publish choice to every plan day.
+ * @param {string[]} publishProviderIds e.g. ['tiktok','instagram','youtube']
+ */
+export function applyUserPublishPlatforms(aiDays, publishProviderIds, { connectedProviders } = {}) {
+  const connected = new Set((connectedProviders || []).map((p) => String(p).toLowerCase()));
+  let selected = (publishProviderIds || []).map(normalizeProviderId).filter(Boolean);
+  selected = [...new Set(selected)];
+  if (!selected.length) {
+    return (aiDays || []).map((day) => ({
+      ...day,
+      publish_platforms: resolveDayPublishProvidersFromDay(day),
+    }));
+  }
+  const preferred = selected.filter((id) => !connected.size || connected.has(id));
+  const use = preferred.length ? preferred : selected;
+
+  return (aiDays || []).map((day) => {
+    const primary = use[0];
+    const platform =
+      use.length > 1
+        ? formatPublishProvidersLabel(use)
+        : formatPublishProvidersLabel([primary]) || day.platform;
+    return {
+      ...day,
+      publish_platforms: use,
+      platform: platform || day.platform,
+    };
+  });
+}
+
+function resolveDayPublishProvidersFromDay(day) {
+  const fromPlatform = mapDayPlatformToProviders(day?.platform);
+  return fromPlatform.length ? fromPlatform : ["tiktok", "instagram", "youtube"];
+}
+
 export function applyBestPlatformMatch(aiDays, { analysis, goals, defaultPlatforms, connectedProviders } = {}) {
   const settings = getSettings();
   const pool = (defaultPlatforms || settings.defaultPlatforms || SHORT_FORM_PLATFORMS).filter((p) =>
