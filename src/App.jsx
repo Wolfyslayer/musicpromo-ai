@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { WorkspaceProvider } from '@/lib/workspaceContext';
@@ -30,7 +30,6 @@ import {
 } from '@/pages/campaign/CampaignSectionPages';
 import VideoGenerator from '@/pages/VideoGenerator';
 import ArtworkStudio from '@/pages/ArtworkStudio';
-import PremiumAiStudio from '@/pages/PremiumAiStudio';
 import Analytics from '@/pages/Analytics';
 import Artists from '@/pages/Artists';
 import ArtistEditor from '@/pages/ArtistEditor';
@@ -115,7 +114,7 @@ const AuthenticatedApp = () => {
           <Route path="/create/track" element={<CreateTrackRedirect />} />
           <Route path="/studio" element={<VideoGenerator />} />
           <Route path="/artwork" element={<ArtworkStudio />} />
-          <Route path="/premium" element={<PremiumAiStudio />} />
+          <Route path="/premium" element={<Navigate to="/artwork" replace />} />
           <Route path="/campaigns/:id/video" element={<VideoGenerator />} />
           <Route path="/campaigns/:id" element={<CampaignShell />}>
             <Route index element={<CampaignIndexRedirect />} />

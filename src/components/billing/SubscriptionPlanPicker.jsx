@@ -33,8 +33,8 @@ export default function SubscriptionPlanPicker({ catalog, currentPlan, stripeCon
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        All paid tiers include AI songs, stem splitting, and promo tools. Prices are below what most artists pay for
-        separate Suno-style + design subscriptions — match these amounts to your Stripe Prices.
+        Paid tiers unlock more monthly credits for promo campaigns, AI cover art, and video tools. Match display prices
+        to your Stripe Products.
       </p>
       <div className="inline-flex rounded-full bg-muted/50 p-1">
         <button

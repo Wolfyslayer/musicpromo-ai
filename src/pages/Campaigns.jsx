@@ -57,10 +57,10 @@ export default function Campaigns() {
       <PageHeader
         eyebrow="Library"
         title="Campaigns"
-        description="Search, filter, and open any release plan."
+        description="Every campaign is a promo plan with videos and scheduled posts for a release track."
         actions={
           <Button onClick={() => navigate("/create")} className="rounded-full">
-            <Plus className="mr-1.5 h-4 w-4" /> New campaign
+            <Plus className="mr-1.5 h-4 w-4" /> New promo
           </Button>
         }
       />

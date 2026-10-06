@@ -65,7 +65,7 @@ export default function SongAnalysis({ song, onRefresh }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="font-heading text-sm font-600 uppercase tracking-wider text-muted-foreground">AI Song Analysis</h2>
+        <h2 className="font-heading text-sm font-600 uppercase tracking-wider text-muted-foreground">Promo track insights</h2>
         <Button size="sm" variant="outline" onClick={generateAnalysis} disabled={loadingAnalysis} className="rounded-full">
           {loadingAnalysis ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
           {hasAnalysis ? "Regenerate Analysis" : "Generate Analysis"}

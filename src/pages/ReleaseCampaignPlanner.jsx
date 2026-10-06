@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Loader2, Rocket, Share2, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Rocket, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
 import PageHeader from "@/components/PageHeader";
+import PromoFlowStepper from "@/components/ux/PromoFlowStepper";
 import SurfacePanel from "@/components/SurfacePanel";
 import ReleasePickOrCreateStep from "@/components/releases/ReleasePickOrCreateStep";
 import ReleaseInfoStep from "@/components/releases/ReleaseInfoStep";
@@ -26,8 +27,8 @@ import {
 import { billingFailureToast } from "@/lib/billingErrors";
 import { getSettings } from "@/services/settings";
 
-const STEPS_WITH_RELEASE = ["Details", "Upload", "Rollout", "Generate", "Social"];
-const STEPS_WITHOUT_RELEASE = ["Release", ...STEPS_WITH_RELEASE];
+const STEPS_WITH_RELEASE = ["Release info", "Track audio", "Video rollout", "Plan & encode", "Launch"];
+const STEPS_WITHOUT_RELEASE = ["Pick release", ...STEPS_WITH_RELEASE];
 
 export default function ReleaseCampaignPlanner() {
   const [searchParams] = useSearchParams();
@@ -241,24 +242,12 @@ export default function ReleaseCampaignPlanner() {
       </button>
 
       <PageHeader
-        eyebrow="Release → Campaign → Social"
-        title="Plan your campaign"
-        description="Same flow for singles, EPs, and albums: release details → upload audio per track → generate hooks & day-by-day plan → social."
+        eyebrow="Promo-first workflow"
+        title="Build your release promo"
+        description="Upload your music, generate a day-by-day promo plan with hooks and captions, encode short-form videos, then schedule posts — no AI song generation, just promotion."
       />
 
-      <div className="flex flex-wrap gap-2">
-        {stepLabels.map((label, i) => (
-          <span
-            key={label}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              i === step ? "bg-primary text-primary-foreground" : i < step ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {i < step ? <Check className="mr-1 inline h-3 w-3" /> : null}
-            {label}
-          </span>
-        ))}
-      </div>
+      <PromoFlowStepper labels={stepLabels} currentIndex={step} />
 
       <SurfacePanel>
         {!releaseId && step === 0 ? <ReleasePickOrCreateStep onReleaseReady={onReleaseReady} /> : null}

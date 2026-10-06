@@ -5,6 +5,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { startCreditPackCheckout, startSubscriptionCheckout } from "@/services/billingService";
 
+const LEGACY_BILLING_ROW = (row) => /suno|stem/i.test(String(row?.key || row?.label || ""));
+const LEGACY_BILLING_HIGHLIGHT = (text) => /suno|stem split/i.test(String(text || ""));
+
 const PLAN_COLUMNS = [
   { id: "free", label: "Free" },
   { id: "creator", label: "Creator" },
@@ -77,15 +80,15 @@ export default function PlanAndCreditsPicker({
   }
 
   const plans = catalog?.length ? catalog : [];
-  const comparison = planComparison?.length ? planComparison : [];
+  const comparison = (planComparison?.length ? planComparison : []).filter((row) => !LEGACY_BILLING_ROW(row));
   const packs = creditPackCatalog?.length ? creditPackCatalog : [];
   const paidCurrent = currentPlan && currentPlan !== "free" ? currentPlan : null;
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Subscriptions include Suno-style songs, stem splitting, and a monthly credit pool. Campaign plans and cloud video
-        clips stay free on every tier. One-time credit packs add to your balance immediately after checkout.
+        Subscriptions add a monthly credit pool for AI promo plans, cover art, and optional cloud video clips. One-time
+        credit packs add to your balance immediately after checkout.
       </p>
 
       <Tabs defaultValue="plans" className="w-full">
@@ -147,7 +150,7 @@ export default function PlanAndCreditsPicker({
                     </div>
                     {p.savingsVsTypicalMonthlyUsd > 0 ? (
                       <p className="text-xs text-emerald-500">
-                        About ${p.savingsVsTypicalMonthlyUsd}/mo less than typical AI music stacks
+                        About ${p.savingsVsTypicalMonthlyUsd}/mo less than typical promo + design stacks
                       </p>
                     ) : null}
                     <Button
@@ -195,7 +198,7 @@ export default function PlanAndCreditsPicker({
                   </div>
 
                   <ul className="mt-3 flex-1 space-y-1.5 text-xs text-muted-foreground">
-                    {p.highlights?.map((h) => (
+                    {p.highlights?.filter((h) => !LEGACY_BILLING_HIGHLIGHT(h)).map((h) => (
                       <li key={h}>• {h}</li>
                     ))}
                   </ul>
