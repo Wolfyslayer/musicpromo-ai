@@ -29,11 +29,11 @@ export default function LegalPage({ title, children }) {
       </header>
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-10">
         <h1 className="font-heading text-3xl font-semibold tracking-tight">{title}</h1>
-        <div className="prose-legal space-y-4 text-sm leading-relaxed text-muted-foreground [&_h2]:mt-8 [&_h2]:font-heading [&_h2]:text-base [&_h2]:font-600 [&_h2]:text-foreground [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5">
+        <div className="prose-legal space-y-4 text-sm leading-relaxed text-muted-foreground [&_h2]:mt-8 [&_h2]:font-heading [&_h2]:text-base [&_h2]:font-600 [&_h2]:text-foreground [&_h3]:mt-5 [&_h3]:font-heading [&_h3]:text-sm [&_h3]:font-600 [&_h3]:text-foreground [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5 [&_code]:rounded [&_code]:bg-muted/60 [&_code]:px-1 [&_code]:py-0.5">
           {children}
         </div>
         <p className="pt-6 text-xs text-muted-foreground">
-          Last updated: October 1, 2026 ·{" "}
+          Last updated: October 6, 2026 ·{" "}
           <SupportEmailLink>Contact support</SupportEmailLink>
         </p>
       </main>

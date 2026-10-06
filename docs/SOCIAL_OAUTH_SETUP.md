@@ -368,8 +368,9 @@ After **site publish**, paste these into TikTok Developer Portal and Google OAut
 
 | Purpose | URL |
 |---------|-----|
-| Privacy Policy | `https://flying-sonic-promo-flow.base44.app/privacy` |
-| Terms of Service | `https://flying-sonic-promo-flow.base44.app/terms` |
+| Privacy Policy | `https://musicpromoai.site/privacy` (also `https://flying-sonic-promo-flow.base44.app/privacy`) |
+| Terms of Service | `https://musicpromoai.site/terms` (also `https://flying-sonic-promo-flow.base44.app/terms`) |
+| Data deletion instructions | `https://musicpromoai.site/privacy#data-deletion` |
 
 Privacy and Terms are public React routes (no login).
 
