@@ -4,7 +4,9 @@ Campaign **analyze**, **plan**, **content**, **support chat**, cover **prompt po
 
 **Cover / artwork pixels** use **Nano Banana** (Gemini native image models) via the **Interactions API** for Gemini 3.x image models, with **`generateContent`** fallback for **`gemini-2.5-flash-image`**.
 
-**Promo video pixels** still render **on your device** (Remotion/WebCodecs). Optional cloud video clips still use **fal/Replicate** when configured (see [PROMO_VIDEO.md](./PROMO_VIDEO.md)).
+**Promo video pixels** still render **on your device** (Remotion/WebCodecs). Optional cloud video clips use **Atlas Wan 3.0**, **fal**, or **Replicate** when configured (see [PROMO_VIDEO.md](./PROMO_VIDEO.md) and [ATLASCLOUD.md](./ATLASCLOUD.md)).
+
+Optional **usage-based credits** (`USAGE_BASED_CREDITS=true`) charge analyze/content/cloud-clip actions from estimated provider cost — see [ATLASCLOUD.md](./ATLASCLOUD.md).
 
 ## Recommended: Gemini free tier (AI Studio)
 

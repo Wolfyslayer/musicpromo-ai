@@ -5,7 +5,9 @@ import {
 } from "./aiMediaContext.ts";
 import { invokeGeminiJson, resolveModelForCampaignKind } from "./geminiMultimodalLlm.ts";
 import type { GeminiChatModelSlot } from "./geminiModels.ts";
-import { invokeLlm } from "./invokeLlm.ts";
+import { invokeLlm, invokeLlmWithUsage } from "./invokeLlm.ts";
+import { resolveAiProvider } from "./aiProvider.ts";
+import { creditsFromTokenUsage, usageBasedCreditsEnabled } from "./usageCredits.ts";
 
 /** Gemini JSON call with optional artwork + audio; falls back to text-only OpenAI-compat LLM. */
 export async function runGeminiCampaignLlm(args: {
@@ -30,6 +32,21 @@ export async function runGeminiCampaignLlm(args: {
       }
     : {};
 
+  if (resolveAiProvider() === "atlas") {
+    const { content, usage } = await invokeLlmWithUsage({
+      prompt: fullPrompt,
+      response_json_schema: args.schema,
+      provider: "atlas",
+      modelSlot,
+    });
+    const creditCost = creditsFromTokenUsage(usage);
+    const payload =
+      typeof content === "object" && content
+        ? { ...content, _usageCredits: creditCost, _tokenUsage: usage }
+        : { result: content, _usageCredits: creditCost, _tokenUsage: usage };
+    return { ...payload, ...attachMeta };
+  }
+
   try {
     if (parts.length) {
       const result = await invokeGeminiJson({
@@ -44,14 +61,18 @@ export async function runGeminiCampaignLlm(args: {
     console.warn("[runCampaignLlm] multimodal failed, retrying text-only:", (err as Error).message);
   }
 
-  const textResult = await invokeLlm({
+  const { content: textResult, usage } = await invokeLlmWithUsage({
     prompt: fullPrompt,
     response_json_schema: args.schema,
     provider: "gemini",
     modelSlot,
   });
+  const creditCost = creditsFromTokenUsage(usage);
+  const usageMeta = usageBasedCreditsEnabled()
+    ? { _usageCredits: creditCost, _tokenUsage: usage }
+    : {};
   if (typeof textResult === "object" && textResult) {
-    return { ...textResult, ...attachMeta };
+    return { ...textResult, ...attachMeta, ...usageMeta };
   }
-  return { result: textResult, ...attachMeta };
+  return { result: textResult, ...attachMeta, ...usageMeta };
 }
