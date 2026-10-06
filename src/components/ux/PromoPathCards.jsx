@@ -1,32 +1,32 @@
 import { Link } from "react-router-dom";
-import { Disc3, Film, Palette, Share2, ArrowRight } from "lucide-react";
+import { Disc3, Film, FileText, Share2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
   {
-    title: "Release & tracks",
-    description: "Add your single, EP, or album — upload audio and set the release date.",
+    title: "Release",
+    description: "Single, EP, or album — artwork, tracks, and release date.",
     to: "/create",
-    cta: "Start promo setup",
+    cta: "Start wizard",
     icon: Disc3,
   },
   {
+    title: "Audio & lyrics",
+    description: "Upload masters, optionally add lyrics or .srt for smarter hook clips.",
+    to: "/create",
+    cta: "Continue setup",
+    icon: FileText,
+  },
+  {
     title: "Promo videos",
-    description: "Turn hooks and artwork into 9:16 clips in the video studio or during campaign create.",
-    to: "/studio",
-    cta: "Open video studio",
+    description: "AI plans your rollout and encodes the best part of each song.",
+    to: "/create",
+    cta: "Create videos",
     icon: Film,
   },
   {
-    title: "Cover art",
-    description: "Generate or design artwork with AI, then attach it to your release.",
-    to: "/artwork",
-    cta: "Cover lab",
-    icon: Palette,
-  },
-  {
-    title: "Publish",
-    description: "Connect TikTok, Instagram, or YouTube and auto-schedule plan days.",
+    title: "Platforms",
+    description: "Pick where each plan day publishes, then launch.",
     to: "/social/connect",
     cta: "Connect social",
     icon: Share2,

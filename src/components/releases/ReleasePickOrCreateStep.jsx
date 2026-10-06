@@ -14,6 +14,7 @@ import { GENRES, LANGUAGES, RELEASE_TYPES } from "@/services/constants";
 import { resolveTrackTitlesFromInput } from "@/services/releaseDefaults";
 import { todayISO } from "@/services/format";
 import { useAuth } from "@/lib/AuthContext";
+import WizardStepIntro from "@/components/ux/WizardStepIntro";
 
 /**
  * Step 1 of campaign create: pick an existing release or create one with a tracklist.
@@ -130,14 +131,15 @@ export default function ReleasePickOrCreateStep({ onReleaseReady }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Promo starts with a <strong>release</strong> you already have (single, EP, or album). Set metadata once, upload
-        your track audio in the next steps, then we build hooks, captions, and promo videos — not AI-generated songs. Need
-        cover art?{" "}
+      <WizardStepIntro
+        title="Start here"
+        description="Pick an existing release or create a new single, EP, or album. The next steps walk you through audio, optional lyrics, AI promo videos, and platform choices."
+      />
+      <p className="text-xs text-muted-foreground">
+        Need cover art first?{" "}
         <Link to="/artwork" className="font-medium text-primary underline underline-offset-2">
           Open Cover lab
         </Link>
-        .
       </p>
 
       <div className="inline-flex rounded-full bg-muted/50 p-1">
