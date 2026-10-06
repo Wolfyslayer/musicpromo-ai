@@ -8,7 +8,10 @@ export default function PromoFlowStepper({ labels, currentIndex }) {
   if (!labels?.length) return null;
 
   return (
-    <ol className="grid gap-2 sm:grid-cols-[repeat(var(--steps),minmax(0,1fr))]" style={{ "--steps": labels.length }}>
+    <ol
+      className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:grid sm:overflow-visible sm:pb-0 sm:[grid-template-columns:repeat(var(--steps),minmax(0,1fr))] [&::-webkit-scrollbar]:hidden"
+      style={{ "--steps": labels.length }}
+    >
       {labels.map((label, i) => {
         const done = i < currentIndex;
         const active = i === currentIndex;
@@ -16,7 +19,7 @@ export default function PromoFlowStepper({ labels, currentIndex }) {
           <li
             key={label}
             className={cn(
-              "relative flex min-h-11 items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-medium transition",
+              "relative flex min-h-11 min-w-[7.5rem] shrink-0 items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-medium transition sm:min-w-0",
               active && "border-primary/40 bg-primary/10 text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.15)]",
               done && "border-primary/20 bg-primary/5 text-primary",
               !active && !done && "border-border/60 bg-muted/20 text-muted-foreground"

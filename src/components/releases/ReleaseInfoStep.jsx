@@ -12,6 +12,8 @@ import ReleaseTracklistEditor from "@/components/releases/ReleaseTracklistEditor
 import { GENRES, LANGUAGES, RELEASE_TYPES } from "@/services/constants";
 import { songDefaultsFromRelease } from "@/services/releaseDefaults";
 import { useAuth } from "@/lib/AuthContext";
+import WizardStepIntro from "@/components/ux/WizardStepIntro";
+import { cn } from "@/lib/utils";
 
 /**
  * Release metadata + tracklist (genre & language apply to every track).
@@ -117,10 +119,31 @@ function ReleaseInfoStepInner({ release, artists, onSaved }, ref) {
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-muted-foreground">
-        Set release info once — <strong>genre</strong> and <strong>language</strong> apply to every track. Name each
-        song on the tracklist; those names are used in your campaign hooks and posts. Next: upload audio per track.
-      </p>
+      <WizardStepIntro
+        title="Your release"
+        description="Choose single, EP, or album, set artwork and release date, then name every track — genre and language apply to the whole project."
+      />
+
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">Release format</Label>
+        <div className="grid grid-cols-3 gap-2">
+          {RELEASE_TYPES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => set("release_type", t.id)}
+              className={cn(
+                "min-h-11 rounded-2xl border px-2 py-2 text-center text-xs font-semibold transition",
+                form.release_type === t.id
+                  ? "border-primary bg-primary/10 text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.2)]"
+                  : "border-border/60 bg-muted/20 text-muted-foreground hover:border-primary/30"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="space-y-1.5">
         <Label className="text-xs text-muted-foreground">Artwork</Label>
@@ -146,21 +169,6 @@ function ReleaseInfoStepInner({ release, artists, onSaved }, ref) {
               {artists.map((a) => (
                 <SelectItem key={a.id} value={a.id}>
                   {a.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Type</Label>
-          <Select value={form.release_type} onValueChange={(v) => set("release_type", v)}>
-            <SelectTrigger className="rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {RELEASE_TYPES.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.label}
                 </SelectItem>
               ))}
             </SelectContent>

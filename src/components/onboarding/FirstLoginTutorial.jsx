@@ -53,7 +53,7 @@ const STEPS = [
   {
     id: "campaign",
     title: "Create your first promo",
-    body: "Use New promo to pick a release, upload track audio, set rollout options, then generate. Each plan day gets hooks, captions, platforms, and a video draft.",
+    body: "New promo walks you through release → audio → optional lyrics/SRT → AI promo videos (best hook clip) → picking platforms for each plan day.",
     icon: ListMusic,
     cta: { label: "Start new promo", to: "/create" },
   },
