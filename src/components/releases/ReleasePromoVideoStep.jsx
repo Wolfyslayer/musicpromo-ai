@@ -24,11 +24,9 @@ export default function ReleasePromoVideoStep({
   const planEnd = campaignEndDate(rollout.startDate, rollout.durationDays);
 
   useEffect(() => {
-    import("@/lib/chunkLoadError")
-      .then(({ importWithRetry }) =>
-        importWithRetry(() => import("@/remotion/renderPromoRemotion"), { reloadOnChunkError: false })
-      )
-      .catch(() => {});
+    importWithRetry(() => import("@/remotion/renderPromoRemotion"), { reloadOnChunkError: false }).catch(
+      () => {}
+    );
   }, []);
 
   return (
