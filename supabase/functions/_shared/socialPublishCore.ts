@@ -652,6 +652,7 @@ export async function publishSocialPostCore(params: {
         }
 
         let publishId = tiktokPublishIdFromContainer(String(post.container_id || ""));
+        let tiktokPrivacyLevel = "";
         const uploadAlreadyDone = tiktokContainerUploaded(String(post.container_id || ""));
 
         if (publishId) {
@@ -681,12 +682,24 @@ export async function publishSocialPostCore(params: {
         }
 
         if (!publishId) {
+          const tiktokAudited = secrets.get("TIKTOK_CLIENT_AUDITED") === "true";
+          const videoDurationSec =
+            videoProject?.duration != null ? Number(videoProject.duration) : undefined;
           const init = await initTikTokDirectVideoPost({
             accessToken,
             videoSize: videoBytes.byteLength,
             title: caption || "Promo",
+            preferPublicPrivacy: tiktokAudited,
+            brandContentToggle: false,
+            brandOrganicToggle: true,
+            isAigc: false,
+            videoDurationSec:
+              videoDurationSec != null && !Number.isNaN(videoDurationSec)
+                ? videoDurationSec
+                : undefined,
           });
           publishId = init.publish_id;
+          tiktokPrivacyLevel = init.privacy_level || "";
           await base44.asServiceRole.entities.SocialPost.update(postId, {
             container_id: publishId,
           });
@@ -735,7 +748,10 @@ export async function publishSocialPostCore(params: {
             published_at: publishedAt,
             external_post_id: publicId,
           }),
-          note: "TikTok direct post (Content Posting API v2).",
+          note:
+            tiktokPrivacyLevel === "SELF_ONLY"
+              ? "TikTok direct post saved as private (Only me). Change visibility in TikTok after our developer app is audited for public posting."
+              : "TikTok direct post (Content Posting API v2).",
         };
       }
 

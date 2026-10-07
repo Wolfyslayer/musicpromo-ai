@@ -678,6 +678,13 @@ export default function SocialCompose() {
               <strong>Media:</strong> {mediaType} — {mediaUrl ? "selected" : "none"}
             </span>
             <span className="block text-muted-foreground">This posts immediately. Scheduling is not available yet.</span>
+            {providerId === "tiktok" ? (
+              <span className="block text-xs text-muted-foreground">
+                By posting, you agree to TikTok&apos;s Music Usage Confirmation. Promo posts are marked as your own
+                business content. Until our TikTok developer app is audited, videos may publish as private (&quot;Only
+                me&quot;).
+              </span>
+            ) : null}
           </span>
         }
         confirmLabel="Publish now"
