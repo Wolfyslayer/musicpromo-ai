@@ -20,15 +20,23 @@ npx skills add base44/skills
 ## Key Files
 
 - `src/`: frontend application source.
-- `src/api/base44Client.js`: frontend Base44 SDK client.
+- `src/api/base44Client.js`: Supabase gateway the studio uses for auth, entities, and function calls.
 - `vite.config.js`: Vite config and Base44 Vite plugin setup.
 - `.env.local`: local-only environment values; never commit secrets.
 
 ## Working Notes
 
-- Use `base44 dev` as the default local development command when you need the local Base44 backend. It can run the backend and frontend together.
-- When docs or code mention the frontend being started automatically, that usually means the Base44 project config includes `site.serveCommand`, for example `"serveCommand": "npm run dev"` in `base44/config.jsonc`.
-- Use `npm run dev` only for frontend-only work against the hosted Base44 backend.
-- Prefer the existing Base44 CLI workflow over adding new npm scripts for Base44-specific tasks.
-- Reuse the existing SDK client and Vite plugin patterns before adding new Base44 integration paths.
-- Run the relevant checks from `package.json` before finishing code changes.
+- The studio reads and writes through Supabase. `src/api/base44Client.js` expects `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in `.env.local`.
+- Local development is `npm run dev` against the local Supabase stack. Pointing those variables at a hosted project writes that project's data.
+- `base44 dev` is not the data path for this app. The Vite plugin still warns when `VITE_BASE44_APP_BASE_URL` is unset; entity calls do not use that proxy.
+- `base44/config.jsonc` sets `site.serveCommand` to `npm run dev`.
+- Reuse the existing client and Vite plugin patterns before adding new Base44 integration paths.
+- Run `npm run lint` and `npm run build` before finishing code changes. `npm run typecheck` currently fails on existing TypeScript errors in the app.
+
+## Cursor Cloud
+
+- Install installs Docker (`docker.io`, `fuse-overlayfs`, legacy iptables) and runs `npm ci`. Node 22 is already on the image.
+- Start launches dockerd with the fuse-overlayfs storage driver, a local Supabase project in `~/musicpromo-supabase` (Postgres, Auth, REST, and Storage). Studio, analytics, realtime, pooler, and Edge Functions stay off. It applies `supabase/schema.sql` once, writes `.env.local`, and serves Vite at http://127.0.0.1:5173.
+- Email/password sign-in and entity saves work on that database. The saved local database includes `cloudagent@example.com` / `password123` and an artist named Cloud Agent.
+- Handle checks, AI, billing, and OAuth call Edge Functions, which this local stack does not run.
+- Do not commit `.env.local`.
