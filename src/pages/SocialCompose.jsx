@@ -13,7 +13,10 @@ import PageHeader from "@/components/PageHeader";
 import SocialPlatformPreview, { isVideoMediaUrl } from "@/components/social/SocialPlatformPreview";
 
 import { db } from "@/api/base44Client";
-import { connectionForProvider } from "@/services/socialArtistScope";
+import {
+  resolveComposeArtistId,
+  resolveConnectionForCompose,
+} from "@/services/socialArtistScope";
 import {
   createPost,
   updatePost,
@@ -102,8 +105,6 @@ export default function SocialCompose() {
   const bootstrap = useCallback(async () => {
     setLoading(true);
     try {
-      const status = await getConnectionStatus();
-
       let loadedPost = null;
       if (postIdParam) {
         const res = await loadPost(postIdParam);
@@ -112,8 +113,8 @@ export default function SocialCompose() {
           loadedPost = p;
           setPost(p);
           setCaption(p.caption || "");
-          setMediaUrl(p.mediaUrl || "");
-          setMediaType(p.mediaType || "IMAGE");
+          setMediaUrl(p.mediaUrl || p.media_url || "");
+          setMediaType(p.mediaType || p.media_type || "IMAGE");
           if (p.provider) setProviderId(String(p.provider).toLowerCase());
         }
       }
@@ -123,16 +124,26 @@ export default function SocialCompose() {
       let releaseRow = null;
       let songRow = null;
 
-      if (dayId) {
-        dayRow = await db.entities.CampaignDay.get(dayId);
+      const dayIdEffective =
+        dayId || loadedPost?.campaignDayId || loadedPost?.campaign_day_id || "";
+      if (dayIdEffective) {
+        dayRow = await db.entities.CampaignDay.get(dayIdEffective);
         setDay(dayRow);
       }
-      const campaignId = campaignIdParam || dayRow?.campaign_id;
+      const campaignId =
+        campaignIdParam ||
+        loadedPost?.campaignId ||
+        loadedPost?.campaign_id ||
+        dayRow?.campaign_id;
       if (campaignId) {
         campaignRow = await db.entities.Campaign.get(campaignId);
         setCampaign(campaignRow);
       }
-      const releaseId = releaseIdParam || campaignRow?.release_id;
+      const releaseId =
+        releaseIdParam ||
+        loadedPost?.releaseId ||
+        loadedPost?.release_id ||
+        campaignRow?.release_id;
       if (releaseId) {
         releaseRow = await db.entities.Release.get(releaseId).catch(() => null);
         setRelease(releaseRow);
@@ -142,6 +153,13 @@ export default function SocialCompose() {
         setSong(songRow);
       }
 
+      const composeArtistId = resolveComposeArtistId({
+        campaign: campaignRow,
+        release: releaseRow,
+        song: songRow,
+      });
+      const status = await getConnectionStatus(composeArtistId || undefined);
+
       if (campaignId) {
         const content = await db.entities.GeneratedContent.filter({ campaign_id: campaignId }, "-created_date", 50).catch(
           () => []
@@ -150,8 +168,13 @@ export default function SocialCompose() {
       }
 
       let vp = null;
-      if (dayRow?.video_project_id) {
-        vp = await db.entities.VideoProject.get(dayRow.video_project_id).catch(() => null);
+      const videoProjectId =
+        dayRow?.video_project_id ||
+        loadedPost?.videoProjectId ||
+        loadedPost?.video_project_id ||
+        "";
+      if (videoProjectId) {
+        vp = await db.entities.VideoProject.get(videoProjectId).catch(() => null);
         setVideo(vp);
       }
 
@@ -162,12 +185,11 @@ export default function SocialCompose() {
         "instagram";
       setProviderId(resolvedProvider);
 
-      const composeArtistId =
-        campaignRow?.artist_id || releaseRow?.artist_id || songRow?.artist_id || "";
-      const conn = composeArtistId
-        ? connectionForProvider(status?.connections || [], resolvedProvider, composeArtistId)
-        : null;
-      setConnection(conn ? { ...conn, artistId: conn.artistId || composeArtistId } : null);
+      const conn = resolveConnectionForCompose(status?.connections || [], resolvedProvider, {
+        artistId: composeArtistId,
+        post: loadedPost,
+      });
+      setConnection(conn);
 
       const vpReady =
         vp && vp.rendering_status === "complete" && vp.render_output_url && /^https:\/\//i.test(vp.render_output_url);
@@ -352,7 +374,11 @@ export default function SocialCompose() {
 
   const reconnect = async () => {
     try {
-      const res = await startOAuth(providerId, { forceReauth: true });
+      const artistId =
+        connection?.artistId ||
+        resolveComposeArtistId({ campaign, release, song }) ||
+        "";
+      const res = await startOAuth(providerId, { forceReauth: true, artistId });
       if (res?.authorizationUrl) {
         window.location.assign(res.authorizationUrl);
         return;
