@@ -21,6 +21,11 @@ export const TIKTOK_CONNECT_SCOPES = [
   "video.list",
 ];
 
+export function hasTikTokPublishScope(scopes: unknown): boolean {
+  const raw = String(scopes || "").toLowerCase();
+  return raw.includes("video.publish");
+}
+
 export function buildTikTokAuthorizeUrl(params: {
   clientKey: string;
   state: string;
@@ -173,6 +178,157 @@ export async function fetchTikTokProfile(accessToken: string): Promise<TikTokPro
     avatar_url: avatar || undefined,
     username: username || undefined,
   };
+}
+
+export type TikTokCreatorInfo = {
+  privacy_level_options: string[];
+  max_video_post_duration_sec?: number;
+};
+
+/** Required before direct post — pick a valid privacy_level for post_info. */
+export async function queryTikTokCreatorInfo(accessToken: string): Promise<TikTokCreatorInfo> {
+  const res = await fetch(`${TIKTOK_API}/v2/post/publish/creator_info/query/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json; charset=UTF-8",
+    },
+    body: JSON.stringify({}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`tiktok_creator_info: ${formatTikTokError(data, `HTTP ${res.status}`)}`);
+  }
+  const info = (data?.data || {}) as Record<string, unknown>;
+  const options = Array.isArray(info.privacy_level_options)
+    ? info.privacy_level_options.map((o) => String(o))
+    : [];
+  return {
+    privacy_level_options: options,
+    max_video_post_duration_sec:
+      info.max_video_post_duration_sec != null
+        ? Number(info.max_video_post_duration_sec)
+        : undefined,
+  };
+}
+
+function pickTikTokPrivacyLevel(options: string[]): string {
+  const prefs = ["PUBLIC_TO_EVERYONE", "FOLLOWER_OF_CREATOR", "MUTUAL_FOLLOW_FRIENDS", "SELF_ONLY"];
+  for (const p of prefs) {
+    if (options.includes(p)) return p;
+  }
+  return options[0] || "SELF_ONLY";
+}
+
+/**
+ * Direct post (profile) — NOT inbox/draft. Requires video.publish scope + Direct Post enabled in TikTok app.
+ */
+export async function initTikTokDirectVideoPost(params: {
+  accessToken: string;
+  videoSize: number;
+  title: string;
+  privacyLevel?: string;
+  chunkSize?: number;
+  totalChunkCount?: number;
+}): Promise<{ publish_id: string; upload_url: string }> {
+  const creator = await queryTikTokCreatorInfo(params.accessToken);
+  const privacyLevel =
+    params.privacyLevel && creator.privacy_level_options.includes(params.privacyLevel)
+      ? params.privacyLevel
+      : pickTikTokPrivacyLevel(creator.privacy_level_options);
+
+  const chunkSize = params.chunkSize || params.videoSize;
+  const totalChunkCount = params.totalChunkCount || 1;
+  const title = String(params.title || "").trim().slice(0, 2200) || "Promo";
+
+  const res = await fetch(`${TIKTOK_API}/v2/post/publish/video/init/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${params.accessToken}`,
+      "Content-Type": "application/json; charset=UTF-8",
+    },
+    body: JSON.stringify({
+      post_info: {
+        title,
+        privacy_level: privacyLevel,
+        disable_duet: false,
+        disable_comment: false,
+        disable_stitch: false,
+        video_cover_timestamp_ms: 1000,
+      },
+      source_info: {
+        source: "FILE_UPLOAD",
+        video_size: params.videoSize,
+        chunk_size: chunkSize,
+        total_chunk_count: totalChunkCount,
+      },
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  const publishId = data?.data?.publish_id;
+  const uploadUrl = data?.data?.upload_url;
+  if (!res.ok || !publishId || !uploadUrl) {
+    throw new Error(`tiktok_direct_init: ${formatTikTokError(data, `HTTP ${res.status}`)}`);
+  }
+  return { publish_id: String(publishId), upload_url: String(uploadUrl) };
+}
+
+export type TikTokPublishStatus = {
+  status: string;
+  fail_reason?: string;
+  publicPostIds?: string[];
+};
+
+export async function fetchTikTokPublishStatus(
+  accessToken: string,
+  publishId: string
+): Promise<TikTokPublishStatus> {
+  const res = await fetch(`${TIKTOK_API}/v2/post/publish/status/fetch/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json; charset=UTF-8",
+    },
+    body: JSON.stringify({ publish_id: publishId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`tiktok_publish_status: ${formatTikTokError(data, `HTTP ${res.status}`)}`);
+  }
+  const row = (data?.data || {}) as Record<string, unknown>;
+  const ids = row.publicaly_available_post_id ?? row.publicly_available_post_id;
+  return {
+    status: String(row.status || ""),
+    fail_reason: row.fail_reason != null ? String(row.fail_reason) : undefined,
+    publicPostIds: Array.isArray(ids) ? ids.map((id) => String(id)) : undefined,
+  };
+}
+
+export async function waitForTikTokDirectPost(params: {
+  accessToken: string;
+  publishId: string;
+  maxAttempts?: number;
+  delayMs?: number;
+}): Promise<TikTokPublishStatus> {
+  const maxAttempts = params.maxAttempts ?? 45;
+  const delayMs = params.delayMs ?? 4000;
+  for (let i = 0; i < maxAttempts; i++) {
+    const st = await fetchTikTokPublishStatus(params.accessToken, params.publishId);
+    const status = st.status.toUpperCase();
+    if (status === "PUBLISH_COMPLETE") {
+      return st;
+    }
+    if (status === "SEND_TO_USER_INBOX") {
+      throw new Error(
+        "TikTok returned inbox/draft flow. Reconnect TikTok with video.publish and enable Direct Post in the TikTok developer app."
+      );
+    }
+    if (status === "FAILED") {
+      throw new Error(st.fail_reason || "TikTok direct post failed.");
+    }
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+  throw new Error("TikTok direct post timed out while processing.");
 }
 
 /**

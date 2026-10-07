@@ -447,6 +447,21 @@ export async function waitForContainerReady(params: {
   );
 }
 
+export async function fetchContainerStatus(params: {
+  containerId: string;
+  accessToken: string;
+}): Promise<{ statusCode: string; id: string; status?: string }> {
+  const data = await igFetch(
+    `/${params.containerId}?fields=status_code,status,id`,
+    params.accessToken
+  );
+  return {
+    statusCode: String(data.status_code || ""),
+    id: String(data.id || params.containerId),
+    status: data.status != null ? String(data.status) : undefined,
+  };
+}
+
 /** Step 3 — Publish a finished container via media_publish + creation_id. */
 export async function publishMediaContainer(params: {
   igUserId: string;
@@ -518,24 +533,45 @@ export async function publishInstagramMedia(params: {
   mediaUrl: string;
   mediaType: PublishMediaType;
   caption: string;
+  /** Resume a prior container instead of creating a duplicate IG post. */
+  existingContainerId?: string;
+  /** Persist container id as soon as Meta creates it (before publish completes). */
+  onContainerCreated?: (containerId: string) => Promise<void>;
 }): Promise<{ mediaId: string; permalink: string | null; containerId: string }> {
   try {
-    let containerId: string;
-    if (params.mediaType === "IMAGE") {
-      containerId = await createImageContainer({
-        igUserId: params.igUserId,
-        accessToken: params.accessToken,
-        imageUrl: params.mediaUrl,
-        caption: params.caption,
-      });
-    } else {
-      containerId = await createVideoContainer({
-        igUserId: params.igUserId,
-        accessToken: params.accessToken,
-        videoUrl: params.mediaUrl,
-        caption: params.caption,
-        mediaType: "REELS",
-      });
+    let containerId = String(params.existingContainerId || "").trim();
+    if (containerId) {
+      const st = await fetchContainerStatus({ containerId, accessToken: params.accessToken });
+      if (st.statusCode === "PUBLISHED") {
+        const mediaId = st.id;
+        const permalink = await fetchMediaPermalink({
+          mediaId,
+          accessToken: params.accessToken,
+        });
+        return { mediaId, permalink, containerId };
+      }
+    }
+
+    if (!containerId) {
+      if (params.mediaType === "IMAGE") {
+        containerId = await createImageContainer({
+          igUserId: params.igUserId,
+          accessToken: params.accessToken,
+          imageUrl: params.mediaUrl,
+          caption: params.caption,
+        });
+      } else {
+        containerId = await createVideoContainer({
+          igUserId: params.igUserId,
+          accessToken: params.accessToken,
+          videoUrl: params.mediaUrl,
+          caption: params.caption,
+          mediaType: "REELS",
+        });
+      }
+      if (params.onContainerCreated) {
+        await params.onContainerCreated(containerId);
+      }
     }
 
     await waitForContainerReady({
@@ -543,11 +579,17 @@ export async function publishInstagramMedia(params: {
       accessToken: params.accessToken,
     });
 
-    const mediaId = await publishMediaContainer({
-      igUserId: params.igUserId,
-      accessToken: params.accessToken,
-      creationId: containerId,
-    });
+    const afterReady = await fetchContainerStatus({ containerId, accessToken: params.accessToken });
+    let mediaId: string;
+    if (afterReady.statusCode === "PUBLISHED") {
+      mediaId = afterReady.id;
+    } else {
+      mediaId = await publishMediaContainer({
+        igUserId: params.igUserId,
+        accessToken: params.accessToken,
+        creationId: containerId,
+      });
+    }
 
     const permalink = await fetchMediaPermalink({
       mediaId,

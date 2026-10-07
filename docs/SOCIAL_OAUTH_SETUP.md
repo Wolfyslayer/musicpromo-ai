@@ -393,6 +393,10 @@ for on-time posts.
 Schedule a day from the Campaign Plan UI (**Schedule auto-publish**) which calls
 `campaignSchedule`.
 
+**TikTok:** auto-publish uses **Direct Post** (`/v2/post/publish/video/init/`), not inbox drafts.
+Users must reconnect with **`video.publish`** scope and enable **Direct Post** on your TikTok developer app.
+Unaudited apps may only post with restricted privacy levels until TikTok approves the app.
+
 Statuses: `scheduled` → `publishing` / day `processing` → `published` / day
 `posted` (or `failed` with error logs).
 

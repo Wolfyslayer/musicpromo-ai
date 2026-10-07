@@ -3,7 +3,7 @@
  * Used by socialPublish (user-invoked) and campaignWorker (cron).
  * Tokens never leave the backend.
  */
-import { secrets } from "base44:runtime";
+import { secrets } from "./runtime.ts";
 import { localDateTimeInZoneToUtcIso, normalizeTimeZone } from "./timezone.ts";
 import { decryptCredential } from "./socialCrypto.ts";
 import { hasInstagramPublishScope } from "./instagramOAuth.ts";
@@ -20,9 +20,11 @@ import {
 } from "./mediaPreparation.ts";
 import { fetchPublicMediaBytes } from "./mediaFetch.ts";
 import {
-  initTikTokVideoUpload,
+  hasTikTokPublishScope,
+  initTikTokDirectVideoPost,
   uploadTikTokVideoBytes,
   refreshTikTokToken,
+  waitForTikTokDirectPost,
 } from "./tiktokOAuth.ts";
 import { uploadYouTubeShort, refreshYouTubeToken } from "./youtubeOAuth.ts";
 import {
@@ -166,6 +168,28 @@ async function markDayFromPost(
   }
 }
 
+const PUBLISH_INFLIGHT_MS = 4 * 60 * 1000;
+
+async function findPublishedSiblingPost(
+  base44: Base44Client,
+  post: Record<string, unknown>
+): Promise<Record<string, unknown> | null> {
+  const dayId = post.campaign_day_id ? String(post.campaign_day_id) : "";
+  const provider = normalizeProviderId(post.provider);
+  if (!dayId || !provider) return null;
+  const siblings =
+    (await base44.asServiceRole.entities.SocialPost.filter(
+      { campaign_day_id: dayId, provider },
+      "-published_at",
+      12
+    )) || [];
+  for (const row of siblings) {
+    if (String(row.id) === String(post.id)) continue;
+    if (String(row.status) === "published" || row.external_post_id) return row;
+  }
+  return null;
+}
+
 /**
  * Publish one SocialPost using the owner's connected SocialAccount tokens.
  * Caller must ensure the post is eligible (draft | scheduled | failed).
@@ -206,14 +230,38 @@ export async function publishSocialPostCore(params: {
         post: safeSocialPost(post),
       };
     }
-    if (post.status === "publishing") {
+
+    const publishedSibling = await findPublishedSiblingPost(base44, post);
+    if (publishedSibling) {
+      const publishedAt =
+        publishedSibling.published_at || post.published_at || new Date().toISOString();
+      const updated = await base44.asServiceRole.entities.SocialPost.update(postId, {
+        status: "published",
+        published_at: publishedAt,
+        external_post_id: publishedSibling.external_post_id || "",
+        external_permalink: publishedSibling.external_permalink || "",
+        container_id: publishedSibling.container_id || post.container_id || "",
+        error_code: "",
+        error_message: "",
+      });
       return {
-        ok: false,
-        code: "DUPLICATE",
-        message: "This post is already publishing.",
-        status: 409,
-        post: safeSocialPost(post),
+        ok: true,
+        post: safeSocialPost({ ...post, ...updated, status: "published" }),
+        note: "Duplicate publish skipped — this campaign day was already live on this platform.",
       };
+    }
+
+    if (post.status === "publishing") {
+      const updatedAt = Date.parse(String(post.updated_date || post.created_date || ""));
+      if (!Number.isNaN(updatedAt) && Date.now() - updatedAt < PUBLISH_INFLIGHT_MS) {
+        return {
+          ok: false,
+          code: "DUPLICATE",
+          message: "This post is already publishing.",
+          status: 409,
+          post: safeSocialPost(post),
+        };
+      }
     }
 
     const allowed = new Set(["draft", "failed"]);
@@ -525,6 +573,23 @@ export async function publishSocialPostCore(params: {
       const videoBytes = await fetchPublicMediaBytes(videoUrl);
 
       if (provider === "tiktok") {
+        if (!hasTikTokPublishScope(account.scopes)) {
+          await base44.asServiceRole.entities.SocialPost.update(postId, {
+            status: "failed",
+            error_code: "PERMISSION_DENIED",
+            error_message:
+              "Reconnect TikTok with Direct Post (video.publish scope) to publish without inbox drafts.",
+          });
+          return {
+            ok: false,
+            code: "PERMISSION_DENIED",
+            message:
+              "Reconnect TikTok with Direct Post (video.publish scope) to publish without inbox drafts.",
+            status: 400,
+            needsReauth: true,
+          };
+        }
+
         let accessToken = String(creds.access_token || "");
         if (creds.refresh_token) {
           try {
@@ -542,18 +607,31 @@ export async function publishSocialPostCore(params: {
             console.warn("[socialPublishCore] tiktok refresh", (err as Error)?.message || err);
           }
         }
-        const init = await initTikTokVideoUpload({
-          accessToken,
-          videoSize: videoBytes.byteLength,
-        });
-        await uploadTikTokVideoBytes({ uploadUrl: init.upload_url, bytes: videoBytes });
+
+        const existingPublishId = String(post.container_id || post.external_post_id || "").trim();
+        let publishId = existingPublishId;
+        if (!publishId) {
+          const init = await initTikTokDirectVideoPost({
+            accessToken,
+            videoSize: videoBytes.byteLength,
+            title: caption || "Promo",
+          });
+          publishId = init.publish_id;
+          await base44.asServiceRole.entities.SocialPost.update(postId, {
+            container_id: publishId,
+          });
+          await uploadTikTokVideoBytes({ uploadUrl: init.upload_url, bytes: videoBytes });
+        }
+
+        const tiktokStatus = await waitForTikTokDirectPost({ accessToken, publishId });
+        const publicId = tiktokStatus.publicPostIds?.[0] || publishId;
         const publishedAt = new Date().toISOString();
         const updated = await base44.asServiceRole.entities.SocialPost.update(postId, {
           status: "published",
           published_at: publishedAt,
-          external_post_id: init.publish_id,
+          external_post_id: publicId,
           external_permalink: "",
-          container_id: init.publish_id,
+          container_id: publishId,
           error_code: "",
           error_message: "",
         });
@@ -569,9 +647,9 @@ export async function publishSocialPostCore(params: {
             ...updated,
             status: "published",
             published_at: publishedAt,
-            external_post_id: init.publish_id,
+            external_post_id: publicId,
           }),
-          note: "TikTok inbox/draft upload initialized (Content Posting API v2).",
+          note: "TikTok direct post (Content Posting API v2).",
         };
       }
 
@@ -748,6 +826,10 @@ export async function publishSocialPostCore(params: {
       mediaUrl: publishUrl,
       mediaType: mediaType === "VIDEO" || mediaType === "REELS" ? mediaType : "IMAGE",
       caption: igCaption,
+      existingContainerId: post.container_id ? String(post.container_id) : undefined,
+      onContainerCreated: async (containerId) => {
+        await base44.asServiceRole.entities.SocialPost.update(postId, { container_id: containerId });
+      },
     });
 
     const publishedAt = new Date().toISOString();

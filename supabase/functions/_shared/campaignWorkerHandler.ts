@@ -323,6 +323,15 @@ export async function handleCampaignWorkerRequest(req: Request): Promise<Respons
       let createdAny = false;
 
       for (const provider of providers) {
+        if (
+          existing.some(
+            (p: Record<string, unknown>) =>
+              String(p.provider) === provider &&
+              (String(p.status) === "published" || Boolean(p.external_post_id))
+          )
+        ) {
+          continue;
+        }
         const already = existing.find(
           (p: Record<string, unknown>) =>
             String(p.provider) === provider &&
