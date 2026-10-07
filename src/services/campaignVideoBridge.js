@@ -150,8 +150,9 @@ export async function renderPromoForProject({
   linkCampaignId,
   triggerCampaignAutoVideo,
 }) {
-  const { resolvePlayableAudioUrl } = await import("@/services/videoService");
-  const { renderPromoRemotion } = await import("@/remotion/renderPromoRemotion");
+  const { importWithRetry } = await import("@/lib/chunkLoadError");
+  const { resolvePlayableAudioUrl } = await importWithRetry(() => import("@/services/videoService"));
+  const { renderPromoRemotion } = await importWithRetry(() => import("@/remotion/renderPromoRemotion"));
 
   let playableAudio = audioSignedUrl || "";
   if (!playableAudio) {

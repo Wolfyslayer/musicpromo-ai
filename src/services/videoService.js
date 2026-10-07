@@ -119,7 +119,8 @@ export const videoService = {
         project?.lyric_cues
       );
 
-      const { renderPromoRemotion } = await import("@/remotion/renderPromoRemotion");
+      const { importWithRetry } = await import("@/lib/chunkLoadError");
+      const { renderPromoRemotion } = await importWithRetry(() => import("@/remotion/renderPromoRemotion"));
       const rendered = await renderPromoRemotion({
         artworkUrl,
         artworkFile,

@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { Film, Loader2, Sparkles } from "lucide-react";
+import { importWithRetry } from "@/lib/chunkLoadError";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +22,14 @@ export default function ReleasePromoVideoStep({
   uploadsReady,
 }) {
   const planEnd = campaignEndDate(rollout.startDate, rollout.durationDays);
+
+  useEffect(() => {
+    import("@/lib/chunkLoadError")
+      .then(({ importWithRetry }) =>
+        importWithRetry(() => import("@/remotion/renderPromoRemotion"), { reloadOnChunkError: false })
+      )
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-6">

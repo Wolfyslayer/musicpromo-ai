@@ -135,6 +135,10 @@ jobs:
           fi
           npm ci
           npm run build
+          if ! compgen -G "dist/assets/renderPromoRemotion-*.js" > /dev/null; then
+            echo "::error::Build did not emit renderPromoRemotion chunk — promo video encode will fail in production."
+            exit 1
+          fi
 
       - name: SPA fallback for client-side routes
         run: |
