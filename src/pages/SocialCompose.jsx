@@ -681,8 +681,9 @@ export default function SocialCompose() {
             {providerId === "tiktok" ? (
               <span className="block text-xs text-muted-foreground">
                 By posting, you agree to TikTok&apos;s Music Usage Confirmation. Videos publish as{" "}
-                <strong>Only me</strong> (private) — change visibility to Everyone in TikTok after posting if you want
-                them public.
+                <strong>Only me</strong>. If publish fails, set your TikTok profile to{" "}
+                <strong>Private</strong> (Settings → Privacy), reconnect in Social Hub, then retry — you can switch the
+                video to Everyone in TikTok after it posts.
               </span>
             ) : null}
           </span>
