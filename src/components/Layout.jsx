@@ -24,6 +24,7 @@ import WorkspaceBanner from "@/components/workspace/WorkspaceBanner";
 import HeaderBillingControls from "@/components/ux/HeaderBillingControls";
 import BillingCheckoutReturnHandler from "@/components/billing/BillingCheckoutReturnHandler";
 import SupportChatWidget from "@/components/support/SupportChatWidget";
+import GlobalAutoPublishKick from "@/components/launch/GlobalAutoPublishKick";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -187,6 +188,7 @@ export default function Layout() {
         </main>
       </div>
       {isAuthenticated ? <BillingCheckoutReturnHandler /> : null}
+      {isAuthenticated ? <GlobalAutoPublishKick enabled /> : null}
       <FirstLoginTutorial />
       <SupportChatWidget />
     </div>

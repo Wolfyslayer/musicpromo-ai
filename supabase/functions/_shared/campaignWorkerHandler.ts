@@ -10,10 +10,11 @@ import {
 import { processQueuedVideoRenders } from "../_shared/videoRender.ts";
 import { syncSocialStats } from "../_shared/socialStatsSync.ts";
 import { pickSocialAccountForArtist } from "../_shared/socialAccountScope.ts";
+import { kickCampaignWorkerAsync } from "../_shared/kickCampaignWorker.ts";
 
-const DEFAULT_BATCH = 12;
-const MAX_BATCH = 20;
-const CONCURRENCY = 2;
+const DEFAULT_BATCH = 20;
+const MAX_BATCH = 40;
+const CONCURRENCY = 3;
 const STALE_PUBLISHING_MS = 45 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STATS_CHECKPOINT_KEY = "daily_social_stats_sync";
@@ -251,8 +252,8 @@ export async function handleCampaignWorkerRequest(req: Request): Promise<Respons
     const scheduledDays =
       (await base44.asServiceRole.entities.CampaignDay.filter(
         { status: "scheduled" },
-        "-scheduled_at",
-        100
+        "scheduled_at",
+        120
       )) || [];
 
     const dayMaterialized: Array<Record<string, unknown>> = [];
@@ -401,12 +402,14 @@ export async function handleCampaignWorkerRequest(req: Request): Promise<Respons
       (await base44.asServiceRole.entities.SocialPost.filter(
         { status: "scheduled" },
         "scheduled_at",
-        100
+        150
       )) || [];
 
-    const due = scheduledPosts
-      .filter((p: Record<string, unknown>) => isDue(p.scheduled_at as string, nowMs))
-      .slice(0, batchLimit);
+    const dueAll = scheduledPosts.filter((p: Record<string, unknown>) =>
+      isDue(p.scheduled_at as string, nowMs)
+    );
+    const due = dueAll.slice(0, batchLimit);
+    const publishBacklog = dueAll.length > batchLimit;
 
     const publishing =
       (await base44.asServiceRole.entities.SocialPost.filter(
@@ -484,7 +487,16 @@ export async function handleCampaignWorkerRequest(req: Request): Promise<Respons
       })
     );
 
-    return Response.json(summary);
+    if (publishBacklog) {
+      kickCampaignWorkerAsync({
+        skipVideo: skipVideo,
+        skipStats: true,
+        skipPublish: false,
+        batchLimit,
+      });
+    }
+
+    return Response.json({ ...summary, publishBacklog });
   } catch (error) {
     console.error("[campaignWorker]", (error as Error)?.message || error);
     return Response.json(

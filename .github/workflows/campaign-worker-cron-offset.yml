@@ -1,16 +1,15 @@
-# Nudge campaignWorker every 5 minutes (+ offset workflow for ~2–3 min average).
-# Requires repository secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-# See docs/AUTO_PUBLISH.md
+# Offset schedule (~every 2–3 min with campaign-worker-cron.yml).
+# GitHub scheduled workflows are limited to 5-minute granularity.
 
-name: Campaign worker cron
+name: Campaign worker cron (offset)
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "2-57/5 * * * *"
   workflow_dispatch:
 
 concurrency:
-  group: campaign-worker-cron
+  group: campaign-worker-cron-offset
   cancel-in-progress: false
 
 jobs:
