@@ -1,7 +1,8 @@
 import { db } from '@/api/base44Client';
 
 import { useMemo, useState } from "react";
-import { Plus, Loader2, Sparkles, Trash2, BarChart3, TrendingUp, Eye, Heart } from "lucide-react";
+import { Plus, Loader2, Sparkles, Trash2, BarChart3, TrendingUp, Eye, Heart, RefreshCw } from "lucide-react";
+import { syncSocialStats, summarizeStatsSyncResult } from "@/services/socialService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,8 +23,43 @@ const METRICS = ["views", "likes", "comments", "shares", "saves", "followers_gai
 export default function CampaignAnalytics({ campaign, analytics, days, onRefresh }) {
   const [open, setOpen] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [insights, setInsights] = useState(null);
   const { toast } = useToast();
+
+  const syncFromPlatforms = async () => {
+    setSyncing(true);
+    try {
+      const res = await syncSocialStats();
+      const summary = summarizeStatsSyncResult(res);
+      if (!summary.ok) {
+        toast({ variant: "destructive", title: "Sync failed", description: summary.message });
+        return;
+      }
+      await onRefresh?.();
+      if (summary.upserted > 0) {
+        toast({
+          title: "Platform stats synced",
+          description: `Updated ${summary.upserted} row(s) for your published posts.`,
+        });
+      } else if (summary.errors.length) {
+        toast({
+          variant: "destructive",
+          title: "Sync completed with errors",
+          description: summary.errors.slice(0, 2).join(" · "),
+        });
+      } else {
+        toast({
+          title: "Sync finished",
+          description: "No stats returned yet — publish to social with this campaign linked, then sync again.",
+        });
+      }
+    } catch (e) {
+      toast({ variant: "destructive", title: "Sync failed", description: e?.message || "Could not sync." });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const totals = useMemo(() => {
     const t = {};
@@ -65,9 +101,26 @@ export default function CampaignAnalytics({ campaign, analytics, days, onRefresh
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Manually enter performance data. The app never invents analytics.</p>
-        <Button onClick={() => setOpen(true)} className="rounded-full"><Plus className="mr-1.5 h-4 w-4" />Add Entry</Button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          Sync live stats from connected platforms or add entries manually.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-full"
+            disabled={syncing}
+            onClick={syncFromPlatforms}
+          >
+            <RefreshCw className={`mr-1.5 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing…" : "Sync from platforms"}
+          </Button>
+          <Button onClick={() => setOpen(true)} className="rounded-full">
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add Entry
+          </Button>
+        </div>
       </div>
 
       {/* Totals */}

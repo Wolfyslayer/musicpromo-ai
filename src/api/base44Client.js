@@ -72,7 +72,9 @@ export const db = {
                   name === "kickCampaignWorker" ||
                   name === "campaignWorker"
                 ? "Run GitHub Actions → Deploy → Run workflow (or: supabase functions deploy campaignSchedule campaignCancelAutoPublish campaignWorker). Confirm VITE_SUPABASE_URL matches Supabase → Settings → API."
-                : "Redeploy the Edge Function and confirm VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY match your Supabase project (Settings → API).";
+                : name === "socialStatsSync"
+                  ? "Deploy socialStatsSync via GitHub Actions → Deploy (or: supabase functions deploy socialStatsSync). Analytics sync needs SOCIAL_TOKEN_ENCRYPTION_KEY in function secrets."
+                  : "Redeploy the Edge Function and confirm VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY match your Supabase project (Settings → API).";
           message = `Could not reach Edge Function “${name}”. ${fnHint}`;
         }
         try {

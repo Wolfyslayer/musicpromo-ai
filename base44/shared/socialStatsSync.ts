@@ -178,9 +178,12 @@ export async function syncSocialStats(params: {
     50
   ).catch(() => []);
 
-  const withMedia = (posts || []).filter(
-    (p: Record<string, unknown>) => p.external_post_id && p.campaign_id
-  );
+  const accountId = String(account.id || "");
+  const withMedia = (posts || []).filter((p: Record<string, unknown>) => {
+    if (!p.external_post_id || !p.campaign_id) return false;
+    const bound = p.social_account_id ? String(p.social_account_id) : "";
+    return !bound || bound === accountId;
+  });
   if (!withMedia.length) {
     result.skipped = 1;
     return result;
