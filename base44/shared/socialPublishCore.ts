@@ -682,14 +682,13 @@ export async function publishSocialPostCore(params: {
         }
 
         if (!publishId) {
-          const tiktokAudited = secrets.get("TIKTOK_CLIENT_AUDITED") === "true";
           const videoDurationSec =
             videoProject?.duration != null ? Number(videoProject.duration) : undefined;
           const init = await initTikTokDirectVideoPost({
             accessToken,
             videoSize: videoBytes.byteLength,
             title: caption || "Promo",
-            preferPublicPrivacy: tiktokAudited,
+            privacyLevel: "SELF_ONLY",
             brandContentToggle: false,
             brandOrganicToggle: true,
             isAigc: false,
@@ -750,8 +749,8 @@ export async function publishSocialPostCore(params: {
           }),
           note:
             tiktokPrivacyLevel === "SELF_ONLY"
-              ? "TikTok direct post saved as private (Only me). Change visibility in TikTok after our developer app is audited for public posting."
-              : "TikTok direct post (Content Posting API v2).",
+              ? "TikTok posted as Only me (private). Open TikTok to change visibility to Everyone if you want it public."
+              : "TikTok direct post completed. Check privacy in the TikTok app.",
         };
       }
 
