@@ -1,11 +1,15 @@
-import { createClientFromRequest } from "npm:@base44/sdk@0.8.52";
+import { serveWithCors } from "../_shared/cors.ts";
+import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
+import { normalizeTimeZone } from "../_shared/timezone.ts";
 import {
   buildDayCaption,
   resolveDayPublishProviders,
   resolveScheduledAt,
   safeSocialPost,
-} from "../../shared/socialPublishCore.ts";
-import { recordOwnedByUser } from "../../shared/ownership.ts";
+} from "../_shared/socialPublishCore.ts";
+import { pickSocialAccountForArtist } from "../_shared/socialAccountScope.ts";
+import { recordOwnedByUser } from "../_shared/ownership.ts";
+import { kickCampaignWorkerAsync } from "../_shared/kickCampaignWorker.ts";
 
 /**
  * Schedule a CampaignDay for automatic multi-platform publish via campaignWorker.
@@ -13,7 +17,7 @@ import { recordOwnedByUser } from "../../shared/ownership.ts";
  *
  * Body: { campaignDayId, scheduledAt?, providers?: string[] }
  */
-export default async function (req: Request): Promise<Response> {
+async function handler (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -63,9 +67,22 @@ export default async function (req: Request): Promise<Response> {
       );
     }
 
+    let ownerTimeZone: string | null = null;
+    try {
+      const { data: profileRow } = await serviceClient()
+        .from("users")
+        .select("timezone")
+        .eq("id", user.id)
+        .maybeSingle();
+      ownerTimeZone = profileRow?.timezone ? normalizeTimeZone(profileRow.timezone) : null;
+    } catch {
+      ownerTimeZone = null;
+    }
+
     const scheduledAt = resolveScheduledAt(
       day,
-      body?.scheduledAt ? String(body.scheduledAt) : null
+      body?.scheduledAt ? String(body.scheduledAt) : null,
+      ownerTimeZone
     );
 
     const caption = buildDayCaption(day);
@@ -111,14 +128,25 @@ export default async function (req: Request): Promise<Response> {
     const created: Record<string, unknown>[] = [];
     const skipped: Array<{ provider: string; reason: string }> = [];
 
+    const campaignArtistId = campaign?.artist_id ? String(campaign.artist_id) : "";
+    if (!campaignArtistId) {
+      return Response.json(
+        {
+          error: "This campaign has no artist — link an artist before scheduling social posts.",
+          code: "VALIDATION",
+        },
+        { status: 400 }
+      );
+    }
+
     for (const provider of providers) {
       const accounts =
         (await base44.asServiceRole.entities.SocialAccount.filter(
           { user_id: user.id, provider, status: "connected" },
           "-connected_at",
-          5
+          20
         )) || [];
-      const account = accounts[0];
+      const account = pickSocialAccountForArtist(accounts, provider, campaignArtistId);
       if (!account) {
         skipped.push({ provider, reason: "not_connected" });
         continue;
@@ -131,6 +159,21 @@ export default async function (req: Request): Promise<Response> {
 
       if (provider === "x" && !caption.trim() && !mediaUrl) {
         skipped.push({ provider, reason: "caption_or_media_required" });
+        continue;
+      }
+
+      const liveOnProvider = existing.find(
+        (p: Record<string, unknown>) =>
+          String(p.provider) === provider &&
+          (String(p.status) === "published" ||
+            Boolean(p.external_post_id) ||
+            (String(p.status) === "publishing" && Boolean(p.container_id)))
+      );
+      if (liveOnProvider) {
+        skipped.push({
+          provider,
+          reason: liveOnProvider.external_post_id ? "already_published" : String(liveOnProvider.status),
+        });
         continue;
       }
 
@@ -155,6 +198,29 @@ export default async function (req: Request): Promise<Response> {
         } else {
           skipped.push({ provider, reason: String(active.status) });
         }
+        continue;
+      }
+
+      const failedInFlight = existing.find(
+        (p: Record<string, unknown>) =>
+          String(p.provider) === provider &&
+          String(p.status) === "failed" &&
+          Boolean(p.container_id) &&
+          !p.external_post_id
+      );
+      if (failedInFlight) {
+        const updated = await base44.asServiceRole.entities.SocialPost.update(failedInFlight.id, {
+          status: "scheduled",
+          scheduled_at: scheduledAt,
+          caption,
+          media_url: mediaUrl || failedInFlight.media_url,
+          media_type: mediaType === "REELS" ? "REELS" : failedInFlight.media_type || "IMAGE",
+          video_project_id: videoProjectId || failedInFlight.video_project_id || "",
+          social_account_id: account.id,
+          error_code: "",
+          error_message: "",
+        });
+        created.push(safeSocialPost({ ...failedInFlight, ...updated, scheduled_at: scheduledAt }));
         continue;
       }
 
@@ -200,15 +266,37 @@ export default async function (req: Request): Promise<Response> {
       live_permalink: "",
     });
 
+    const scheduledMs = Date.parse(scheduledAt);
+    const dueNow = !Number.isNaN(scheduledMs) && scheduledMs <= Date.now();
+    const dueWithinFifteenMin =
+      !Number.isNaN(scheduledMs) && scheduledMs - Date.now() <= 15 * 60 * 1000;
+
+    kickCampaignWorkerAsync({
+      skipVideo: true,
+      skipStats: true,
+      batchLimit: dueNow ? 30 : dueWithinFifteenMin ? 24 : 16,
+    });
+
     return Response.json({
       ok: true,
       day: updatedDay,
       scheduledAt,
       posts: created,
       skipped,
+      queued: true,
+      publishDueNow: dueNow,
+      workerNudged: true,
+      message: dueNow
+        ? "Queued for publish — worker notified to post now."
+        : dueWithinFifteenMin
+          ? "Queued — worker will publish within a few minutes of the scheduled time."
+          : "Queued — held until the planned time (background worker runs every ~2–5 minutes when cron is configured).",
     });
   } catch (error) {
     console.error("[campaignSchedule]", (error as Error)?.message || error);
     return Response.json({ error: "Could not schedule campaign day." }, { status: 500 });
   }
 }
+
+
+serveWithCors(handler);

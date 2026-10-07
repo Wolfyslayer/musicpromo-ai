@@ -11,6 +11,10 @@ import { processQueuedVideoRenders } from "../_shared/videoRender.ts";
 import { syncSocialStats } from "../_shared/socialStatsSync.ts";
 import { pickSocialAccountForArtist } from "../_shared/socialAccountScope.ts";
 import { kickCampaignWorkerAsync } from "../_shared/kickCampaignWorker.ts";
+import {
+  dedupePostsByDayProvider,
+  supersedeDuplicateQueuePosts,
+} from "../_shared/publishDedupe.ts";
 
 const DEFAULT_BATCH = 20;
 const MAX_BATCH = 40;
@@ -417,8 +421,25 @@ export async function handleCampaignWorkerRequest(req: Request): Promise<Respons
     const dueAll = scheduledPosts.filter((p: Record<string, unknown>) =>
       isDue(p.scheduled_at as string, nowMs)
     );
-    const due = dueAll.slice(0, batchLimit);
-    const publishBacklog = dueAll.length > batchLimit;
+    const dueDeduped = dedupePostsByDayProvider(dueAll);
+    for (const p of dueAll) {
+      const dayId = p.campaign_day_id ? String(p.campaign_day_id) : "";
+      const provider = String(p.provider || "").toLowerCase();
+      if (!dayId || !provider) continue;
+      const keeper = dueDeduped.find(
+        (k) => String(k.campaign_day_id) === dayId && String(k.provider).toLowerCase() === provider
+      );
+      if (keeper && String(keeper.id) !== String(p.id)) {
+        await base44.asServiceRole.entities.SocialPost.update(p.id, {
+          status: "failed",
+          scheduled_at: "",
+          error_code: "DUPLICATE_SUPERSEDED",
+          error_message: "Duplicate scheduled post skipped by worker.",
+        });
+      }
+    }
+    const due = dueDeduped.slice(0, batchLimit);
+    const publishBacklog = dueDeduped.length > batchLimit;
 
     const publishing =
       (await base44.asServiceRole.entities.SocialPost.filter(
@@ -444,6 +465,11 @@ export async function handleCampaignWorkerRequest(req: Request): Promise<Respons
         const fresh = await base44.asServiceRole.entities.SocialPost.get(post.id);
         if (!fresh || fresh.status !== "scheduled") {
           return { postId: post.id, skipped: true, reason: "not_scheduled" };
+        }
+        const dayId = fresh.campaign_day_id ? String(fresh.campaign_day_id) : "";
+        const provider = String(fresh.provider || "").toLowerCase();
+        if (dayId && provider) {
+          await supersedeDuplicateQueuePosts(base44, String(fresh.id), dayId, provider);
         }
         const result = await publishSocialPostCore({
           base44,
