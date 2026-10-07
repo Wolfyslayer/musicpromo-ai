@@ -5,7 +5,10 @@ function postsFingerprint(posts) {
   return posts.map((p) => `${p.id}:${p.status}`).join("|");
 }
 import { db } from "@/api/base44Client";
-import { connectionForProvider } from "@/services/socialArtistScope";
+import {
+  resolveComposeArtistId,
+  resolveConnectionForCompose,
+} from "@/services/socialArtistScope";
 import {
   createPost,
   updatePost,
@@ -67,7 +70,6 @@ export function useCampaignDayCompose({ day, campaign, release, existingPosts = 
     }
     setLoading(true);
     try {
-      const status = await getConnectionStatus();
       const resolvedProvider = primaryProviderForDayPlatform(day.platform) || "instagram";
       setProviderId(resolvedProvider);
 
@@ -78,6 +80,9 @@ export function useCampaignDayCompose({ day, campaign, release, existingPosts = 
       if (draftFromList?.id) {
         const res = await loadPost(draftFromList.id).catch(() => null);
         loadedPost = res?.post || draftFromList;
+      }
+      if (loadedPost?.provider) {
+        setProviderId(String(loadedPost.provider).toLowerCase());
       }
 
       let songRow = null;
@@ -92,10 +97,18 @@ export function useCampaignDayCompose({ day, campaign, release, existingPosts = 
         setVideo(vp);
       }
 
-      const composeArtistId = campaign?.artist_id || "";
-      const conn = composeArtistId
-        ? connectionForProvider(status?.connections || [], resolvedProvider, composeArtistId)
-        : null;
+      const composeArtistId = resolveComposeArtistId({
+        campaign,
+        release,
+        song: songRow,
+      });
+      const status = await getConnectionStatus(composeArtistId || undefined);
+      const providerForConnection =
+        (loadedPost?.provider && String(loadedPost.provider).toLowerCase()) || resolvedProvider;
+      const conn = resolveConnectionForCompose(status?.connections || [], providerForConnection, {
+        artistId: composeArtistId,
+        post: loadedPost,
+      });
       setConnection(conn);
 
       const vpReady =
@@ -220,13 +233,17 @@ export function useCampaignDayCompose({ day, campaign, release, existingPosts = 
   }, [caption, connection?.id, mediaType, mediaUrl, post, preparationHint, saveDraft]);
 
   const reconnect = useCallback(async () => {
-    const res = await startOAuth(providerId, { forceReauth: true });
+    const artistId =
+      connection?.artistId ||
+      resolveComposeArtistId({ campaign, release, song }) ||
+      "";
+    const res = await startOAuth(providerId, { forceReauth: true, artistId });
     if (res?.authorizationUrl) {
       window.location.assign(res.authorizationUrl);
       return { ok: true };
     }
     return { ok: false, error: res?.error || res?.message || "Could not start reconnect" };
-  }, [providerId]);
+  }, [campaign, connection?.artistId, providerId, release, song]);
 
   const useRenderedVideo = useCallback(() => {
     if (videoReady) {
