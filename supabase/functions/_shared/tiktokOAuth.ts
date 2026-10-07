@@ -245,11 +245,17 @@ export async function initTikTokDirectVideoPost(params: {
   totalChunkCount?: number;
 }): Promise<{ publish_id: string; upload_url: string; privacy_level: string }> {
   const creator = await queryTikTokCreatorInfo(params.accessToken);
-  const requested = params.privacyLevel === "SELF_ONLY" ? "SELF_ONLY" : "";
-  const privacyLevel =
-    requested && creator.privacy_level_options.includes(requested)
-      ? requested
-      : pickTikTokPrivacyLevel(creator.privacy_level_options);
+  let privacyLevel: string;
+  if (params.privacyLevel === "SELF_ONLY") {
+    if (!creator.privacy_level_options.includes("SELF_ONLY")) {
+      throw new Error(
+        "tiktok_only_me_unavailable: TikTok did not offer “Only me” for this account. In the TikTok app, turn on Private account (Settings and privacy → Privacy), disconnect and reconnect TikTok in Social Hub, then retry."
+      );
+    }
+    privacyLevel = "SELF_ONLY";
+  } else {
+    privacyLevel = pickTikTokPrivacyLevel(creator.privacy_level_options);
+  }
 
   if (
     creator.max_video_post_duration_sec &&

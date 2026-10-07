@@ -651,9 +651,15 @@ export async function publishSocialPostCore(params: {
           }
         }
 
-        let publishId = tiktokPublishIdFromContainer(String(post.container_id || ""));
+        let tiktokContainerRaw = String(post.container_id || "");
+        if (String(post.status) === "failed" && tiktokContainerRaw) {
+          await base44.asServiceRole.entities.SocialPost.update(postId, { container_id: "" });
+          tiktokContainerRaw = "";
+        }
+
+        let publishId = tiktokPublishIdFromContainer(tiktokContainerRaw);
         let tiktokPrivacyLevel = "";
-        const uploadAlreadyDone = tiktokContainerUploaded(String(post.container_id || ""));
+        const uploadAlreadyDone = tiktokContainerUploaded(tiktokContainerRaw);
 
         if (publishId) {
           const existing = await fetchTikTokPublishStatus(accessToken, publishId).catch(() => null);
@@ -690,7 +696,7 @@ export async function publishSocialPostCore(params: {
             title: caption || "Promo",
             privacyLevel: "SELF_ONLY",
             brandContentToggle: false,
-            brandOrganicToggle: true,
+            brandOrganicToggle: false,
             isAigc: false,
             videoDurationSec:
               videoDurationSec != null && !Number.isNaN(videoDurationSec)
