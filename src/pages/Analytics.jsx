@@ -18,6 +18,7 @@ import {
 } from "recharts";
 import { sum } from "@/services/format";
 import { selectAnalyticsWorkspace } from "@/services/studioRecords";
+import { syncSocialStats, summarizeStatsSyncResult } from "@/services/socialService";
 import StatCard from "@/components/StatCard";
 import EmptyState from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -134,11 +135,35 @@ export default function Analytics() {
   const onSync = async () => {
     setSyncing(true);
     try {
+      const res = await syncSocialStats();
+      const summary = summarizeStatsSyncResult(res);
+      if (!summary.ok) {
+        toast({
+          variant: "destructive",
+          title: "Sync failed",
+          description: summary.message || "Could not sync platform stats.",
+        });
+        return;
+      }
       await reload();
-      toast({
-        title: "Analytics refreshed",
-        description: "Loaded the latest views, likes, and engagement saved to your account.",
-      });
+      if (summary.upserted > 0) {
+        toast({
+          title: "Platform stats synced",
+          description: `Updated ${summary.upserted} analytics row(s) from ${summary.providers.join(", ") || "your accounts"}.`,
+        });
+      } else if (summary.errors.length) {
+        toast({
+          variant: "destructive",
+          title: "Sync completed with errors",
+          description: summary.errors.slice(0, 2).join(" · "),
+        });
+      } else {
+        toast({
+          title: "Sync finished",
+          description:
+            "No platform stats were returned yet. Publish posts linked to a campaign (with a platform post id), then sync again.",
+        });
+      }
     } catch (err) {
       console.error("--- SOCIAL STATS SYNC ERROR ---", err);
       toast({

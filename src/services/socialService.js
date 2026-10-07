@@ -272,6 +272,28 @@ export async function syncSocialStats(socialAccountId) {
   return invoke("socialStatsSync", socialAccountId ? { socialAccountId } : {});
 }
 
+/** Summarize socialStatsSync edge function payload for UI toasts. */
+export function summarizeStatsSyncResult(res) {
+  if (!res || typeof res !== "object") {
+    return { ok: false, message: "Invalid sync response." };
+  }
+  if (res.error && res.ok !== true) {
+    return { ok: false, message: String(res.error) };
+  }
+  const results = Array.isArray(res.results) ? res.results : [];
+  const upserted = results.reduce((n, r) => n + Number(r?.upserted || 0), 0);
+  const skipped = results.reduce((n, r) => n + Number(r?.skipped || 0), 0);
+  const errors = results.flatMap((r) => (Array.isArray(r?.errors) ? r.errors : [])).filter(Boolean);
+  const providers = results.map((r) => r?.provider).filter(Boolean);
+  if (!results.length) {
+    return {
+      ok: false,
+      message: "No connected Instagram, TikTok, or YouTube accounts to sync.",
+    };
+  }
+  return { ok: true, upserted, skipped, errors, providers };
+}
+
 export async function prepareMedia({ sourceUrl, purpose = "instagram_feed_image" }) {
   return invoke("prepareMedia", { sourceUrl, purpose });
 }
