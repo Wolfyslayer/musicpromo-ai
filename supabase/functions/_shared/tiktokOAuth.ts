@@ -183,6 +183,9 @@ export async function fetchTikTokProfile(accessToken: string): Promise<TikTokPro
 export type TikTokCreatorInfo = {
   privacy_level_options: string[];
   max_video_post_duration_sec?: number;
+  comment_disabled?: boolean;
+  duet_disabled?: boolean;
+  stitch_disabled?: boolean;
 };
 
 /** Required before direct post — pick a valid privacy_level for post_info. */
@@ -209,12 +212,35 @@ export async function queryTikTokCreatorInfo(accessToken: string): Promise<TikTo
       info.max_video_post_duration_sec != null
         ? Number(info.max_video_post_duration_sec)
         : undefined,
+    comment_disabled: info.comment_disabled === true,
+    duet_disabled: info.duet_disabled === true,
+    stitch_disabled: info.stitch_disabled === true,
   };
 }
 
-function pickTikTokPrivacyLevel(options: string[]): string {
-  const prefs = ["PUBLIC_TO_EVERYONE", "FOLLOWER_OF_CREATOR", "MUTUAL_FOLLOW_FRIENDS", "SELF_ONLY"];
-  for (const p of prefs) {
+/**
+ * Unaudited TikTok API clients must post SELF_ONLY (private) until app audit — see content-sharing guidelines.
+ */
+export function pickTikTokPrivacyLevel(
+  options: string[],
+  { preferPublic = false }: { preferPublic?: boolean } = {}
+): string {
+  if (!options.length) return "SELF_ONLY";
+  if (preferPublic) {
+    const publicFirst = [
+      "PUBLIC_TO_EVERYONE",
+      "FOLLOWER_OF_CREATOR",
+      "MUTUAL_FOLLOW_FRIENDS",
+      "SELF_ONLY",
+    ];
+    for (const p of publicFirst) {
+      if (options.includes(p)) return p;
+    }
+  } else if (options.includes("SELF_ONLY")) {
+    return "SELF_ONLY";
+  }
+  const fallback = ["FOLLOWER_OF_CREATOR", "MUTUAL_FOLLOW_FRIENDS", "PUBLIC_TO_EVERYONE", "SELF_ONLY"];
+  for (const p of fallback) {
     if (options.includes(p)) return p;
   }
   return options[0] || "SELF_ONLY";
@@ -228,14 +254,32 @@ export async function initTikTokDirectVideoPost(params: {
   videoSize: number;
   title: string;
   privacyLevel?: string;
+  /** When false (default), prefer SELF_ONLY for unaudited API clients. */
+  preferPublicPrivacy?: boolean;
+  brandContentToggle?: boolean;
+  brandOrganicToggle?: boolean;
+  isAigc?: boolean;
+  videoDurationSec?: number;
   chunkSize?: number;
   totalChunkCount?: number;
-}): Promise<{ publish_id: string; upload_url: string }> {
+}): Promise<{ publish_id: string; upload_url: string; privacy_level: string }> {
   const creator = await queryTikTokCreatorInfo(params.accessToken);
   const privacyLevel =
     params.privacyLevel && creator.privacy_level_options.includes(params.privacyLevel)
       ? params.privacyLevel
-      : pickTikTokPrivacyLevel(creator.privacy_level_options);
+      : pickTikTokPrivacyLevel(creator.privacy_level_options, {
+          preferPublic: params.preferPublicPrivacy === true,
+        });
+
+  if (
+    creator.max_video_post_duration_sec &&
+    params.videoDurationSec != null &&
+    params.videoDurationSec > creator.max_video_post_duration_sec
+  ) {
+    throw new Error(
+      `Video is ${Math.round(params.videoDurationSec)}s but this TikTok account allows up to ${creator.max_video_post_duration_sec}s.`
+    );
+  }
 
   const chunkSize = params.chunkSize || params.videoSize;
   const totalChunkCount = params.totalChunkCount || 1;
@@ -251,10 +295,13 @@ export async function initTikTokDirectVideoPost(params: {
       post_info: {
         title,
         privacy_level: privacyLevel,
-        disable_duet: false,
-        disable_comment: false,
-        disable_stitch: false,
+        disable_duet: creator.duet_disabled === true,
+        disable_comment: creator.comment_disabled === true,
+        disable_stitch: creator.stitch_disabled === true,
         video_cover_timestamp_ms: 1000,
+        brand_content_toggle: params.brandContentToggle === true,
+        brand_organic_toggle: params.brandOrganicToggle === true,
+        is_aigc: params.isAigc === true,
       },
       source_info: {
         source: "FILE_UPLOAD",
@@ -270,7 +317,11 @@ export async function initTikTokDirectVideoPost(params: {
   if (!res.ok || !publishId || !uploadUrl) {
     throw new Error(`tiktok_direct_init: ${formatTikTokError(data, `HTTP ${res.status}`)}`);
   }
-  return { publish_id: String(publishId), upload_url: String(uploadUrl) };
+  return {
+    publish_id: String(publishId),
+    upload_url: String(uploadUrl),
+    privacy_level: privacyLevel,
+  };
 }
 
 export type TikTokPublishStatus = {

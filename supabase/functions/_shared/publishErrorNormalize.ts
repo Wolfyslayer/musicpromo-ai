@@ -49,6 +49,20 @@ export function normalizeSocialPublishError(
       message: `${label} session expired. Reconnect your account in Social Hub.`,
     };
   }
+  if (
+    lower.includes("integration guidelines") ||
+    lower.includes("content-sharing-guidelines") ||
+    lower.includes("unaudited_client") ||
+    lower.includes("privacy_level_option")
+  ) {
+    return {
+      code: "PROVIDER_ERROR",
+      message:
+        pid === "tiktok"
+          ? "TikTok rejected this post (API integration rules). Until your TikTok app is audited, posts must use “Only me” (private) privacy and your TikTok account may need to be private. After audit, set TIKTOK_CLIENT_AUDITED=true on the server for public posts."
+          : `${label} rejected this post due to platform integration rules. See the developer docs for ${label}.`,
+    };
+  }
   if (lower.includes("inbox") || lower.includes("send_to_user_inbox")) {
     return {
       code: "PERMISSION_DENIED",

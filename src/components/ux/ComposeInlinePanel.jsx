@@ -196,6 +196,12 @@ export default function ComposeInlinePanel({ day, campaign, release, posts = [],
             <span className="block text-muted-foreground">
               {mediaType} · {mediaUrl ? "media attached" : "no media"}
             </span>
+            {compose.providerId === "tiktok" ? (
+              <span className="block text-xs text-muted-foreground">
+                By posting, you agree to TikTok&apos;s Music Usage Confirmation. Until our TikTok app is audited, posts
+                may be private (&quot;Only me&quot;).
+              </span>
+            ) : null}
           </span>
         }
         confirmLabel="Publish now"
