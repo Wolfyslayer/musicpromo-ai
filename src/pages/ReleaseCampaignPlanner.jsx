@@ -23,6 +23,7 @@ import { sortReleaseTracks, staggeredStartDate } from "@/services/releaseTracks"
 import { todayISO } from "@/services/format";
 import { computeCampaignStartForReleaseDate } from "@/services/campaignReleaseTimeline";
 import { billingFailureToast } from "@/lib/billingErrors";
+import { chunkLoadUserMessage, reloadOnceOnChunkError } from "@/lib/chunkLoadError";
 import { getSettings } from "@/services/settings";
 
 const DEFAULT_PUBLISH_PLATFORMS = ["tiktok", "instagram", "youtube"];
@@ -232,8 +233,10 @@ export default function ReleaseCampaignPlanner() {
       await reload();
       setStep(platformStepIndex);
     } catch (e) {
+      if (reloadOnceOnChunkError(e)) return;
       const fail = billingFailureToast(e);
-      toast({ variant: "destructive", title: fail.title, description: fail.description });
+      const description = chunkLoadUserMessage(e) || fail.description;
+      toast({ variant: "destructive", title: fail.title, description });
     } finally {
       setGenerating(false);
       setStage("");

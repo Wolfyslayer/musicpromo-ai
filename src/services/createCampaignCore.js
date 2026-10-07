@@ -173,7 +173,10 @@ async function createCampaignPlanFromAI({
   if (renderVideos && canRender && dayProjects.length) {
     stage?.("Encoding promo videos (best hook clip) on this device…");
     try {
-      const { renderCampaignDayProjects } = await import("@/services/campaignVideoRenderBatch.js");
+      const { importWithRetry } = await import("@/lib/chunkLoadError");
+      const { renderCampaignDayProjects } = await importWithRetry(() =>
+        import("@/services/campaignVideoRenderBatch.js")
+      );
       renderSummary = await renderCampaignDayProjects({
         db,
         dayProjects,
