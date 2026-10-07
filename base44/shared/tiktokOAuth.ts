@@ -218,28 +218,11 @@ export async function queryTikTokCreatorInfo(accessToken: string): Promise<TikTo
   };
 }
 
-/**
- * Unaudited TikTok API clients must post SELF_ONLY (private) until app audit — see content-sharing guidelines.
- */
-export function pickTikTokPrivacyLevel(
-  options: string[],
-  { preferPublic = false }: { preferPublic?: boolean } = {}
-): string {
+/** Default Direct Post privacy: TikTok "Only me" (SELF_ONLY) when the creator account allows it. */
+export function pickTikTokPrivacyLevel(options: string[]): string {
   if (!options.length) return "SELF_ONLY";
-  if (preferPublic) {
-    const publicFirst = [
-      "PUBLIC_TO_EVERYONE",
-      "FOLLOWER_OF_CREATOR",
-      "MUTUAL_FOLLOW_FRIENDS",
-      "SELF_ONLY",
-    ];
-    for (const p of publicFirst) {
-      if (options.includes(p)) return p;
-    }
-  } else if (options.includes("SELF_ONLY")) {
-    return "SELF_ONLY";
-  }
-  const fallback = ["FOLLOWER_OF_CREATOR", "MUTUAL_FOLLOW_FRIENDS", "PUBLIC_TO_EVERYONE", "SELF_ONLY"];
+  if (options.includes("SELF_ONLY")) return "SELF_ONLY";
+  const fallback = ["FOLLOWER_OF_CREATOR", "MUTUAL_FOLLOW_FRIENDS", "PUBLIC_TO_EVERYONE"];
   for (const p of fallback) {
     if (options.includes(p)) return p;
   }
@@ -254,8 +237,6 @@ export async function initTikTokDirectVideoPost(params: {
   videoSize: number;
   title: string;
   privacyLevel?: string;
-  /** When false (default), prefer SELF_ONLY for unaudited API clients. */
-  preferPublicPrivacy?: boolean;
   brandContentToggle?: boolean;
   brandOrganicToggle?: boolean;
   isAigc?: boolean;
@@ -264,12 +245,11 @@ export async function initTikTokDirectVideoPost(params: {
   totalChunkCount?: number;
 }): Promise<{ publish_id: string; upload_url: string; privacy_level: string }> {
   const creator = await queryTikTokCreatorInfo(params.accessToken);
+  const requested = params.privacyLevel === "SELF_ONLY" ? "SELF_ONLY" : "";
   const privacyLevel =
-    params.privacyLevel && creator.privacy_level_options.includes(params.privacyLevel)
-      ? params.privacyLevel
-      : pickTikTokPrivacyLevel(creator.privacy_level_options, {
-          preferPublic: params.preferPublicPrivacy === true,
-        });
+    requested && creator.privacy_level_options.includes(requested)
+      ? requested
+      : pickTikTokPrivacyLevel(creator.privacy_level_options);
 
   if (
     creator.max_video_post_duration_sec &&
