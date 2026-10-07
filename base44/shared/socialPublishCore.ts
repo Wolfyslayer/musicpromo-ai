@@ -20,6 +20,7 @@ import {
 } from "./mediaPreparation.ts";
 import { fetchPublicMediaBytes } from "./mediaFetch.ts";
 import {
+  fetchTikTokPublishStatus,
   hasTikTokPublishScope,
   initTikTokDirectVideoPost,
   uploadTikTokVideoBytes,
@@ -168,27 +169,17 @@ async function markDayFromPost(
   }
 }
 
-const PUBLISH_INFLIGHT_MS = 4 * 60 * 1000;
-
-async function findPublishedSiblingPost(
-  base44: Base44Client,
-  post: Record<string, unknown>
-): Promise<Record<string, unknown> | null> {
-  const dayId = post.campaign_day_id ? String(post.campaign_day_id) : "";
-  const provider = normalizeProviderId(post.provider);
-  if (!dayId || !provider) return null;
-  const siblings =
-    (await base44.asServiceRole.entities.SocialPost.filter(
-      { campaign_day_id: dayId, provider },
-      "-published_at",
-      12
-    )) || [];
-  for (const row of siblings) {
-    if (String(row.id) === String(post.id)) continue;
-    if (String(row.status) === "published" || row.external_post_id) return row;
-  }
-  return null;
-}
+import {
+  dedupePostsByDayProvider,
+  findInflightSiblingPost,
+  findPublishedSiblingPost,
+  looksLikeYouTubeVideoId,
+  markTikTokContainerUploaded,
+  PUBLISH_INFLIGHT_MS,
+  supersedeDuplicateQueuePosts,
+  tiktokContainerUploaded,
+  tiktokPublishIdFromContainer,
+} from "./publishDedupe.ts";
 
 /**
  * Publish one SocialPost using the owner's connected SocialAccount tokens.
@@ -232,6 +223,17 @@ export async function publishSocialPostCore(params: {
     }
 
     const publishedSibling = await findPublishedSiblingPost(base44, post);
+    const inflightSibling = publishedSibling ? null : await findInflightSiblingPost(base44, post);
+    if (inflightSibling && String(inflightSibling.id) !== String(post.id)) {
+      return {
+        ok: false,
+        code: "DUPLICATE",
+        message: "Another publish is already in progress for this campaign day on this platform.",
+        status: 409,
+        post: safeSocialPost(post),
+      };
+    }
+
     if (publishedSibling) {
       const publishedAt =
         publishedSibling.published_at || post.published_at || new Date().toISOString();
@@ -394,6 +396,11 @@ export async function publishSocialPostCore(params: {
     const mediaType =
       (String(post.media_type || "IMAGE").toUpperCase() as PublishMediaType) || "IMAGE";
     const caption = String(post.caption || "").trim();
+
+    const dayIdForLock = post.campaign_day_id ? String(post.campaign_day_id) : "";
+    if (dayIdForLock) {
+      await supersedeDuplicateQueuePosts(base44, postId, dayIdForLock, provider);
+    }
 
     // Claim the post (optimistic lock) — PROCESSING in product terms.
     await base44.asServiceRole.entities.SocialPost.update(postId, {
@@ -608,8 +615,35 @@ export async function publishSocialPostCore(params: {
           }
         }
 
-        const existingPublishId = String(post.container_id || post.external_post_id || "").trim();
-        let publishId = existingPublishId;
+        let publishId = tiktokPublishIdFromContainer(String(post.container_id || ""));
+        const uploadAlreadyDone = tiktokContainerUploaded(String(post.container_id || ""));
+
+        if (publishId) {
+          const existing = await fetchTikTokPublishStatus(accessToken, publishId).catch(() => null);
+          const st = existing?.status?.toUpperCase() || "";
+          if (st === "PUBLISH_COMPLETE") {
+            const publicId = existing?.publicPostIds?.[0] || publishId;
+            const publishedAt = new Date().toISOString();
+            const updated = await base44.asServiceRole.entities.SocialPost.update(postId, {
+              status: "published",
+              published_at: publishedAt,
+              external_post_id: publicId,
+              container_id: markTikTokContainerUploaded(publishId) || publishId,
+              error_code: "",
+              error_message: "",
+            });
+            await markDayFromPost(base44, post, { status: "posted", publish_error: "" });
+            return {
+              ok: true,
+              post: safeSocialPost({ ...post, ...updated, status: "published" }),
+              note: "TikTok post already completed (duplicate upload prevented).",
+            };
+          }
+          if (st === "FAILED") {
+            publishId = "";
+          }
+        }
+
         if (!publishId) {
           const init = await initTikTokDirectVideoPost({
             accessToken,
@@ -621,6 +655,22 @@ export async function publishSocialPostCore(params: {
             container_id: publishId,
           });
           await uploadTikTokVideoBytes({ uploadUrl: init.upload_url, bytes: videoBytes });
+          await base44.asServiceRole.entities.SocialPost.update(postId, {
+            container_id: markTikTokContainerUploaded(publishId),
+          });
+        } else if (!uploadAlreadyDone) {
+          await base44.asServiceRole.entities.SocialPost.update(postId, {
+            status: "failed",
+            error_code: "TIKTOK_UPLOAD_INCOMPLETE",
+            error_message:
+              "TikTok upload was interrupted. Clear this queue row and schedule once — do not run parallel publishes.",
+          });
+          return {
+            ok: false,
+            code: "TIKTOK_UPLOAD_INCOMPLETE",
+            message: "TikTok upload was interrupted before completion.",
+            status: 409,
+          };
         }
 
         const tiktokStatus = await waitForTikTokDirectPost({ accessToken, publishId });
@@ -631,7 +681,7 @@ export async function publishSocialPostCore(params: {
           published_at: publishedAt,
           external_post_id: publicId,
           external_permalink: "",
-          container_id: publishId,
+          container_id: markTikTokContainerUploaded(publishId) || publishId,
           error_code: "",
           error_message: "",
         });
@@ -672,12 +722,43 @@ export async function publishSocialPostCore(params: {
           console.warn("[socialPublishCore] youtube refresh", (err as Error)?.message || err);
         }
       }
+      const existingVideoId = String(post.external_post_id || post.container_id || "").trim();
+      if (looksLikeYouTubeVideoId(existingVideoId)) {
+        const publishedAt = post.published_at || new Date().toISOString();
+        const permalink =
+          String(post.external_permalink || "") ||
+          `https://youtube.com/shorts/${existingVideoId}`;
+        const updated = await base44.asServiceRole.entities.SocialPost.update(postId, {
+          status: "published",
+          published_at: publishedAt,
+          external_post_id: existingVideoId,
+          external_permalink: permalink,
+          container_id: existingVideoId,
+          error_code: "",
+          error_message: "",
+        });
+        await markDayFromPost(base44, post, {
+          status: "posted",
+          publish_error: "",
+          live_permalink: permalink,
+        });
+        return {
+          ok: true,
+          post: safeSocialPost({ ...post, ...updated, status: "published" }),
+          note: "YouTube video already uploaded (duplicate upload prevented).",
+        };
+      }
+
       const uploaded = await uploadYouTubeShort({
         accessToken,
         videoBytes,
         title: caption || "Promo Short",
         description: caption,
         privacyStatus: "public",
+      });
+      await base44.asServiceRole.entities.SocialPost.update(postId, {
+        external_post_id: uploaded.videoId,
+        container_id: uploaded.videoId,
       });
       const publishedAt = new Date().toISOString();
       const permalink = `https://youtube.com/shorts/${uploaded.videoId}`;

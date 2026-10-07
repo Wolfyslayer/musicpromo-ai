@@ -162,6 +162,21 @@ async function handler (req: Request): Promise<Response> {
         continue;
       }
 
+      const liveOnProvider = existing.find(
+        (p: Record<string, unknown>) =>
+          String(p.provider) === provider &&
+          (String(p.status) === "published" ||
+            Boolean(p.external_post_id) ||
+            (String(p.status) === "publishing" && Boolean(p.container_id)))
+      );
+      if (liveOnProvider) {
+        skipped.push({
+          provider,
+          reason: liveOnProvider.external_post_id ? "already_published" : String(liveOnProvider.status),
+        });
+        continue;
+      }
+
       const active = existing.find(
         (p: Record<string, unknown>) =>
           String(p.provider) === provider &&
@@ -183,6 +198,29 @@ async function handler (req: Request): Promise<Response> {
         } else {
           skipped.push({ provider, reason: String(active.status) });
         }
+        continue;
+      }
+
+      const failedInFlight = existing.find(
+        (p: Record<string, unknown>) =>
+          String(p.provider) === provider &&
+          String(p.status) === "failed" &&
+          Boolean(p.container_id) &&
+          !p.external_post_id
+      );
+      if (failedInFlight) {
+        const updated = await base44.asServiceRole.entities.SocialPost.update(failedInFlight.id, {
+          status: "scheduled",
+          scheduled_at: scheduledAt,
+          caption,
+          media_url: mediaUrl || failedInFlight.media_url,
+          media_type: mediaType === "REELS" ? "REELS" : failedInFlight.media_type || "IMAGE",
+          video_project_id: videoProjectId || failedInFlight.video_project_id || "",
+          social_account_id: account.id,
+          error_code: "",
+          error_message: "",
+        });
+        created.push(safeSocialPost({ ...failedInFlight, ...updated, scheduled_at: scheduledAt }));
         continue;
       }
 
