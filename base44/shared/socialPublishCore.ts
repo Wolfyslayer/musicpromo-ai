@@ -14,6 +14,7 @@ import {
   validateCaption,
   type PublishMediaType,
 } from "./instagramPublishing.ts";
+import { normalizeSocialPublishError } from "./publishErrorNormalize.ts";
 import {
   MediaPreparationError,
   prepareInstagramFeedImage,
@@ -186,6 +187,47 @@ import {
  * Caller must ensure the post is eligible (draft | scheduled | failed).
  * Sets status publishing → published | failed.
  */
+async function resolvePublishSocialAccount(
+  base44: Base44Client,
+  post: Record<string, unknown>,
+  provider: string
+): Promise<Record<string, unknown> | null> {
+  const accounts = await base44.asServiceRole.entities.SocialAccount.filter(
+    { user_id: post.user_id, provider },
+    "-connected_at",
+    20
+  );
+  const connected = (accounts || []).filter(
+    (a: Record<string, unknown>) => a.status === "connected"
+  );
+  if (!connected.length) return null;
+
+  const postAccountId = post.social_account_id ? String(post.social_account_id) : "";
+  if (postAccountId) {
+    const exact = connected.find((a: Record<string, unknown>) => String(a.id) === postAccountId);
+    if (exact) return exact;
+  }
+
+  let artistId = "";
+  if (post.campaign_id) {
+    try {
+      const campaign = await base44.asServiceRole.entities.Campaign.get(String(post.campaign_id));
+      artistId = String(campaign?.artist_id || "").trim();
+    } catch {
+      artistId = "";
+    }
+  }
+  if (artistId) {
+    const byArtist = connected.find(
+      (a: Record<string, unknown>) => String(a.artist_id || "").trim() === artistId
+    );
+    if (byArtist) return byArtist;
+  }
+
+  if (connected.length === 1) return connected[0];
+  return connected[0] || null;
+}
+
 export async function publishSocialPostCore(params: {
   base44: Base44Client;
   postId: string;
@@ -195,6 +237,7 @@ export async function publishSocialPostCore(params: {
 }): Promise<PublishCoreResult> {
   const { base44, postId, encryptionKey } = params;
   const allowScheduled = params.allowScheduled === true;
+  let activeProvider = "instagram";
 
   try {
     const post = await base44.asServiceRole.entities.SocialPost.get(postId);
@@ -203,6 +246,7 @@ export async function publishSocialPostCore(params: {
     }
 
     const provider = String(post.provider || "instagram").toLowerCase();
+    activeProvider = provider;
     if (!["instagram", "tiktok", "youtube", "x"].includes(provider)) {
       return {
         ok: false,
@@ -329,15 +373,7 @@ export async function publishSocialPostCore(params: {
       }
     }
 
-    const accounts = await base44.asServiceRole.entities.SocialAccount.filter(
-      { user_id: post.user_id, provider },
-      "-connected_at",
-      20
-    );
-    const account = (accounts || []).find(
-      (a: Record<string, unknown>) =>
-        a.id === post.social_account_id || (!post.social_account_id && a.status === "connected")
-    );
+    const account = await resolvePublishSocialAccount(base44, post, provider);
     if (!account) {
       return {
         ok: false,
@@ -949,8 +985,8 @@ export async function publishSocialPostCore(params: {
         : null,
     };
   } catch (error) {
-    const norm = normalizeInstagramPublishError(error);
-    console.error("[socialPublishCore]", norm.code, norm.message);
+    const norm = normalizeSocialPublishError(error, activeProvider);
+    console.error("[socialPublishCore]", activeProvider, norm.code, norm.message);
     try {
       await params.base44.asServiceRole.entities.SocialPost.update(params.postId, {
         status: "failed",
