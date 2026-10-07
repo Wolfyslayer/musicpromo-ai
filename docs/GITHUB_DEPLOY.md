@@ -38,7 +38,7 @@ To change which paths trigger a job, edit the `filters` block in the workflow’
 
 Phone-first Android flow (no PC): **[docs/NATIVE_APP.md § Android from your phone only](./NATIVE_APP.md#android-from-your-phone-only-no-pc)**.
 
-Optional: [`.github/workflows/campaign-worker-cron.yml`](../.github/workflows/campaign-worker-cron.yml) invokes `campaignWorker` every **5 minutes** so scheduled auto-posts publish on time. If the service-role secrets are missing, the workflow skips safely.
+**Auto-publish:** configure [AUTO_PUBLISH.md](./AUTO_PUBLISH.md) — GitHub cron workflows invoke `campaignWorker` about every **2–5 minutes** (requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` repo secrets). Without them, scheduled posts only publish when someone has the app open or taps **Run worker now**.
 
 ### 2. GitHub Pages
 

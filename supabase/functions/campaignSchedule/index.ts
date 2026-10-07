@@ -230,13 +230,13 @@ async function handler (req: Request): Promise<Response> {
 
     const scheduledMs = Date.parse(scheduledAt);
     const dueNow = !Number.isNaN(scheduledMs) && scheduledMs <= Date.now();
-    const dueWithinFiveMin =
-      !Number.isNaN(scheduledMs) && scheduledMs - Date.now() <= 5 * 60 * 1000;
+    const dueWithinFifteenMin =
+      !Number.isNaN(scheduledMs) && scheduledMs - Date.now() <= 15 * 60 * 1000;
 
     kickCampaignWorkerAsync({
       skipVideo: true,
       skipStats: true,
-      batchLimit: dueNow ? 20 : 12,
+      batchLimit: dueNow ? 30 : dueWithinFifteenMin ? 24 : 16,
     });
 
     return Response.json({
@@ -250,9 +250,9 @@ async function handler (req: Request): Promise<Response> {
       workerNudged: true,
       message: dueNow
         ? "Queued for publish — worker notified to post now."
-        : dueWithinFiveMin
+        : dueWithinFifteenMin
           ? "Queued — worker will publish within a few minutes of the scheduled time."
-          : "Queued — held as scheduled until the planned time (worker runs every few minutes).",
+          : "Queued — held until the planned time (background worker runs every ~2–5 minutes when cron is configured).",
     });
   } catch (error) {
     console.error("[campaignSchedule]", (error as Error)?.message || error);

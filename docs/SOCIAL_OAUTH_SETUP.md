@@ -381,10 +381,10 @@ Privacy and Terms are public React routes (no login).
 `campaignWorker` runs publish, attaches client-rendered videos, and syncs
 analytics (at most once per 24h via `AutomationCheckpoint`).
 
-**Schedule (Workflows):** this app has Workflows enabled, so legacy
-`function.jsonc` automations cannot be used. In the Base44 Dashboard →
-**Workflows**, create a **Scheduled** workflow that invokes `campaignWorker`
-every hour.
+**Schedule:** use **GitHub Actions** (see [AUTO_PUBLISH.md](./AUTO_PUBLISH.md)) —
+`campaign-worker-cron.yml` + offset workflow (~every 2–5 minutes). Set repo secrets
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. An **hourly** workflow is too slow
+for on-time posts.
 
 **Video render:** promo MP4s are encoded in the browser with Remotion
 (WebCodecs). Campaign create / Video Studio upload the MP4, then call

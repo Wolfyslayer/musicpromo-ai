@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { kickCampaignWorker } from "@/services/socialService";
 
-const KICK_INTERVAL_MS = 90_000;
-const MAX_KICKS = 8;
+const KICK_INTERVAL_MS = 45_000;
+const MAX_KICKS = 24;
 
 /**
  * When a scheduled_at is in the past, nudge campaignWorker periodically so

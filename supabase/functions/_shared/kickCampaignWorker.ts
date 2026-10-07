@@ -14,7 +14,7 @@ function buildWorkerRequest(options: KickCampaignWorkerOptions): Request {
     body: JSON.stringify({
       skipVideo: options.skipVideo !== false,
       skipStats: options.skipStats !== false,
-      batchLimit: options.batchLimit ?? 12,
+      batchLimit: options.batchLimit ?? 20,
       skipPublish: options.skipPublish === true,
     }),
   });
