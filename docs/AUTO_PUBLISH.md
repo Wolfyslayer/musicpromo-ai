@@ -23,7 +23,9 @@ Auto-publish is **not** instant at the scheduled second. A background **`campaig
 
 3. In **Supabase → Edge Functions → Secrets**, set **`SOCIAL_TOKEN_ENCRYPTION_KEY`** (without it, the worker marks days failed instead of publishing).
 
-4. **Do not** rely on a Base44 **hourly** scheduled workflow for publish — that is too slow. Use the GitHub cron above or an external ping (e.g. [cron-job.org](https://cron-job.org)) every **1–5 minutes** to:
+4. **Analytics auto-sync:** `.github/workflows/analytics-sync-cron.yml` runs **every hour** and calls `campaignWorker` with publish/video skipped so IG/TikTok/YouTube stats refresh in the Analytics tab. Requires the same secrets plus `SOCIAL_TOKEN_ENCRYPTION_KEY` on the edge function.
+
+5. **Do not** rely on a Base44 **hourly** scheduled workflow for publish — that is too slow. Use the GitHub cron above or an external ping (e.g. [cron-job.org](https://cron-job.org)) every **1–5 minutes** to:
 
    `POST {SUPABASE_URL}/functions/v1/campaignWorker`  
    `Authorization: Bearer {SUPABASE_SERVICE_ROLE_KEY}`  

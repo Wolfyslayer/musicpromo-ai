@@ -181,7 +181,7 @@ export default function Analytics() {
       <PageHeader
         eyebrow="Performance"
         title="Analytics"
-        description={`Live platform stats auto-sync daily via the background worker${syncedCount ? ` · ${syncedCount} synced entries` : ""}.`}
+        description={`Platform stats auto-sync every hour (GitHub cron + worker)${syncedCount ? ` · ${syncedCount} synced entries` : ""}. Use Sync now for an immediate refresh.`}
         actions={
           <Button size="sm" variant="outline" className="rounded-full" onClick={onSync} disabled={syncing}>
             <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />

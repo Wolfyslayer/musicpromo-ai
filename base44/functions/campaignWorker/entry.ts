@@ -14,8 +14,8 @@ const DEFAULT_BATCH = 8;
 const MAX_BATCH = 20;
 const CONCURRENCY = 2;
 const STALE_PUBLISHING_MS = 45 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
-const STATS_CHECKPOINT_KEY = "daily_social_stats_sync";
+const HOUR_MS = 60 * 60 * 1000;
+const STATS_CHECKPOINT_KEY = "hourly_social_stats_sync";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -48,7 +48,7 @@ function isDue(iso: string | null | undefined, nowMs: number): boolean {
   return !Number.isNaN(t) && t <= nowMs;
 }
 
-async function shouldRunDailyStats(
+async function shouldRunHourlyStats(
   // deno-lint-ignore no-explicit-any
   base44: any,
   force: boolean
@@ -63,7 +63,7 @@ async function shouldRunDailyStats(
       )) || [];
     const last = rows[0]?.last_run_at ? Date.parse(String(rows[0].last_run_at)) : 0;
     if (!last || Number.isNaN(last)) return true;
-    return Date.now() - last >= DAY_MS;
+    return Date.now() - last >= HOUR_MS;
   } catch {
     // Entity may not exist yet — still attempt sync once.
     return true;
@@ -199,13 +199,13 @@ export default async function (req: Request): Promise<Response> {
       }
     }
 
-    // --- Daily stats (isolated) ---
+    // --- Hourly stats (isolated) ---
     let statsSummary: Record<string, unknown> | null = null;
-    if (encryptionKey && (await shouldRunDailyStats(base44, forceStats))) {
+    if (encryptionKey && (await shouldRunHourlyStats(base44, forceStats))) {
       try {
         statsSummary = await runDailyStatsSync({ base44, encryptionKey });
       } catch (err) {
-        console.error("[campaignWorker] daily stats", (err as Error)?.message || err);
+        console.error("[campaignWorker] hourly stats", (err as Error)?.message || err);
         statsSummary = { error: String((err as Error)?.message || err) };
       }
     }
