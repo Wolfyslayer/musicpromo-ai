@@ -434,9 +434,12 @@ INSTAGRAM_APP_ID
 INSTAGRAM_APP_SECRET
 META_OAUTH_REDIRECT_URI          # https://hmqxptxtcejhmuwbegvq.supabase.co/functions/v1/meta-oauth-callback
 
-# TikTok
-TIKTOK_CLIENT_KEY
+# TikTok (production vs sandbox — same API hosts; toggle with TIKTOK_CREDENTIALS_MODE)
+TIKTOK_CREDENTIALS_MODE           # production (default) | sandbox
+TIKTOK_CLIENT_KEY                 # production Client key
 TIKTOK_CLIENT_SECRET
+TIKTOK_SANDBOX_CLIENT_KEY         # sandbox Client key (when mode=sandbox)
+TIKTOK_SANDBOX_CLIENT_SECRET
 TIKTOK_OAUTH_REDIRECT_URI         # https://hmqxptxtcejhmuwbegvq.supabase.co/functions/v1/tiktok-oauth-callback
 
 # Google / YouTube

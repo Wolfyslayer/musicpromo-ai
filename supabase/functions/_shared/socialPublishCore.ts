@@ -28,6 +28,7 @@ import {
   refreshTikTokToken,
   waitForTikTokDirectPost,
 } from "./tiktokOAuth.ts";
+import { getTikTokAppCredentials } from "./tiktokSecrets.ts";
 import { uploadYouTubeShort, refreshYouTubeToken } from "./youtubeOAuth.ts";
 import {
   createXTweet,
@@ -636,8 +637,7 @@ export async function publishSocialPostCore(params: {
         let accessToken = String(creds.access_token || "");
         if (creds.refresh_token) {
           try {
-            const clientKey = secrets.get("TIKTOK_CLIENT_KEY") || secrets.get("TIKTOK_CLIENT_ID");
-            const clientSecret = secrets.get("TIKTOK_CLIENT_SECRET");
+            const { clientKey, clientSecret } = getTikTokAppCredentials();
             if (clientKey && clientSecret) {
               const refreshed = await refreshTikTokToken({
                 clientKey,

@@ -22,6 +22,7 @@ import {
   exchangeTikTokCode,
   fetchTikTokProfile,
 } from "./tiktokOAuth.ts";
+import { getTikTokAppCredentials } from "./tiktokSecrets.ts";
 import { SOCIAL_OAUTH_REDIRECT_URI as YT_REDIRECT } from "./youtubeOAuth.ts";
 import { completeYouTubeConnect } from "./youtubeConnectCore.ts";
 import { findOAuthState } from "./socialOAuthState.ts";
@@ -306,8 +307,7 @@ async function handleTikTokConnect(params: {
   home: string | null;
   encryptionKey: string;
 }): Promise<Response> {
-  const clientKey = secrets.get("TIKTOK_CLIENT_KEY") || secrets.get("TIKTOK_CLIENT_ID");
-  const clientSecret = secrets.get("TIKTOK_CLIENT_SECRET");
+  const { clientKey, clientSecret, mode: tiktokMode } = getTikTokAppCredentials();
   if (!clientKey || !clientSecret) {
     return debugFailureResponse({
       home: params.home,
@@ -315,7 +315,7 @@ async function handleTikTokConnect(params: {
       errorType: "NOT_CONFIGURED",
       socialErrorCode: "not_configured",
       provider: "tiktok",
-      err: new Error("Missing TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET"),
+      err: new Error(`Missing TikTok credentials for mode ${tiktokMode}`),
     });
   }
 
