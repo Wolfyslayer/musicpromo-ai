@@ -28,6 +28,7 @@ import {
   refreshTikTokToken,
   waitForTikTokDirectPost,
 } from "./tiktokOAuth.ts";
+import { getTikTokAppCredentials } from "./tiktokSecrets.ts";
 import { uploadYouTubeShort, refreshYouTubeToken } from "./youtubeOAuth.ts";
 import {
   createXTweet,
@@ -693,7 +694,6 @@ export async function publishSocialPostCore(params: {
             accessToken,
             videoSize: videoBytes.byteLength,
             title: caption || "Promo",
-            privacyLevel: "SELF_ONLY",
             brandContentToggle: false,
             brandOrganicToggle: false,
             isAigc: false,

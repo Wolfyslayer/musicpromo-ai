@@ -399,7 +399,13 @@ export async function syncSocialStats(params: {
         return !id || looksLikeTikTokPublishId(id);
       });
       if (stillUnresolved.length) {
-        const recent = await fetchTikTokVideoList({ accessToken }).catch(() => []);
+        let recent: Awaited<ReturnType<typeof fetchTikTokVideoList>> = [];
+        try {
+          recent = await fetchTikTokVideoList({ accessToken });
+        } catch (listErr) {
+          const msg = (listErr as Error)?.message || String(listErr);
+          result.errors.push(msg.startsWith("tiktok_") ? msg : `tiktok:${msg}`);
+        }
         const fallback = matchTikTokPostsToRecentVideos(
           stillUnresolved,
           recent,
@@ -475,9 +481,16 @@ export async function syncSocialStats(params: {
         result.upserted += 1;
       }
       if (result.upserted === 0) {
-        result.hints = [
-          "TikTok stats need video.list scope and a real video id (not publish_id). Disconnect TikTok, reconnect, then re-sync. Only-me (private) posts may not expose a public id — try opening the video in TikTok, wait a few minutes, then sync again.",
-        ];
+        const publishOnly = withMedia.some((p) =>
+          looksLikeTikTokPublishId(postPlatformMediaId(p, "tiktok"))
+        );
+        result.hints = publishOnly
+          ? [
+              "TikTok analytics only cover public videos. Posts published as Only me (or unaudited-app private) do not return a video id or views via API. In TikTok, set the video to Everyone (public), wait ~1 minute, then Sync again — or set Supabase secret TIKTOK_DEFAULT_PUBLISH_PRIVACY=PUBLIC_TO_EVERYONE before your next publish.",
+            ]
+          : [
+              "TikTok stats need video.list scope and a matching public video id. Disconnect TikTok, reconnect (accept all scopes), then sync again.",
+            ];
       }
     } catch (err) {
       const msg = (err as Error)?.message || String(err);

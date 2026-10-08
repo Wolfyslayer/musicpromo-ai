@@ -27,6 +27,8 @@ import {
   uploadTikTokVideoBytes,
   refreshTikTokToken,
   waitForTikTokDirectPost,
+  resolveTikTokVideoIdForStats,
+  looksLikeTikTokPublishId,
 } from "./tiktokOAuth.ts";
 import { getTikTokAppCredentials } from "./tiktokSecrets.ts";
 import { uploadYouTubeShort, refreshYouTubeToken } from "./youtubeOAuth.ts";
@@ -694,7 +696,6 @@ export async function publishSocialPostCore(params: {
             accessToken,
             videoSize: videoBytes.byteLength,
             title: caption || "Promo",
-            privacyLevel: "SELF_ONLY",
             brandContentToggle: false,
             brandOrganicToggle: false,
             isAigc: false,
@@ -728,7 +729,11 @@ export async function publishSocialPostCore(params: {
         }
 
         const tiktokStatus = await waitForTikTokDirectPost({ accessToken, publishId });
-        const publicId = tiktokStatus.publicPostIds?.[0] || publishId;
+        let publicId = tiktokStatus.publicPostIds?.[0] || publishId;
+        const resolvedId = await resolveTikTokVideoIdForStats(accessToken, publicId);
+        if (resolvedId && !looksLikeTikTokPublishId(resolvedId)) {
+          publicId = resolvedId;
+        }
         const publishedAt = new Date().toISOString();
         const updated = await base44.asServiceRole.entities.SocialPost.update(postId, {
           status: "published",

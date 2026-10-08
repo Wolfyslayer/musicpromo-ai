@@ -4,6 +4,7 @@
  */
 
 import { TIKTOK_OAUTH_REDIRECT_URI } from "./oauthRedirects.ts";
+import { secrets } from "./runtime.ts";
 
 export const TIKTOK_AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/";
 export const TIKTOK_API = "https://open.tiktokapis.com";
@@ -218,12 +219,24 @@ export async function queryTikTokCreatorInfo(accessToken: string): Promise<TikTo
   };
 }
 
-/** Default Direct Post privacy: TikTok "Only me" (SELF_ONLY) when the creator account allows it. */
+/**
+ * Direct Post privacy. Default favors PUBLIC so video.list + stats sync work.
+ * Set Supabase secret TIKTOK_DEFAULT_PUBLISH_PRIVACY=SELF_ONLY to keep "Only me" posts.
+ */
 export function pickTikTokPrivacyLevel(options: string[]): string {
   if (!options.length) return "SELF_ONLY";
-  if (options.includes("SELF_ONLY")) return "SELF_ONLY";
-  const fallback = ["FOLLOWER_OF_CREATOR", "MUTUAL_FOLLOW_FRIENDS", "PUBLIC_TO_EVERYONE"];
-  for (const p of fallback) {
+  const pref = String(secrets.get("TIKTOK_DEFAULT_PUBLISH_PRIVACY") || "")
+    .trim()
+    .toUpperCase();
+  if (pref === "SELF_ONLY" && options.includes("SELF_ONLY")) return "SELF_ONLY";
+  if (pref && options.includes(pref)) return pref;
+  const publicFirst = [
+    "PUBLIC_TO_EVERYONE",
+    "MUTUAL_FOLLOW_FRIENDS",
+    "FOLLOWER_OF_CREATOR",
+    "SELF_ONLY",
+  ];
+  for (const p of publicFirst) {
     if (options.includes(p)) return p;
   }
   return options[0] || "SELF_ONLY";
@@ -450,15 +463,23 @@ export async function resolveTikTokVideoIdForStats(
   const raw = String(externalPostId || "").trim();
   if (!raw || !looksLikeTikTokPublishId(raw)) return raw;
   const publishId = raw.replace(/\|uploaded$/i, "").trim();
-  const pending = new Set(["PROCESSING", "PROCESSING_UPLOAD", "SEND_TO_USER_INBOX"]);
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const pending = new Set([
+    "PROCESSING",
+    "PROCESSING_UPLOAD",
+    "PROCESSING_DOWNLOAD",
+    "SEND_TO_USER_INBOX",
+  ]);
+  for (let attempt = 0; attempt < 8; attempt++) {
     const st = await fetchTikTokPublishStatus(accessToken, publishId).catch(() => null);
     const vid = st?.publicPostIds?.find((id) => id && !looksLikeTikTokPublishId(id));
     if (vid) return String(vid);
     const status = String(st?.status || "").toUpperCase();
     if (status === "FAILED") break;
-    if (!pending.has(status) && status !== "PUBLISH_COMPLETE") break;
-    if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
+    const waitingForPublicId = status === "PUBLISH_COMPLETE" && !(st?.publicPostIds?.length);
+    if (!pending.has(status) && !waitingForPublicId) break;
+    if (attempt < 7) {
+      await new Promise((r) => setTimeout(r, waitingForPublicId ? 5000 : 1500));
+    }
   }
   return raw;
 }
@@ -486,7 +507,70 @@ export function matchTikTokPostsToRecentVideos(
   return out;
 }
 
-/** Fetch video list / insights for analytics sync. */
+const TIKTOK_VIDEO_METRIC_FIELDS =
+  "id,title,view_count,like_count,comment_count,share_count,create_time";
+
+function assertTikTokEnvelopeOk(data: Record<string, unknown>, label: string): void {
+  const err = data?.error;
+  const code =
+    typeof err === "object" && err && !Array.isArray(err)
+      ? String((err as Record<string, unknown>).code || "")
+      : String(err || "");
+  if (code && code.toLowerCase() !== "ok") {
+    throw new Error(`${label}: ${formatTikTokError(data, code)}`);
+  }
+}
+
+function mapTikTokVideoRows(list: Record<string, unknown>[]) {
+  return list.map((v) => ({
+    id: String(v.id || ""),
+    title: v.title != null ? String(v.title) : undefined,
+    view_count: v.view_count != null ? Number(v.view_count) : 0,
+    like_count: v.like_count != null ? Number(v.like_count) : 0,
+    comment_count: v.comment_count != null ? Number(v.comment_count) : 0,
+    share_count: v.share_count != null ? Number(v.share_count) : 0,
+  }));
+}
+
+/** Query specific video ids (Display API). */
+export async function fetchTikTokVideosByQuery(params: {
+  accessToken: string;
+  videoIds: string[];
+}): Promise<
+  Array<{
+    id: string;
+    title?: string;
+    view_count?: number;
+    like_count?: number;
+    comment_count?: number;
+    share_count?: number;
+  }>
+> {
+  const ids = params.videoIds
+    .map((id) => String(id || "").trim())
+    .filter((id) => id && !looksLikeTikTokPublishId(id));
+  if (!ids.length) return [];
+  const res = await fetch(
+    `${TIKTOK_API}/v2/video/query/?fields=${encodeURIComponent(TIKTOK_VIDEO_METRIC_FIELDS)}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${params.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ filters: { video_ids: ids.slice(0, 20) } }),
+    }
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`tiktok_video_query: ${formatTikTokError(data, `HTTP ${res.status}`)}`);
+  }
+  assertTikTokEnvelopeOk(data as Record<string, unknown>, "tiktok_video_query");
+  const list = Array.isArray(data?.data?.videos) ? data.data.videos : [];
+  return mapTikTokVideoRows(list as Record<string, unknown>[]);
+}
+
+/** Fetch video list / insights for analytics sync (public videos on the account). */
 export async function fetchTikTokVideoList(params: {
   accessToken: string;
   videoIds?: string[];
@@ -500,38 +584,28 @@ export async function fetchTikTokVideoList(params: {
     share_count?: number;
   }>
 > {
-  const body: Record<string, unknown> = {
-    fields: ["id", "title", "view_count", "like_count", "comment_count", "share_count"],
-  };
-  if (params.videoIds?.length) {
-    body.filters = { video_ids: params.videoIds };
+  const filteredIds = (params.videoIds || [])
+    .map((id) => String(id || "").trim())
+    .filter((id) => id && !looksLikeTikTokPublishId(id));
+  if (filteredIds.length) {
+    return fetchTikTokVideosByQuery({ accessToken: params.accessToken, videoIds: filteredIds });
   }
   const res = await fetch(
-    `${TIKTOK_API}/v2/video/list/?fields=${encodeURIComponent((body.fields as string[]).join(","))}`,
+    `${TIKTOK_API}/v2/video/list/?fields=${encodeURIComponent(TIKTOK_VIDEO_METRIC_FIELDS)}`,
     {
       method: "POST",
       headers: {
         Authorization: `Bearer ${params.accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(
-        params.videoIds?.length
-          ? { filters: { video_ids: params.videoIds }, max_count: 50 }
-          : { max_count: 50 }
-      ),
+      body: JSON.stringify({ max_count: 20 }),
     }
   );
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(`tiktok_videos: ${formatTikTokError(data, `HTTP ${res.status}`)}`);
   }
+  assertTikTokEnvelopeOk(data as Record<string, unknown>, "tiktok_videos");
   const list = Array.isArray(data?.data?.videos) ? data.data.videos : [];
-  return list.map((v: Record<string, unknown>) => ({
-    id: String(v.id || ""),
-    title: v.title != null ? String(v.title) : undefined,
-    view_count: v.view_count != null ? Number(v.view_count) : 0,
-    like_count: v.like_count != null ? Number(v.like_count) : 0,
-    comment_count: v.comment_count != null ? Number(v.comment_count) : 0,
-    share_count: v.share_count != null ? Number(v.share_count) : 0,
-  }));
+  return mapTikTokVideoRows(list as Record<string, unknown>[]);
 }
