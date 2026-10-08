@@ -42,3 +42,7 @@ yarn-error.*
 
 .env
 .env.local
+
+# build artifacts (never commit)
+dist/
+.expo/
