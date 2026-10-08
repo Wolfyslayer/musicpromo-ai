@@ -18,6 +18,10 @@ verify_jwt = false
 [functions.campaignWorker]
 verify_jwt = false
 
+# Google login PKCE register (pre-session; called before the user has a JWT).
+[functions.registerGoogleOAuthPkce]
+verify_jwt = false
+
 # Google login code exchange (pre-session; redirect URI is the app domain).
 [functions.googleAuthExchange]
 verify_jwt = false
