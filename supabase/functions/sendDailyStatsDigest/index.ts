@@ -2,6 +2,7 @@ import { serveWithCors } from "../_shared/cors.ts";
 import { secrets, serviceClient } from "../_shared/runtime.ts";
 import {
   aggregateDailyStatsForDigest,
+  resolveDailyStatsDashboardUrl,
   statsEmailHtml,
   statsEmailSubject,
   statsPushBody,
@@ -31,6 +32,9 @@ async function handler(req: Request): Promise<Response> {
 
     const resendKey = secrets.get("RESEND_API_KEY") || "";
     const fromEmail = secrets.get("LAUNCH_DIGEST_FROM_EMAIL") || "MusicPromo AI <onboarding@resend.dev>";
+    const dashboardUrl = resolveDailyStatsDashboardUrl(
+      secrets.get("PUBLIC_APP_URL") || secrets.get("APP_PUBLIC_URL") || ""
+    );
     const admin = serviceClient();
     const now = new Date();
     const { data: users } = await admin
@@ -90,7 +94,7 @@ async function handler(req: Request): Promise<Response> {
               from: fromEmail,
               to: email,
               subject: statsEmailSubject(digest),
-              html: statsEmailHtml({ displayName, digest }),
+              html: statsEmailHtml({ displayName, digest, dashboardUrl }),
             }),
           });
           if (!res.ok) {
