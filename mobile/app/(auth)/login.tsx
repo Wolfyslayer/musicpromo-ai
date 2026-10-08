@@ -1,17 +1,17 @@
 import { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { Link, Redirect, router } from "expo-router";
-import { Screen } from "@/components/ui/Screen";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { AuthLayout } from "@/components/AuthLayout";
+import { GoogleIcon } from "@/components/GoogleIcon";
 import { Text } from "@/components/ui/Text";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { OfflineBanner } from "@/components/OfflineBanner";
 import { useAuth } from "@/auth/AuthContext";
 import { useAppTheme } from "@/theme/ThemeProvider";
-import { spacing } from "@/theme";
+import { radius, spacing } from "@/theme";
 import { userFacingError } from "@/lib/errors";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
-import { getGoogleClientId } from "@/lib/googleAuth";
 
 export default function LoginScreen() {
   const { login, loginWithGoogle, isAuthenticated } = useAuth();
@@ -66,54 +66,63 @@ export default function LoginScreen() {
   };
 
   return (
-    <Screen>
-      <OfflineBanner />
-      <View style={styles.hero}>
-        <Text variant="caption" color={colors.primary} accessibilityRole="header">
-          MusicPromo AI
+    <AuthLayout
+      icon="log-in-outline"
+      title="Welcome back"
+      subtitle="Log in to your account"
+      footer={
+        <Text muted style={{ textAlign: "center" }}>
+          Don’t have an account?{" "}
+          <Link href="/(auth)/register" asChild>
+            <Text color={colors.primary} variant="bodyStrong">
+              Create one
+            </Text>
+          </Link>
         </Text>
-        <Text variant="display">Welcome back</Text>
-        <Text muted>Log in to save promos — or keep browsing as a guest.</Text>
-      </View>
-
-      {error ? (
-        <Text color={colors.destructive} accessibilityRole="alert">
-          {error}
-        </Text>
-      ) : null}
-
+      }
+    >
       <Button
         title="Continue with Google"
         variant="outline"
+        size="lg"
         onPress={onGoogle}
         loading={googleLoading}
         disabled={loading || googleLoading}
+        leftIcon={<GoogleIcon size={20} />}
         accessibilityHint="Sign in with your Google account"
       />
-      {!getGoogleClientId() ? (
-        <Text muted variant="caption">
-          Uses Supabase Google OAuth. Add EXPO_PUBLIC_GOOGLE_CLIENT_ID for id_token sign-in, and
-          allowlist musicpromoai://auth/callback in Supabase Auth redirect URLs.
-        </Text>
-      ) : null}
 
       <View style={styles.divider}>
         <View style={[styles.line, { backgroundColor: colors.border }]} />
-        <Text muted variant="caption">
-          or
+        <Text muted variant="caption" style={styles.or}>
+          OR
         </Text>
         <View style={[styles.line, { backgroundColor: colors.border }]} />
       </View>
+
+      {error ? (
+        <View
+          style={[styles.errorBox, { backgroundColor: colors.destructive + "1A" }]}
+          accessibilityRole="alert"
+        >
+          <Text color={colors.destructive} variant="label">
+            {error}
+          </Text>
+        </View>
+      ) : null}
 
       <Input
         label="Email"
         autoCapitalize="none"
         keyboardType="email-address"
         autoComplete="email"
+        autoFocus
         value={email}
         onChangeText={setEmail}
         placeholder="you@example.com"
+        leftIcon={<Ionicons name="mail-outline" size={16} color={colors.mutedForeground} />}
       />
+
       <Input
         label="Password"
         secureTextEntry
@@ -121,38 +130,39 @@ export default function LoginScreen() {
         value={password}
         onChangeText={setPassword}
         placeholder="••••••••"
+        leftIcon={<Ionicons name="lock-closed-outline" size={16} color={colors.mutedForeground} />}
+        labelRight={
+          <Link href="/(auth)/forgot-password" asChild>
+            <Pressable accessibilityRole="link" hitSlop={8}>
+              <Text color={colors.primary} variant="caption">
+                Forgot password?
+              </Text>
+            </Pressable>
+          </Link>
+        }
       />
 
-      <Button title="Log in" onPress={submit} loading={loading} disabled={loading || googleLoading} />
-
-      <Link href="/(auth)/forgot-password" asChild>
-        <Text color={colors.primary} variant="label">
-          Forgot password?
-        </Text>
-      </Link>
-
-      <View style={styles.footer}>
-        <Text muted>Don’t have an account? </Text>
-        <Link href="/(auth)/register" asChild>
-          <Text color={colors.primary} variant="bodyStrong">
-            Create one
-          </Text>
-        </Link>
-      </View>
-
-      <Button title="Continue browsing" variant="ghost" onPress={goHome} />
-    </Screen>
+      <Button
+        title={loading ? "Logging in..." : "Log in"}
+        size="lg"
+        onPress={submit}
+        loading={loading}
+        disabled={loading || googleLoading}
+      />
+    </AuthLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { gap: spacing.sm, marginTop: spacing["2xl"], marginBottom: spacing.md },
-  footer: { flexDirection: "row", flexWrap: "wrap", marginTop: spacing.lg },
   divider: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    marginVertical: spacing.sm,
   },
   line: { flex: 1, height: StyleSheet.hairlineWidth },
+  or: { letterSpacing: 0.6, textTransform: "uppercase" },
+  errorBox: {
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
 });
