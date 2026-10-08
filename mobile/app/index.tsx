@@ -3,9 +3,12 @@ import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { useAppTheme } from "@/theme/ThemeProvider";
 
-/** Auth gate entry — never exposes app tabs before session restore. */
+/**
+ * After session restore, enter the app shell for everyone (guest browse),
+ * matching web ProtectedRoute which does not bounce signed-out users.
+ */
 export default function Index() {
-  const { isAuthenticated, isLoadingAuth, authChecked } = useAuth();
+  const { isLoadingAuth, authChecked } = useAuth();
   const { colors } = useAppTheme();
 
   if (isLoadingAuth || !authChecked) {
@@ -16,10 +19,7 @@ export default function Index() {
     );
   }
 
-  if (isAuthenticated) {
-    return <Redirect href="/(app)/(tabs)" />;
-  }
-  return <Redirect href="/(auth)/login" />;
+  return <Redirect href="/(app)/(tabs)" />;
 }
 
 const styles = StyleSheet.create({

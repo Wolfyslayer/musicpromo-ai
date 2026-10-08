@@ -5,27 +5,47 @@ import { Text } from "@/components/ui/Text";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { GuestBanner } from "@/components/GuestBanner";
 import { useAuth } from "@/auth/AuthContext";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
+import { getAuthRedirectUri, getGoogleClientId } from "@/lib/googleAuth";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { spacing } from "@/theme";
 
 export default function SettingsScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const { colors } = useAppTheme();
 
   return (
     <Screen>
       <OfflineBanner />
+      <GuestBanner />
       <Text variant="heading">Settings</Text>
       <Card>
         <Text variant="label" muted>
           Account
         </Text>
-        <Text variant="bodyStrong">{user?.email || "Signed in"}</Text>
-        <Text muted variant="caption">
-          {user?.full_name || "No display name"} · role {user?.role || "artist"}
-        </Text>
+        {isAuthenticated ? (
+          <>
+            <Text variant="bodyStrong">{user?.email || "Signed in"}</Text>
+            <Text muted variant="caption">
+              {user?.full_name || "No display name"} · role {user?.role || "artist"}
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text variant="bodyStrong">Guest</Text>
+            <Text muted variant="caption">
+              Sign in with email/password or Google to sync your studio data.
+            </Text>
+            <Button title="Sign in" onPress={() => router.push("/(auth)/login")} />
+            <Button
+              title="Create account"
+              variant="outline"
+              onPress={() => router.push("/(auth)/register")}
+            />
+          </>
+        )}
       </Card>
 
       <Card>
@@ -36,8 +56,8 @@ export default function SettingsScreen() {
           Supabase {isSupabaseConfigured ? "configured" : "missing EXPO_PUBLIC env"}
         </Text>
         <Text muted variant="caption">
-          Billing, team, and studio preferences deep UI remain on web. Session uses AsyncStorage +
-          SecureStore token mirror.
+          Google client ID {getGoogleClientId() ? "set" : "not set (Supabase OAuth fallback)"}.
+          Redirect URI for OAuth allowlist: {getAuthRedirectUri()}
         </Text>
       </Card>
 
@@ -46,20 +66,22 @@ export default function SettingsScreen() {
           More on web
         </Text>
         <Text muted variant="caption">
-          Social OAuth, community, artwork AI lab, Remotion export, Stripe checkout — available in
-          the Vite app until ported. Features are not removed from the product.
+          Social OAuth connect, community, artwork AI lab, Remotion export, Stripe checkout —
+          available in the Vite app until ported.
         </Text>
         <Button title="Open video studio" variant="secondary" onPress={() => router.push("/(app)/video")} />
       </Card>
 
-      <Button
-        title="Log out"
-        variant="destructive"
-        onPress={async () => {
-          await logout();
-          router.replace("/(auth)/login");
-        }}
-      />
+      {isAuthenticated ? (
+        <Button
+          title="Log out"
+          variant="destructive"
+          onPress={async () => {
+            await logout();
+            router.replace("/(app)/(tabs)");
+          }}
+        />
+      ) : null}
       <View style={styles.footer}>
         <Text muted variant="caption" color={colors.mutedForeground}>
           MusicPromo AI · Expo native client

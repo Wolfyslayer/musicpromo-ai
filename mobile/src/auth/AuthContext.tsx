@@ -4,11 +4,14 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
+import { router } from "expo-router";
 import { AppUser, mapUser, upsertUserProfile } from "@/lib/supabaseAuth";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import { db } from "@/api/base44Client";
+import { signInWithGoogleNative } from "@/lib/googleAuth";
 import { logError, userFacingError } from "@/lib/errors";
 
 type AuthContextValue = {
@@ -18,10 +21,14 @@ type AuthContextValue = {
   authChecked: boolean;
   authError: string | null;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   register: (email: string, password: string, handle?: string) => Promise<void>;
   logout: () => Promise<void>;
   requestReset: (email: string) => Promise<void>;
   refreshSession: () => Promise<void>;
+  /** Like web: run action if signed in, otherwise send user to login. */
+  requireAuth: (action?: () => void) => boolean;
+  navigateToLogin: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -32,6 +39,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const isAuthenticatedRef = useRef(false);
+  const pendingActionRef = useRef<(() => void) | null>(null);
+
+  isAuthenticatedRef.current = isAuthenticated;
 
   const applyUser = useCallback((next: AppUser | null) => {
     setUser(next);
@@ -70,9 +81,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       const mapped = mapUser(session?.user || null);
       applyUser(mapped);
+      if (mapped && pendingActionRef.current) {
+        const action = pendingActionRef.current;
+        pendingActionRef.current = null;
+        setTimeout(() => action(), 0);
+      }
     });
     return () => data.subscription.unsubscribe();
   }, [applyUser, refreshSession]);
+
+  const navigateToLogin = useCallback(() => {
+    router.push("/(auth)/login");
+  }, []);
+
+  const requireAuth = useCallback(
+    (action?: () => void) => {
+      if (isAuthenticatedRef.current) {
+        if (typeof action === "function") action();
+        return true;
+      }
+      pendingActionRef.current = typeof action === "function" ? action : null;
+      navigateToLogin();
+      return false;
+    },
+    [navigateToLogin]
+  );
 
   const login = useCallback(async (email: string, password: string) => {
     setAuthError(null);
@@ -81,6 +114,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       logError("login", e);
       const msg = userFacingError(e, "Invalid email or password");
+      setAuthError(msg);
+      throw e;
+    }
+  }, []);
+
+  const loginWithGoogle = useCallback(async () => {
+    setAuthError(null);
+    try {
+      await signInWithGoogleNative();
+    } catch (e) {
+      logError("loginWithGoogle", e);
+      const msg = userFacingError(e, "Google sign-in failed.");
       setAuthError(msg);
       throw e;
     }
@@ -125,10 +170,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authChecked,
       authError,
       login,
+      loginWithGoogle,
       register,
       logout,
       requestReset,
       refreshSession,
+      requireAuth,
+      navigateToLogin,
     }),
     [
       user,
@@ -137,10 +185,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authChecked,
       authError,
       login,
+      loginWithGoogle,
       register,
       logout,
       requestReset,
       refreshSession,
+      requireAuth,
+      navigateToLogin,
     ]
   );
 
