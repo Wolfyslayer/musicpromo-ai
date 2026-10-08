@@ -12,6 +12,11 @@ import {
   TIKTOK_OAUTH_REDIRECT_URI,
 } from "../../shared/tiktokOAuth.ts";
 import {
+  getTikTokAppCredentials,
+  isTikTokAppConfigured,
+  tikTokMissingSecretFlags,
+} from "../../shared/tiktokSecrets.ts";
+import {
   buildYouTubeAuthorizeUrl,
   YOUTUBE_CONNECT_SCOPES,
   YOUTUBE_OAUTH_REDIRECT_URI,
@@ -231,17 +236,14 @@ export default async function (req: Request): Promise<Response> {
         forceReauth,
       });
     } else if (provider === "tiktok") {
-      const clientKey = secretValue("TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_ID");
-      const clientSecret = secretValue("TIKTOK_CLIENT_SECRET");
-      if (!clientKey || !clientSecret) {
+      const { clientKey, mode: tiktokMode } = getTikTokAppCredentials();
+      if (!isTikTokAppConfigured()) {
         return Response.json(
           {
-            error: "TikTok is not configured (TIKTOK_CLIENT_KEY / TIKTOK_CLIENT_SECRET).",
+            error: `TikTok is not configured for ${tiktokMode} (see TIKTOK_CREDENTIALS_MODE and matching client key/secret).`,
             code: "not_configured",
-            missing: {
-              TIKTOK_CLIENT_KEY: !hasSecret("TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_ID"),
-              TIKTOK_CLIENT_SECRET: !hasSecret("TIKTOK_CLIENT_SECRET"),
-            },
+            tiktokCredentialsMode: tiktokMode,
+            missing: tikTokMissingSecretFlags(),
           },
           { status: 503 }
         );

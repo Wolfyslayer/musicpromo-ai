@@ -9,6 +9,10 @@ import {
   TIKTOK_OAUTH_REDIRECT_URI,
   fetchTikTokProfile,
 } from "../_shared/tiktokOAuth.ts";
+import {
+  isTikTokAppConfigured,
+  resolveTikTokCredentialsMode,
+} from "../_shared/tiktokSecrets.ts";
 import { youTubeAppRedirectUri, YOUTUBE_OAUTH_REDIRECT_URI } from "../_shared/youtubeOAuth.ts";
 import { hasXPublishScope } from "../_shared/xOAuth.ts";
 import { decryptCredential } from "../_shared/socialCrypto.ts";
@@ -152,11 +156,7 @@ async function handler (req: Request): Promise<Response> {
         instagram: Boolean(
           sharedReady && hasSecret("META_CLIENT_ID") && hasSecret("META_CLIENT_SECRET")
         ),
-        tiktok: Boolean(
-          sharedReady &&
-            hasSecret("TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_ID") &&
-            hasSecret("TIKTOK_CLIENT_SECRET")
-        ),
+        tiktok: Boolean(sharedReady && isTikTokAppConfigured()),
         youtube: Boolean(
           sharedReady &&
             hasSecret(
@@ -173,6 +173,7 @@ async function handler (req: Request): Promise<Response> {
       },
       metaOAuthRedirectUri: META_OAUTH_REDIRECT_URI,
       tiktokOAuthRedirectUri: TIKTOK_OAUTH_REDIRECT_URI,
+      tiktokCredentialsMode: resolveTikTokCredentialsMode(),
       youtubeOAuthRedirectUri: sharedReady
         ? youTubeAppRedirectUri(
             String(secrets.get("PUBLIC_APP_URL") || secrets.get("APP_PUBLIC_URL") || "")

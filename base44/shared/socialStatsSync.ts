@@ -14,6 +14,7 @@ import {
 import { refreshYouTubeToken, fetchYouTubeVideoStats } from "./youtubeOAuth.ts";
 import { looksLikeYouTubeVideoId } from "./publishDedupe.ts";
 import { secrets } from "./runtime.ts";
+import { getTikTokAppCredentials } from "./tiktokSecrets.ts";
 
 export type SyncStatsResult = {
   provider: string;
@@ -350,8 +351,7 @@ export async function syncSocialStats(params: {
     let accessToken = String(creds.access_token || "");
     if (creds.refresh_token) {
       try {
-        const clientKey = secrets.get("TIKTOK_CLIENT_KEY") || secrets.get("TIKTOK_CLIENT_ID");
-        const clientSecret = secrets.get("TIKTOK_CLIENT_SECRET");
+        const { clientKey, clientSecret } = getTikTokAppCredentials();
         if (clientKey && clientSecret) {
           const refreshed = await refreshTikTokToken({
             clientKey,
