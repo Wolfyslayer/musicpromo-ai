@@ -113,7 +113,7 @@ async function handler(req: Request): Promise<Response> {
           tokens,
           title: "Your daily stats",
           body: statsPushBody(digest),
-          data: { route: "/analytics", date: targetDate },
+          data: { route: "/analytics", date: digest.date },
         });
         if (!pushResult.skipped && pushResult.sent > 0) {
           pushed += pushResult.sent;
