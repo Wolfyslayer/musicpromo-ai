@@ -8,7 +8,8 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { GuestBanner } from "@/components/GuestBanner";
 import { useAuth } from "@/auth/AuthContext";
 import { isSupabaseConfigured } from "@/lib/supabaseClient";
-import { getAuthRedirectUri, getGoogleClientId } from "@/lib/googleAuth";
+import { getGoogleClientId, getGoogleSignInRedirectUri } from "@/lib/googleAuth";
+import { getPublicAppOrigin } from "@/lib/appOrigin";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { spacing } from "@/theme";
 
@@ -56,8 +57,9 @@ export default function SettingsScreen() {
           Supabase {isSupabaseConfigured ? "configured" : "missing EXPO_PUBLIC env"}
         </Text>
         <Text muted variant="caption">
-          Google client ID {getGoogleClientId() ? "set" : "not set (Supabase OAuth fallback)"}.
-          Redirect URI for OAuth allowlist: {getAuthRedirectUri()}
+          Auth uses the same web pipeline (Google PKCE → googleAuthExchange). App origin:{" "}
+          {getPublicAppOrigin()}. Google redirect: {getGoogleSignInRedirectUri()}. Client ID{" "}
+          {getGoogleClientId() ? "set" : "missing — set EXPO_PUBLIC_GOOGLE_CLIENT_ID"}.
         </Text>
       </Card>
 

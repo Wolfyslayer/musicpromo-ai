@@ -28,8 +28,9 @@ From repo root: `npm run mobile:start`
 ## Auth & guest browse
 
 - **Guests can browse** the app shell (Home / Campaigns / Artists / Analytics / Settings) without signing in — same idea as the web SPA. Creating, uploading, deleting, and loading private library data require sign-in (`requireAuth`).
-- **Email/password** against Supabase Auth.
-- **Google**: set `EXPO_PUBLIC_GOOGLE_CLIENT_ID` (same Web client as `VITE_GOOGLE_CLIENT_ID`) for id_token → `signInWithIdToken`. If unset, falls back to Supabase `signInWithOAuth` — add `musicpromoai://auth/callback` under Supabase **Authentication → URL configuration → Redirect URLs**.
+- **Email/password** against the same Supabase Auth project as web.
+- **Google** uses the **same web pipeline**: PKCE → `registerGoogleOAuthPkce` → Google authorize → `https://musicpromoai.site/auth/google/callback` → `googleAuthExchange` → `signInWithIdToken`. Set `EXPO_PUBLIC_GOOGLE_CLIENT_ID` to the same value as `VITE_GOOGLE_CLIENT_ID`. No separate Expo OAuth client or `musicpromoai://` redirect required for Google.
+- Confirm / reset emails point at the public site (`EXPO_PUBLIC_APP_ORIGIN`, default `https://musicpromoai.site`).
 - Session restore on launch. Access token mirrored in SecureStore when size allows; full session in AsyncStorage.
 
 Local seeded user (Cloud Agent DB): `cloudagent@example.com` / `password123`.

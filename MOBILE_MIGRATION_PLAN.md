@@ -314,7 +314,7 @@ Test account (local seeded DB): `cloudagent@example.com` / `password123`.
 
 - Full Remotion editor / on-device MP4 encode (web Remotion / future backend FFmpeg)
 - Social OAuth deep links, community, Stripe billing UI, artwork AI lab depth
-- Google: implemented via id_token (`EXPO_PUBLIC_GOOGLE_CLIENT_ID`) or Supabase OAuth (`musicpromoai://auth/callback` must be in Supabase Redirect URLs). Store builds may also need iOS/Android OAuth client IDs in Google Cloud.
+- Google: uses the **same web auth pipeline** (`registerGoogleOAuthPkce` + `googleAuthExchange` + redirect `https://musicpromoai.site/auth/google/callback`). Set `EXPO_PUBLIC_GOOGLE_CLIENT_ID` = `VITE_GOOGLE_CLIENT_ID`.
 - Push notifications via Expo
 - Releases / launch board full parity screens
 - AI campaign plan generation on device (Edge Function — same as web; create flow saves draft entities)

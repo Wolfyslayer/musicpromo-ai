@@ -24,10 +24,11 @@ export const db = {
     verifyOtp: ({ email, otpCode }: { email: string; otpCode: string }) =>
       verifyEmailOtp(email, otpCode),
     resendOtp: (email: string) => resendSignupOtp(email),
-    loginWithProvider: async (provider: string) => {
+    loginWithProvider: async (provider: string, returnTo?: string) => {
       if (provider !== "google") throw new Error("Only Google sign-in is connected.");
+      // Same Edge Functions + redirect URI as the Vite web app.
       const { signInWithGoogleNative } = await import("@/lib/googleAuth");
-      return signInWithGoogleNative();
+      return signInWithGoogleNative(returnTo || "/");
     },
     resetPasswordRequest: (email: string) => requestPasswordReset(email),
     resetPassword: ({ newPassword }: { newPassword: string }) => updatePassword(newPassword),

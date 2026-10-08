@@ -1,153 +1,82 @@
 import * as WebBrowser from "expo-web-browser";
-import * as Linking from "expo-linking";
-import * as AuthSession from "expo-auth-session";
-import { Platform } from "react-native";
-import { requireSupabase } from "./supabaseClient";
-import { mapUser, upsertUserProfile } from "./supabaseAuth";
+import { pkceChallengeFromVerifier, randomUrlSafeString } from "./googlePkce";
+import { writeGoogleSignInSession, clearGoogleSignInSessionAll } from "./googleAuthStorage";
+import { registerGoogleOAuthPkce } from "./registerGoogleOAuthPkce";
+import { getGoogleClientId, getGoogleSignInRedirectUri } from "./googleOAuthConfig";
+import { completeGoogleSignInFromUrl, isGoogleAuthCallbackUrl } from "./completeGoogleSignIn";
 import { logError } from "./errors";
 
 WebBrowser.maybeCompleteAuthSession();
 
-export function getGoogleClientId() {
-  return String(process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || "").trim();
-}
+export { getGoogleClientId, getGoogleSignInRedirectUri } from "./googleOAuthConfig";
 
-/** Deep-link redirect for Supabase OAuth (must be allow-listed in Supabase Auth URLs). */
+const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
+const LOGIN_SCOPES = ["openid", "email", "profile"];
+
+/** Shown in Settings — same URI the web app / Google Cloud already use. */
 export function getAuthRedirectUri() {
-  return AuthSession.makeRedirectUri({
-    scheme: "musicpromoai",
-    path: "auth/callback",
-  });
-}
-
-function extractParams(url: string) {
-  const parsed = Linking.parse(url);
-  const query = (parsed.queryParams || {}) as Record<string, string | undefined>;
-  let hashParams: Record<string, string> = {};
-  const hashIndex = url.indexOf("#");
-  if (hashIndex >= 0) {
-    hashParams = Object.fromEntries(new URLSearchParams(url.slice(hashIndex + 1)));
-  }
-  return { ...hashParams, ...query };
+  return getGoogleSignInRedirectUri();
 }
 
 /**
- * Google sign-in for Expo.
- * 1) Prefer id_token via Google OAuth (EXPO_PUBLIC_GOOGLE_CLIENT_ID) → supabase.signInWithIdToken
- * 2) Else Supabase signInWithOAuth + auth session (add musicpromoai://auth/callback to Supabase redirect URLs)
+ * Google sign-in using the **same** web pipeline:
+ * PKCE → registerGoogleOAuthPkce → Google authorize
+ * → https://musicpromoai.site/auth/google/callback
+ * → googleAuthExchange → supabase.auth.signInWithIdToken
+ *
+ * WebBrowser.openAuthSessionAsync dismisses when the redirect URI is hit
+ * and returns the callback URL to the app (no separate Expo OAuth client).
  */
-export async function signInWithGoogleNative() {
-  const client = requireSupabase();
-  const googleClientId = getGoogleClientId();
-
-  if (googleClientId) {
-    return signInWithGoogleIdToken(googleClientId);
+export async function signInWithGoogleNative(returnTo = "/") {
+  const clientId = getGoogleClientId();
+  if (!clientId) {
+    throw new Error(
+      "Add EXPO_PUBLIC_GOOGLE_CLIENT_ID (same value as web VITE_GOOGLE_CLIENT_ID)."
+    );
   }
 
-  // Fallback: Supabase-hosted Google OAuth
-  const redirectTo = getAuthRedirectUri();
-  const { data, error } = await client.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo,
-      skipBrowserRedirect: true,
-      queryParams: { prompt: "select_account" },
-    },
-  });
-  if (error) throw error;
-  if (!data?.url) throw new Error("Google sign-in did not return an auth URL.");
+  const state = randomUrlSafeString(24);
+  const verifier = randomUrlSafeString(48);
+  const challenge = await pkceChallengeFromVerifier(verifier);
+  const redirectUri = getGoogleSignInRedirectUri();
+  const safeReturn = returnTo || "/";
 
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  await writeGoogleSignInSession({ state, verifier, returnTo: safeReturn });
+
+  try {
+    await registerGoogleOAuthPkce({ state, codeVerifier: verifier, returnTo: safeReturn });
+  } catch (e) {
+    logError("googleAuth.registerPkce", e);
+    // Server PKCE is preferred; local verifier still sent on complete when state matches.
+  }
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: LOGIN_SCOPES.join(" "),
+    state,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    access_type: "online",
+    prompt: "select_account",
+  });
+
+  const authUrl = `${GOOGLE_AUTH_URL}?${params.toString()}`;
+
+  const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri, {
+    preferEphemeralSession: true,
+  });
+
   if (result.type !== "success" || !("url" in result) || !result.url) {
+    await clearGoogleSignInSessionAll();
     throw new Error("Google sign-in was cancelled.");
   }
 
-  const params = extractParams(result.url);
-  if (params.error_description || params.error) {
-    throw new Error(
-      decodeURIComponent(String(params.error_description || params.error).replace(/\+/g, " "))
-    );
+  if (!isGoogleAuthCallbackUrl(result.url)) {
+    await clearGoogleSignInSessionAll();
+    throw new Error("Unexpected Google redirect. Expected musicpromoai.site callback.");
   }
 
-  if (params.code) {
-    const { data: sessionData, error: exchangeError } = await client.auth.exchangeCodeForSession(
-      String(params.code)
-    );
-    if (exchangeError) throw exchangeError;
-    const user = mapUser(sessionData.user);
-    if (user && sessionData.user) await upsertUserProfile(user, sessionData.user);
-    return { user, session: sessionData.session };
-  }
-
-  if (params.access_token && params.refresh_token) {
-    const { data: sessionData, error: setError } = await client.auth.setSession({
-      access_token: String(params.access_token),
-      refresh_token: String(params.refresh_token),
-    });
-    if (setError) throw setError;
-    const user = mapUser(sessionData.user);
-    if (user && sessionData.user) await upsertUserProfile(user, sessionData.user);
-    return { user, session: sessionData.session };
-  }
-
-  throw new Error("Google sign-in finished without a session. Check Supabase redirect URLs.");
-}
-
-async function signInWithGoogleIdToken(clientId: string) {
-  const client = requireSupabase();
-  const redirectUri = AuthSession.makeRedirectUri({
-    scheme: "musicpromoai",
-    path: "auth/google",
-  });
-
-  // Web client ID works for Expo Go / web; add iOS/Android clients in Google Cloud for store builds.
-  const discovery = {
-    authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
-    tokenEndpoint: "https://oauth2.googleapis.com/token",
-    revocationEndpoint: "https://oauth2.googleapis.com/revoke",
-  };
-
-  const request = new AuthSession.AuthRequest({
-    clientId,
-    redirectUri,
-    scopes: ["openid", "profile", "email"],
-    responseType: AuthSession.ResponseType.IdToken,
-    usePKCE: false,
-    extraParams: {
-      nonce: Math.random().toString(36).slice(2),
-      prompt: "select_account",
-    },
-  });
-
-  await request.makeAuthUrlAsync(discovery);
-
-  const result = await request.promptAsync(discovery, { preferEphemeralSession: true });
-  if (result.type !== "success") {
-    throw new Error("Google sign-in was cancelled.");
-  }
-
-  const idToken =
-    result.params?.id_token ||
-    (result as { authentication?: { idToken?: string } }).authentication?.idToken;
-  if (!idToken) {
-    logError("google.idToken", result);
-    throw new Error(
-      "Google did not return an ID token. Confirm EXPO_PUBLIC_GOOGLE_CLIENT_ID matches the Supabase Google provider client."
-    );
-  }
-
-  const { data, error } = await client.auth.signInWithIdToken({
-    provider: "google",
-    token: idToken,
-  });
-  if (error) throw error;
-
-  const user = mapUser(data.user);
-  if (user) await upsertUserProfile(user, data.user || undefined);
-
-  if (Platform.OS === "web") {
-    // no-op; session already set
-  }
-
-  return { user, session: data.session };
+  return completeGoogleSignInFromUrl(result.url);
 }
