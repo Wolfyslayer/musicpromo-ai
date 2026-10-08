@@ -25,12 +25,15 @@ From repo root: `npm run mobile:start`
 | `npm run lint` / `npx tsc --noEmit` | Typecheck |
 | `npx expo export` | Static export check |
 
-## Auth
+## Auth & guest browse
 
-Email/password against Supabase Auth. Session restore on launch. Access token mirrored in SecureStore when size allows; full session in AsyncStorage.
+- **Guests can browse** the app shell (Home / Campaigns / Artists / Analytics / Settings) without signing in — same idea as the web SPA. Creating, uploading, deleting, and loading private library data require sign-in (`requireAuth`).
+- **Email/password** against Supabase Auth.
+- **Google**: set `EXPO_PUBLIC_GOOGLE_CLIENT_ID` (same Web client as `VITE_GOOGLE_CLIENT_ID`) for id_token → `signInWithIdToken`. If unset, falls back to Supabase `signInWithOAuth` — add `musicpromoai://auth/callback` under Supabase **Authentication → URL configuration → Redirect URLs**.
+- Session restore on launch. Access token mirrored in SecureStore when size allows; full session in AsyncStorage.
 
 Local seeded user (Cloud Agent DB): `cloudagent@example.com` / `password123`.
 
 ## Gaps vs web
 
-Remotion MP4 encode, social OAuth deep links, community, Stripe billing UI, artwork AI lab — still on web. Native previews exported HTTPS videos and manages campaigns/artists/uploads/audio.
+Remotion MP4 encode, social *connect* OAuth (TikTok/YouTube/etc.), community, Stripe billing UI, artwork AI lab — still on web. Native previews exported HTTPS videos and manages campaigns/artists/uploads/audio.

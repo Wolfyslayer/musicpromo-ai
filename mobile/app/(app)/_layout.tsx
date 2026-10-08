@@ -1,10 +1,11 @@
-import { Redirect, Stack } from "expo-router";
+import { Stack } from "expo-router";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { useAppTheme } from "@/theme/ThemeProvider";
 
+/** App shell is reachable while signed out (browse). Writes use requireAuth. */
 export default function AppLayout() {
-  const { isAuthenticated, isLoadingAuth, authChecked } = useAuth();
+  const { isLoadingAuth, authChecked } = useAuth();
   const { colors } = useAppTheme();
 
   if (isLoadingAuth || !authChecked) {
@@ -13,10 +14,6 @@ export default function AppLayout() {
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
-  }
-
-  if (!isAuthenticated) {
-    return <Redirect href="/(auth)/login" />;
   }
 
   return (

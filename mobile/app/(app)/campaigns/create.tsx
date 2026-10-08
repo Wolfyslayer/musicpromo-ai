@@ -17,11 +17,18 @@ import { CAMPAIGN_DURATIONS, CAMPAIGN_GOALS } from "@/services/constants";
 import { spacing } from "@/theme";
 import { userFacingError } from "@/lib/errors";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { useAuth } from "@/auth/AuthContext";
+import { GuestBanner } from "@/components/GuestBanner";
 
 export default function CreateCampaignScreen() {
   const qc = useQueryClient();
   const { online } = useNetworkStatus();
-  const artistsQuery = useQuery({ queryKey: ["artists"], queryFn: loadArtists });
+  const { isAuthenticated, requireAuth } = useAuth();
+  const artistsQuery = useQuery({
+    queryKey: ["artists"],
+    queryFn: loadArtists,
+    enabled: isAuthenticated,
+  });
 
   const [songTitle, setSongTitle] = useState("");
   const [campaignName, setCampaignName] = useState("");
@@ -57,21 +64,23 @@ export default function CreateCampaignScreen() {
   });
 
   const submit = () => {
-    setFormError("");
-    if (!online) {
-      setFormError("You’re offline. Reconnect to create a campaign.");
-      return;
-    }
-    if (!songTitle.trim()) {
-      setFormError("Song title is required.");
-      return;
-    }
-    if (!artistId) {
-      setFormError("Select an artist.");
-      return;
-    }
-    if (create.isPending) return;
-    create.mutate();
+    requireAuth(() => {
+      setFormError("");
+      if (!online) {
+        setFormError("You’re offline. Reconnect to create a campaign.");
+        return;
+      }
+      if (!songTitle.trim()) {
+        setFormError("Song title is required.");
+        return;
+      }
+      if (!artistId) {
+        setFormError("Select an artist.");
+        return;
+      }
+      if (create.isPending) return;
+      create.mutate();
+    });
   };
 
   return (
@@ -79,6 +88,7 @@ export default function CreateCampaignScreen() {
       <Stack.Screen options={{ title: "New promo" }} />
       <Screen>
         <OfflineBanner />
+        <GuestBanner />
         <Text muted>
           Creates Song + Campaign draft on Supabase. AI plan generation still uses Edge Functions
           (web wizard) when available — this screen never fakes a plan.

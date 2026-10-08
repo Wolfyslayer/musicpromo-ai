@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Link, router } from "expo-router";
+import { Link, Redirect, router } from "expo-router";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { Input } from "@/components/ui/Input";
@@ -13,7 +13,7 @@ import { userFacingError } from "@/lib/errors";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 export default function RegisterScreen() {
-  const { register } = useAuth();
+  const { register, loginWithGoogle, isAuthenticated } = useAuth();
   const { colors } = useAppTheme();
   const { online } = useNetworkStatus();
   const [email, setEmail] = useState("");
@@ -22,9 +22,16 @@ export default function RegisterScreen() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  if (isAuthenticated) {
+    return <Redirect href="/(app)/(tabs)" />;
+  }
+
+  const goHome = () => router.replace("/(app)/(tabs)");
 
   const submit = async () => {
-    if (loading) return;
+    if (loading || googleLoading) return;
     setError("");
     setInfo("");
     if (!online) {
@@ -39,11 +46,29 @@ export default function RegisterScreen() {
     try {
       await register(email.trim(), password, handle.trim() || undefined);
       setInfo("Check your email to confirm, or continue if confirmation is disabled.");
-      router.replace("/(app)/(tabs)");
+      goHome();
     } catch (e) {
       setError(userFacingError(e, "Could not create account."));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onGoogle = async () => {
+    if (loading || googleLoading) return;
+    setError("");
+    if (!online) {
+      setError("You’re offline. Reconnect to sign in.");
+      return;
+    }
+    setGoogleLoading(true);
+    try {
+      await loginWithGoogle();
+      goHome();
+    } catch (e) {
+      setError(userFacingError(e, "Google sign-in failed."));
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -65,6 +90,14 @@ export default function RegisterScreen() {
       ) : null}
       {info ? <Text color={colors.success}>{info}</Text> : null}
 
+      <Button
+        title="Continue with Google"
+        variant="outline"
+        onPress={onGoogle}
+        loading={googleLoading}
+        disabled={loading || googleLoading}
+      />
+
       <Input label="Handle (optional)" value={handle} onChangeText={setHandle} autoCapitalize="none" />
       <Input
         label="Email"
@@ -75,7 +108,7 @@ export default function RegisterScreen() {
       />
       <Input label="Password" secureTextEntry value={password} onChangeText={setPassword} />
 
-      <Button title="Sign up" onPress={submit} loading={loading} disabled={loading} />
+      <Button title="Sign up" onPress={submit} loading={loading} disabled={loading || googleLoading} />
 
       <View style={styles.footer}>
         <Text muted>Already have an account? </Text>
@@ -85,6 +118,8 @@ export default function RegisterScreen() {
           </Text>
         </Link>
       </View>
+
+      <Button title="Continue browsing" variant="ghost" onPress={goHome} />
     </Screen>
   );
 }

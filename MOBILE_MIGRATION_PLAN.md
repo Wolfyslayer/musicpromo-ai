@@ -296,8 +296,8 @@ Test account (local seeded DB): `cloudagent@example.com` / `password123`.
 | 1 Audit + plan | Done | This file + `docs/mobile-migration-plan.md` in Project store |
 | 2–3 Expo structure + SDK 57 | Done | `mobile/` Expo Router app; web untouched at repo root |
 | 4–5 RN UI + design system | Done | Theme tokens + Button/Card/Input/Screen/Text |
-| 6 Auth gate | Done | `app/index` + `(auth)` / `(app)` redirects |
-| 7 Real auth | Done | Supabase email/password, register, reset; session restore |
+| 6 Auth gate | Done | Guest browse like web: `(app)` open without login; writes use `requireAuth` → login |
+| 7 Real auth | Done | Email/password + **Google** (`expo-auth-session` id_token or Supabase OAuth); register/reset; session restore |
 | 8 API reuse | Done | `db` gateway + `data` / `supabaseStore` adapted for RN |
 | 9 Uploads | Done | Artwork (image-picker) + audio (document-picker) + progress/cancel/retry |
 | 10 Audio | Done | `expo-audio` play/pause/seek; unload via replace/unmount |
@@ -314,7 +314,7 @@ Test account (local seeded DB): `cloudagent@example.com` / `password123`.
 
 - Full Remotion editor / on-device MP4 encode (web Remotion / future backend FFmpeg)
 - Social OAuth deep links, community, Stripe billing UI, artwork AI lab depth
-- Google native sign-in (AuthSession) parity
+- Google: implemented via id_token (`EXPO_PUBLIC_GOOGLE_CLIENT_ID`) or Supabase OAuth (`musicpromoai://auth/callback` must be in Supabase Redirect URLs). Store builds may also need iOS/Android OAuth client IDs in Google Cloud.
 - Push notifications via Expo
 - Releases / launch board full parity screens
 - AI campaign plan generation on device (Edge Function — same as web; create flow saves draft entities)
