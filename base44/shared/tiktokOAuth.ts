@@ -471,8 +471,8 @@ export async function fetchTikTokVideoList(params: {
       },
       body: JSON.stringify(
         params.videoIds?.length
-          ? { filters: { video_ids: params.videoIds }, max_count: 20 }
-          : { max_count: 20 }
+          ? { filters: { video_ids: params.videoIds }, max_count: 50 }
+          : { max_count: 50 }
       ),
     }
   );

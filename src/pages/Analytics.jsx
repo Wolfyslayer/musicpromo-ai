@@ -146,21 +146,31 @@ export default function Analytics() {
         return;
       }
       await reload();
+      const detail = [
+        summary.lines?.length ? summary.lines.join(" · ") : null,
+        summary.hints?.length ? summary.hints[0] : null,
+      ]
+        .filter(Boolean)
+        .join(" — ");
       if (summary.upserted > 0) {
         toast({
           title: "Platform stats synced",
-          description: `Updated ${summary.upserted} analytics row(s) from ${summary.providers.join(", ") || "your accounts"}.`,
+          description:
+            detail ||
+            `Updated ${summary.upserted} analytics row(s) from ${summary.providers.join(", ") || "your accounts"}.`,
         });
       } else if (summary.errors.length) {
         toast({
           variant: "destructive",
           title: "Sync completed with errors",
-          description: summary.errors.slice(0, 2).join(" · "),
+          description: detail || summary.errors.slice(0, 2).join(" · "),
         });
       } else {
         toast({
+          variant: summary.skipped ? "destructive" : "default",
           title: "Sync finished",
           description:
+            detail ||
             "No platform stats were returned yet. Publish posts linked to a campaign (with a platform post id), then sync again.",
         });
       }
