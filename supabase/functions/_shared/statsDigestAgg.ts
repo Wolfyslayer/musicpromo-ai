@@ -1,4 +1,5 @@
 import {
+  calendarDateInTimeZone,
   formatDateLabelInTimeZone,
   normalizeTimeZone,
   yesterdayDateInTimeZone,
@@ -87,6 +88,54 @@ export function aggregateDailyStats(
   return {
     date: targetDate,
     dateLabel: formatDateLabelInTimeZone(targetDate, tz),
+    totals,
+    byPlatform,
+    entryCount: rows.length,
+  };
+}
+
+/** Prefer today / yesterday (user TZ + UTC) so digests match hourly platform sync rows. */
+export function aggregateDailyStatsForDigest(
+  rawRows: Record<string, unknown>[],
+  timeZone: string,
+  now = new Date()
+): StatsDigest {
+  const tz = normalizeTimeZone(timeZone);
+  const utcToday = now.toISOString().slice(0, 10);
+  const today = calendarDateInTimeZone(now, tz);
+  const yesterday = yesterdayDateInTimeZone(tz, now);
+  const candidates = [...new Set([today, yesterday, utcToday])];
+
+  for (const d of candidates) {
+    const digest = aggregateDailyStats(rawRows, d, tz);
+    if (digest.entryCount > 0) return digest;
+  }
+
+  const rows = (rawRows || []).map(unpackAnalyticsRow).filter((r) => r.is_demo !== true);
+  if (!rows.length) {
+    return aggregateDailyStats(rawRows, today, tz);
+  }
+
+  const totals = {} as StatsDigest["totals"];
+  for (const m of METRICS) totals[m] = sumMetric(rows, m);
+  const platformMap: Record<string, { views: number; engagement: number }> = {};
+  for (const r of rows) {
+    const key = normalizePlatform(r.platform);
+    if (!platformMap[key]) platformMap[key] = { views: 0, engagement: 0 };
+    platformMap[key].views += Number(r.views || 0);
+    platformMap[key].engagement +=
+      Number(r.likes || 0) +
+      Number(r.comments || 0) +
+      Number(r.shares || 0) +
+      Number(r.saves || 0);
+  }
+  const byPlatform = Object.entries(platformMap)
+    .map(([platform, v]) => ({ platform, ...v }))
+    .sort((a, b) => b.views - a.views);
+
+  return {
+    date: today,
+    dateLabel: formatDateLabelInTimeZone(today, tz),
     totals,
     byPlatform,
     entryCount: rows.length,

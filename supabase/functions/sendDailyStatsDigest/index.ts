@@ -1,11 +1,10 @@
 import { serveWithCors } from "../_shared/cors.ts";
 import { secrets, serviceClient } from "../_shared/runtime.ts";
 import {
-  aggregateDailyStats,
+  aggregateDailyStatsForDigest,
   statsEmailHtml,
   statsEmailSubject,
   statsPushBody,
-  yesterdayForUserTimeZone,
 } from "../_shared/statsDigestAgg.ts";
 import { sendFcmNotifications } from "../_shared/fcmPush.ts";
 import {
@@ -60,18 +59,16 @@ async function handler(req: Request): Promise<Response> {
         continue;
       }
 
-      const targetDate = yesterdayForUserTimeZone(timeZone, now);
-
       const { data: analyticsRows } = await admin
         .from("analytics_entries")
         .select("id, data")
         .eq("user_id", u.id)
         .limit(500);
 
-      const digest = aggregateDailyStats(
+      const digest = aggregateDailyStatsForDigest(
         (analyticsRows || []) as Record<string, unknown>[],
-        targetDate,
-        timeZone
+        timeZone,
+        now
       );
       const displayName = String(u.display_name || "there");
       let didSend = false;

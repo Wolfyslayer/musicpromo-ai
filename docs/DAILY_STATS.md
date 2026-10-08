@@ -20,7 +20,20 @@ Migrations are **not** applied automatically by the GitHub Deploy workflow (see 
 
 ## Edge functions
 
-Deploy `getDailyStatsDigest` and `sendDailyStatsDigest`. Optional cron: `.github/workflows/` or Supabase scheduled invoke for `sendDailyStatsDigest`.
+Deploy `getDailyStatsDigest` and `sendDailyStatsDigest`.
+
+## Cron (required for email / push)
+
+Enable **`.github/workflows/daily-stats-digest-cron.yml`** (runs hourly). GitHub Actions secrets:
+
+| Secret | Purpose |
+|--------|---------|
+| `SUPABASE_PROJECT_REF` | Project ref (subdomain before `.supabase.co`) |
+| `LAUNCH_DIGEST_CRON_SECRET` | Same value as Supabase edge secret `LAUNCH_DIGEST_CRON_SECRET` |
+
+Supabase edge secrets for email: `RESEND_API_KEY`, `LAUNCH_DIGEST_FROM_EMAIL`. For push: `FCM_SERVICE_ACCOUNT_JSON` and registered `push_devices` rows.
+
+The digest uses synced `analytics_entries` (from **Sync from platforms** or `analytics-sync-cron` + `socialStatsSync`). Rows are dated in UTC; the sender matches today/yesterday in your timezone.
 
 ## User timezone
 
