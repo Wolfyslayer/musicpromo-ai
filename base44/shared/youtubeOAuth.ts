@@ -10,9 +10,33 @@ export const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 export const YT_API = "https://www.googleapis.com/youtube/v3";
 export const YT_UPLOAD = "https://www.googleapis.com/upload/youtube/v3/videos";
 
-/** Register this exact URI on the Google Cloud OAuth client. */
+/** Register this exact URI on the Google Cloud OAuth client (legacy direct Edge callback). */
 export { YOUTUBE_OAUTH_REDIRECT_URI };
 export const SOCIAL_OAUTH_REDIRECT_URI = YOUTUBE_OAUTH_REDIRECT_URI;
+
+/** OAuth redirect on your app domain so Google shows musicpromoai.site (not *.supabase.co). */
+export function youTubeAppRedirectUri(publicAppUrl: string): string {
+  const base = String(publicAppUrl || "").trim().replace(/\/$/, "");
+  if (!base) return YOUTUBE_OAUTH_REDIRECT_URI;
+  return `${base}/auth/youtube/callback`;
+}
+
+/** Client ID from the SPA (`VITE_GOOGLE_CLIENT_ID`) on connectSocialProvider invoke. */
+export function readGoogleClientIdFromInvokeBody(
+  body: Record<string, unknown> | undefined | null
+): string {
+  if (!body) return "";
+  const nested = [body, body.args, body.data, body.payload, body.params].filter(
+    (x): x is Record<string, unknown> => Boolean(x && typeof x === "object")
+  );
+  for (const obj of nested) {
+    for (const key of ["googleClientId", "clientId"]) {
+      const v = obj[key];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+  }
+  return "";
+}
 
 export const YOUTUBE_CONNECT_SCOPES = [
   "https://www.googleapis.com/auth/youtube.upload",
@@ -51,8 +75,21 @@ export type GoogleTokenBundle = {
 };
 
 function formatGoogleError(data: Record<string, unknown>, fallback: string): string {
-  const desc = String(data?.error_description || data?.error || "").trim();
-  return desc ? desc.slice(0, 300) : fallback;
+  const err = data?.error;
+  if (err && typeof err === "object" && !Array.isArray(err)) {
+    const o = err as Record<string, unknown>;
+    const msg = String(o.message || o.error_description || "").trim();
+    if (msg) return msg.slice(0, 300);
+    const nested = Array.isArray(o.errors) ? (o.errors[0] as Record<string, unknown>) : null;
+    const reason = nested ? String(nested.reason || nested.message || "").trim() : "";
+    const code = o.code != null ? String(o.code) : "";
+    const combined = [code && `HTTP ${code}`, reason].filter(Boolean).join(": ");
+    if (combined) return combined.slice(0, 300);
+  }
+  const desc = String(data?.error_description || "").trim();
+  if (desc) return desc.slice(0, 300);
+  if (typeof err === "string" && err.trim()) return err.trim().slice(0, 300);
+  return fallback;
 }
 
 export async function exchangeYouTubeCode(params: {

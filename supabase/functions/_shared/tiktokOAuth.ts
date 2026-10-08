@@ -218,28 +218,11 @@ export async function queryTikTokCreatorInfo(accessToken: string): Promise<TikTo
   };
 }
 
-/**
- * Unaudited TikTok API clients must post SELF_ONLY (private) until app audit — see content-sharing guidelines.
- */
-export function pickTikTokPrivacyLevel(
-  options: string[],
-  { preferPublic = false }: { preferPublic?: boolean } = {}
-): string {
+/** Default Direct Post privacy: TikTok "Only me" (SELF_ONLY) when the creator account allows it. */
+export function pickTikTokPrivacyLevel(options: string[]): string {
   if (!options.length) return "SELF_ONLY";
-  if (preferPublic) {
-    const publicFirst = [
-      "PUBLIC_TO_EVERYONE",
-      "FOLLOWER_OF_CREATOR",
-      "MUTUAL_FOLLOW_FRIENDS",
-      "SELF_ONLY",
-    ];
-    for (const p of publicFirst) {
-      if (options.includes(p)) return p;
-    }
-  } else if (options.includes("SELF_ONLY")) {
-    return "SELF_ONLY";
-  }
-  const fallback = ["FOLLOWER_OF_CREATOR", "MUTUAL_FOLLOW_FRIENDS", "PUBLIC_TO_EVERYONE", "SELF_ONLY"];
+  if (options.includes("SELF_ONLY")) return "SELF_ONLY";
+  const fallback = ["FOLLOWER_OF_CREATOR", "MUTUAL_FOLLOW_FRIENDS", "PUBLIC_TO_EVERYONE"];
   for (const p of fallback) {
     if (options.includes(p)) return p;
   }
@@ -254,8 +237,6 @@ export async function initTikTokDirectVideoPost(params: {
   videoSize: number;
   title: string;
   privacyLevel?: string;
-  /** When false (default), prefer SELF_ONLY for unaudited API clients. */
-  preferPublicPrivacy?: boolean;
   brandContentToggle?: boolean;
   brandOrganicToggle?: boolean;
   isAigc?: boolean;
@@ -264,12 +245,17 @@ export async function initTikTokDirectVideoPost(params: {
   totalChunkCount?: number;
 }): Promise<{ publish_id: string; upload_url: string; privacy_level: string }> {
   const creator = await queryTikTokCreatorInfo(params.accessToken);
-  const privacyLevel =
-    params.privacyLevel && creator.privacy_level_options.includes(params.privacyLevel)
-      ? params.privacyLevel
-      : pickTikTokPrivacyLevel(creator.privacy_level_options, {
-          preferPublic: params.preferPublicPrivacy === true,
-        });
+  let privacyLevel: string;
+  if (params.privacyLevel === "SELF_ONLY") {
+    if (!creator.privacy_level_options.includes("SELF_ONLY")) {
+      throw new Error(
+        "tiktok_only_me_unavailable: TikTok did not offer “Only me” for this account. In the TikTok app, turn on Private account (Settings and privacy → Privacy), disconnect and reconnect TikTok in Social Hub, then retry."
+      );
+    }
+    privacyLevel = "SELF_ONLY";
+  } else {
+    privacyLevel = pickTikTokPrivacyLevel(creator.privacy_level_options);
+  }
 
   if (
     creator.max_video_post_duration_sec &&
@@ -347,11 +333,25 @@ export async function fetchTikTokPublishStatus(
     throw new Error(`tiktok_publish_status: ${formatTikTokError(data, `HTTP ${res.status}`)}`);
   }
   const row = (data?.data || {}) as Record<string, unknown>;
-  const ids = row.publicaly_available_post_id ?? row.publicly_available_post_id;
+  const collected: string[] = [];
+  const pushIds = (raw: unknown) => {
+    if (Array.isArray(raw)) {
+      for (const id of raw) {
+        const s = String(id || "").trim();
+        if (s) collected.push(s);
+      }
+    } else if (raw != null && String(raw).trim()) {
+      collected.push(String(raw).trim());
+    }
+  };
+  pushIds(row.publicaly_available_post_id);
+  pushIds(row.publicly_available_post_id);
+  pushIds(row.video_id);
+  pushIds(row.post_id);
   return {
     status: String(row.status || ""),
     fail_reason: row.fail_reason != null ? String(row.fail_reason) : undefined,
-    publicPostIds: Array.isArray(ids) ? ids.map((id) => String(id)) : undefined,
+    publicPostIds: collected.length ? [...new Set(collected)] : undefined,
   };
 }
 
@@ -437,6 +437,55 @@ export async function uploadTikTokVideoBytes(params: {
   }
 }
 
+export function looksLikeTikTokPublishId(id: string): boolean {
+  const s = String(id || "").trim();
+  return Boolean(s && (s.includes("~") || /^v_pub/i.test(s)));
+}
+
+/** Resolve TikTok Content Posting publish_id to a public video id when possible. */
+export async function resolveTikTokVideoIdForStats(
+  accessToken: string,
+  externalPostId: string
+): Promise<string> {
+  const raw = String(externalPostId || "").trim();
+  if (!raw || !looksLikeTikTokPublishId(raw)) return raw;
+  const publishId = raw.replace(/\|uploaded$/i, "").trim();
+  const pending = new Set(["PROCESSING", "PROCESSING_UPLOAD", "SEND_TO_USER_INBOX"]);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const st = await fetchTikTokPublishStatus(accessToken, publishId).catch(() => null);
+    const vid = st?.publicPostIds?.find((id) => id && !looksLikeTikTokPublishId(id));
+    if (vid) return String(vid);
+    const status = String(st?.status || "").toUpperCase();
+    if (status === "FAILED") break;
+    if (!pending.has(status) && status !== "PUBLISH_COMPLETE") break;
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
+  }
+  return raw;
+}
+
+/** When publish_id never resolves, pair recent list videos to posts (newest first). */
+export function matchTikTokPostsToRecentVideos(
+  posts: Record<string, unknown>[],
+  recentVideos: Array<{ id: string }>,
+  mediaIdForPost: (post: Record<string, unknown>) => string
+): Map<string, string> {
+  const out = new Map<string, string>();
+  const needs = posts.filter((p) => looksLikeTikTokPublishId(mediaIdForPost(p)));
+  if (!needs.length) return out;
+  const pool = recentVideos
+    .map((v) => String(v.id || "").trim())
+    .filter((id) => id && !looksLikeTikTokPublishId(id));
+  const sorted = [...needs].sort(
+    (a, b) =>
+      Date.parse(String(b.published_at || b.updated_at || 0)) -
+      Date.parse(String(a.published_at || a.updated_at || 0))
+  );
+  for (let i = 0; i < sorted.length && i < pool.length; i++) {
+    out.set(String(sorted[i].id), pool[i]);
+  }
+  return out;
+}
+
 /** Fetch video list / insights for analytics sync. */
 export async function fetchTikTokVideoList(params: {
   accessToken: string;
@@ -457,14 +506,21 @@ export async function fetchTikTokVideoList(params: {
   if (params.videoIds?.length) {
     body.filters = { video_ids: params.videoIds };
   }
-  const res = await fetch(`${TIKTOK_API}/v2/video/list/?fields=${encodeURIComponent((body.fields as string[]).join(","))}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${params.accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(params.videoIds?.length ? { filters: { video_ids: params.videoIds } } : {}),
-  });
+  const res = await fetch(
+    `${TIKTOK_API}/v2/video/list/?fields=${encodeURIComponent((body.fields as string[]).join(","))}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${params.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        params.videoIds?.length
+          ? { filters: { video_ids: params.videoIds }, max_count: 50 }
+          : { max_count: 50 }
+      ),
+    }
+  );
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(`tiktok_videos: ${formatTikTokError(data, `HTTP ${res.status}`)}`);

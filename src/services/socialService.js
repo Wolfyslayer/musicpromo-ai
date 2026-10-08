@@ -272,6 +272,12 @@ export async function syncSocialStats(socialAccountId) {
   return invoke("socialStatsSync", socialAccountId ? { socialAccountId } : {});
 }
 
+const PROVIDER_LABEL = {
+  instagram: "Instagram",
+  tiktok: "TikTok",
+  youtube: "YouTube",
+};
+
 /** Summarize socialStatsSync edge function payload for UI toasts. */
 export function summarizeStatsSyncResult(res) {
   if (!res || typeof res !== "object") {
@@ -284,14 +290,29 @@ export function summarizeStatsSyncResult(res) {
   const upserted = results.reduce((n, r) => n + Number(r?.upserted || 0), 0);
   const skipped = results.reduce((n, r) => n + Number(r?.skipped || 0), 0);
   const errors = results.flatMap((r) => (Array.isArray(r?.errors) ? r.errors : [])).filter(Boolean);
+  const hints = results.flatMap((r) => (Array.isArray(r?.hints) ? r.hints : [])).filter(Boolean);
   const providers = results.map((r) => r?.provider).filter(Boolean);
+  const lines = results.map((r) => {
+    const label = PROVIDER_LABEL[r?.provider] || r?.provider || "Platform";
+    const u = Number(r?.upserted || 0);
+    const sk = Number(r?.skipped || 0);
+    const err = Array.isArray(r?.errors) ? r.errors.length : 0;
+    if (u > 0) return `${label}: ${u} updated`;
+    if (err) {
+      const raw = String(r.errors[0] || "unknown");
+      const readable = raw.replace(/^(youtube|tiktok|ig):/, "").trim();
+      return `${label}: error (${readable})`;
+    }
+    if (sk) return `${label}: no stats matched (${sk} skipped)`;
+    return `${label}: nothing to sync`;
+  });
   if (!results.length) {
     return {
       ok: false,
       message: "No connected Instagram, TikTok, or YouTube accounts to sync.",
     };
   }
-  return { ok: true, upserted, skipped, errors, providers };
+  return { ok: true, upserted, skipped, errors, hints, providers, lines };
 }
 
 export async function prepareMedia({ sourceUrl, purpose = "instagram_feed_image" }) {
