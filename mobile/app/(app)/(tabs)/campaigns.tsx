@@ -10,19 +10,24 @@ import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { GuestBanner } from "@/components/GuestBanner";
 import { CampaignListCard } from "@/components/CampaignListCard";
 import { deleteCampaign, loadCampaigns } from "@/services/data";
 import { CAMPAIGN_STATUSES } from "@/services/constants";
 import { spacing } from "@/theme";
 import { userFacingError } from "@/lib/errors";
-import { useAppTheme } from "@/theme/ThemeProvider";
+import { useAuth } from "@/auth/AuthContext";
 
 export default function CampaignsScreen() {
-  const { colors } = useAppTheme();
+  const { isAuthenticated, requireAuth } = useAuth();
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
-  const query = useQuery({ queryKey: ["campaigns"], queryFn: loadCampaigns });
+  const query = useQuery({
+    queryKey: ["campaigns"],
+    queryFn: loadCampaigns,
+    enabled: isAuthenticated,
+  });
 
   const remove = useMutation({
     mutationFn: (id: string) => deleteCampaign(id),
@@ -45,76 +50,89 @@ export default function CampaignsScreen() {
   return (
     <Screen>
       <OfflineBanner />
+      <GuestBanner />
       <View style={styles.header}>
         <Text variant="heading">Campaigns</Text>
-        <Button title="New" onPress={() => router.push("/(app)/campaigns/create")} />
-      </View>
-      <Input
-        label="Search"
-        value={q}
-        onChangeText={setQ}
-        placeholder="Song or artist"
-        accessibilityHint="Filter campaigns"
-      />
-      <View style={styles.filters}>
         <Button
-          title="All"
-          variant={status === "all" ? "primary" : "outline"}
-          onPress={() => setStatus("all")}
-          style={styles.chip}
+          title="New"
+          onPress={() => requireAuth(() => router.push("/(app)/campaigns/create"))}
         />
-        {CAMPAIGN_STATUSES.slice(0, 4).map((s) => (
-          <Button
-            key={s.id}
-            title={s.label}
-            variant={status === s.id ? "primary" : "outline"}
-            onPress={() => setStatus(s.id)}
-            style={styles.chip}
-          />
-        ))}
       </View>
 
-      {query.isLoading ? <LoadingBlock /> : null}
-      {query.isError ? (
-        <ErrorBanner
-          message={userFacingError(query.error, "Could not load campaigns.")}
-          onRetry={() => query.refetch()}
-        />
-      ) : null}
-      {remove.isError ? (
-        <ErrorBanner
-          message={userFacingError(remove.error, "Could not delete campaign.")}
-          onRetry={() => remove.reset()}
-        />
-      ) : null}
-
-      {query.isSuccess && !filtered.length ? (
+      {!isAuthenticated ? (
         <EmptyState
-          title="No campaigns found"
-          description="Try a different search or create a new promo."
-          actionLabel="New promo"
-          onAction={() => router.push("/(app)/campaigns/create")}
+          title="Sign in to view campaigns"
+          description="Browse other tabs freely. Your campaign library needs an account."
+          actionLabel="Sign in"
+          onAction={() => router.push("/(auth)/login")}
         />
       ) : (
-        filtered.map((c) => (
-          <View key={String(c.id)} style={{ gap: spacing.sm }}>
-            <CampaignListCard
-              campaign={c as never}
-              onPress={() => router.push(`/(app)/campaigns/${c.id}`)}
-            />
+        <>
+          <Input
+            label="Search"
+            value={q}
+            onChangeText={setQ}
+            placeholder="Song or artist"
+            accessibilityHint="Filter campaigns"
+          />
+          <View style={styles.filters}>
             <Button
-              title="Delete"
-              variant="destructive"
-              onPress={() => remove.mutate(String(c.id))}
-              loading={remove.isPending && remove.variables === c.id}
-              disabled={remove.isPending}
+              title="All"
+              variant={status === "all" ? "primary" : "outline"}
+              onPress={() => setStatus("all")}
+              style={styles.chip}
             />
+            {CAMPAIGN_STATUSES.slice(0, 4).map((s) => (
+              <Button
+                key={s.id}
+                title={s.label}
+                variant={status === s.id ? "primary" : "outline"}
+                onPress={() => setStatus(s.id)}
+                style={styles.chip}
+              />
+            ))}
           </View>
-        ))
+
+          {query.isLoading ? <LoadingBlock /> : null}
+          {query.isError ? (
+            <ErrorBanner
+              message={userFacingError(query.error, "Could not load campaigns.")}
+              onRetry={() => query.refetch()}
+            />
+          ) : null}
+          {remove.isError ? (
+            <ErrorBanner
+              message={userFacingError(remove.error, "Could not delete campaign.")}
+              onRetry={() => remove.reset()}
+            />
+          ) : null}
+
+          {query.isSuccess && !filtered.length ? (
+            <EmptyState
+              title="No campaigns found"
+              description="Try a different search or create a new promo."
+              actionLabel="New promo"
+              onAction={() => requireAuth(() => router.push("/(app)/campaigns/create"))}
+            />
+          ) : (
+            filtered.map((c) => (
+              <View key={String(c.id)} style={{ gap: spacing.sm }}>
+                <CampaignListCard
+                  campaign={c as never}
+                  onPress={() => router.push(`/(app)/campaigns/${c.id}`)}
+                />
+                <Button
+                  title="Delete"
+                  variant="destructive"
+                  onPress={() => requireAuth(() => remove.mutate(String(c.id)))}
+                  loading={remove.isPending && remove.variables === c.id}
+                  disabled={remove.isPending}
+                />
+              </View>
+            ))
+          )}
+        </>
       )}
-      <Text muted variant="caption" color={colors.mutedForeground}>
-        Pull data refreshes via the Refresh control on Home or after mutations.
-      </Text>
     </Screen>
   );
 }

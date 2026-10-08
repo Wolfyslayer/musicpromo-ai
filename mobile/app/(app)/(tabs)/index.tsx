@@ -9,6 +9,7 @@ import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { GuestBanner } from "@/components/GuestBanner";
 import { CampaignListCard } from "@/components/CampaignListCard";
 import { loadCampaigns } from "@/services/data";
 import { useAuth } from "@/auth/AuthContext";
@@ -17,11 +18,12 @@ import { spacing } from "@/theme";
 import { userFacingError } from "@/lib/errors";
 
 export default function DashboardScreen() {
-  const { user } = useAuth();
+  const { user, isAuthenticated, requireAuth } = useAuth();
   const { colors } = useAppTheme();
   const query = useQuery({
     queryKey: ["campaigns"],
     queryFn: loadCampaigns,
+    enabled: isAuthenticated,
   });
 
   const campaigns = query.data || [];
@@ -38,20 +40,24 @@ export default function DashboardScreen() {
       }}
     >
       <OfflineBanner />
+      <GuestBanner />
       <View style={styles.hero}>
         <Text variant="caption" color={colors.primary}>
           MusicPromo AI
         </Text>
         <Text variant="display">Release promos, on autopilot</Text>
         <Text muted>
-          Hi{user?.full_name ? ` ${user.full_name}` : ""}. Short-form plans and videos for real
-          releases.
+          {isAuthenticated
+            ? `Hi${user?.full_name ? ` ${user.full_name}` : ""}. Short-form plans and videos for real releases.`
+            : "Browse the app freely. Sign in when you’re ready to create or save promos."}
         </Text>
       </View>
 
       <Button
         title="New promo"
-        onPress={() => router.push("/(app)/campaigns/create")}
+        onPress={() =>
+          requireAuth(() => router.push("/(app)/campaigns/create"))
+        }
         accessibilityHint="Create a campaign"
       />
 
@@ -70,11 +76,19 @@ export default function DashboardScreen() {
         />
       </View>
 
-      {query.isLoading ? <LoadingBlock label="Loading campaigns…" /> : null}
-      {query.isError ? (
+      {isAuthenticated && query.isLoading ? <LoadingBlock label="Loading campaigns…" /> : null}
+      {isAuthenticated && query.isError ? (
         <ErrorBanner
           message={userFacingError(query.error, "Could not load campaigns.")}
           onRetry={() => query.refetch()}
+        />
+      ) : null}
+      {!isAuthenticated ? (
+        <EmptyState
+          title="Sign in to see your campaigns"
+          description="Your library loads from Supabase after you log in with email or Google."
+          actionLabel="Sign in"
+          onAction={() => router.push("/(auth)/login")}
         />
       ) : null}
 
@@ -94,26 +108,33 @@ export default function DashboardScreen() {
         </Card>
       ) : null}
 
-      <Text variant="heading">Recent</Text>
-      {query.isSuccess && !recent.length ? (
-        <EmptyState
-          title="No campaigns yet"
-          description="Create a promo with artwork and audio to get started."
-          actionLabel="New promo"
-          onAction={() => router.push("/(app)/campaigns/create")}
-        />
-      ) : (
-        recent.map((c) => (
-          <CampaignListCard
-            key={String(c.id)}
-            campaign={c as never}
-            onPress={() => router.push(`/(app)/campaigns/${c.id}`)}
+      {isAuthenticated ? (
+        <>
+          <Text variant="heading">Recent</Text>
+          {query.isSuccess && !recent.length ? (
+            <EmptyState
+              title="No campaigns yet"
+              description="Create a promo with artwork and audio to get started."
+              actionLabel="New promo"
+              onAction={() => requireAuth(() => router.push("/(app)/campaigns/create"))}
+            />
+          ) : (
+            recent.map((c) => (
+              <CampaignListCard
+                key={String(c.id)}
+                campaign={c as never}
+                onPress={() => router.push(`/(app)/campaigns/${c.id}`)}
+              />
+            ))
+          )}
+          <Button
+            title="Refresh"
+            variant="ghost"
+            onPress={() => query.refetch()}
+            loading={query.isFetching}
           />
-        ))
-      )}
-
-      {/* Pull-to-refresh affordance via refetch button for nested-scroll safety */}
-      <Button title="Refresh" variant="ghost" onPress={() => query.refetch()} loading={query.isFetching} />
+        </>
+      ) : null}
     </Screen>
   );
 }

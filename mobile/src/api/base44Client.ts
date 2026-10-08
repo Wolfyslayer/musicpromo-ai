@@ -24,11 +24,10 @@ export const db = {
     verifyOtp: ({ email, otpCode }: { email: string; otpCode: string }) =>
       verifyEmailOtp(email, otpCode),
     resendOtp: (email: string) => resendSignupOtp(email),
-    loginWithProvider: (provider: string) => {
-      if (provider !== "google") throw new Error("Only Google sign-in is connected on web for now.");
-      throw new Error(
-        "Google sign-in on native needs Expo AuthSession redirect URIs. Use email/password for now."
-      );
+    loginWithProvider: async (provider: string) => {
+      if (provider !== "google") throw new Error("Only Google sign-in is connected.");
+      const { signInWithGoogleNative } = await import("@/lib/googleAuth");
+      return signInWithGoogleNative();
     },
     resetPasswordRequest: (email: string) => requestPasswordReset(email),
     resetPassword: ({ newPassword }: { newPassword: string }) => updatePassword(newPassword),
