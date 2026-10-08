@@ -1,11 +1,11 @@
 import { serveWithCors } from "../_shared/cors.ts";
 import { secrets, serviceClient } from "../_shared/runtime.ts";
 import {
-  aggregateDailyStats,
+  aggregateDailyStatsForDigest,
+  resolveDailyStatsDashboardUrl,
   statsEmailHtml,
   statsEmailSubject,
   statsPushBody,
-  yesterdayForUserTimeZone,
 } from "../_shared/statsDigestAgg.ts";
 import { sendFcmNotifications } from "../_shared/fcmPush.ts";
 import {
@@ -32,6 +32,9 @@ async function handler(req: Request): Promise<Response> {
 
     const resendKey = secrets.get("RESEND_API_KEY") || "";
     const fromEmail = secrets.get("LAUNCH_DIGEST_FROM_EMAIL") || "MusicPromo AI <onboarding@resend.dev>";
+    const dashboardUrl = resolveDailyStatsDashboardUrl(
+      secrets.get("PUBLIC_APP_URL") || secrets.get("APP_PUBLIC_URL") || ""
+    );
     const admin = serviceClient();
     const now = new Date();
     const { data: users } = await admin
@@ -60,18 +63,16 @@ async function handler(req: Request): Promise<Response> {
         continue;
       }
 
-      const targetDate = yesterdayForUserTimeZone(timeZone, now);
-
       const { data: analyticsRows } = await admin
         .from("analytics_entries")
         .select("id, data")
         .eq("user_id", u.id)
         .limit(500);
 
-      const digest = aggregateDailyStats(
+      const digest = aggregateDailyStatsForDigest(
         (analyticsRows || []) as Record<string, unknown>[],
-        targetDate,
-        timeZone
+        timeZone,
+        now
       );
       const displayName = String(u.display_name || "there");
       let didSend = false;
@@ -93,7 +94,7 @@ async function handler(req: Request): Promise<Response> {
               from: fromEmail,
               to: email,
               subject: statsEmailSubject(digest),
-              html: statsEmailHtml({ displayName, digest }),
+              html: statsEmailHtml({ displayName, digest, dashboardUrl }),
             }),
           });
           if (!res.ok) {
@@ -116,7 +117,7 @@ async function handler(req: Request): Promise<Response> {
           tokens,
           title: "Your daily stats",
           body: statsPushBody(digest),
-          data: { route: "/analytics", date: targetDate },
+          data: { route: "/analytics", date: digest.date },
         });
         if (!pushResult.skipped && pushResult.sent > 0) {
           pushed += pushResult.sent;

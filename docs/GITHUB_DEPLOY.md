@@ -83,8 +83,13 @@ supabase secrets set META_CLIENT_ID=... --project-ref YOUR_REF          # Instag
 supabase secrets set META_CLIENT_SECRET=... --project-ref YOUR_REF
 supabase secrets set FACEBOOK_CLIENT_ID=... --project-ref YOUR_REF      # Separate Meta app for Facebook Pages
 supabase secrets set FACEBOOK_CLIENT_SECRET=... --project-ref YOUR_REF
+# TikTok production (Developer Portal → Production mode)
 supabase secrets set TIKTOK_CLIENT_KEY=... --project-ref YOUR_REF
 supabase secrets set TIKTOK_CLIENT_SECRET=... --project-ref YOUR_REF
+# TikTok sandbox (optional — switch with TIKTOK_CREDENTIALS_MODE=sandbox)
+supabase secrets set TIKTOK_SANDBOX_CLIENT_KEY=... --project-ref YOUR_REF
+supabase secrets set TIKTOK_SANDBOX_CLIENT_SECRET=... --project-ref YOUR_REF
+supabase secrets set TIKTOK_CREDENTIALS_MODE=production --project-ref YOUR_REF
 supabase secrets set X_CLIENT_ID=... --project-ref YOUR_REF             # X developer portal (OAuth 2.0)
 supabase secrets set X_CLIENT_SECRET=... --project-ref YOUR_REF
 # YouTube + Google login (often same Web client):

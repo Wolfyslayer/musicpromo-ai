@@ -146,21 +146,31 @@ export default function Analytics() {
         return;
       }
       await reload();
+      const detail = [
+        summary.lines?.length ? summary.lines.join(" · ") : null,
+        summary.hints?.length ? summary.hints[0] : null,
+      ]
+        .filter(Boolean)
+        .join(" — ");
       if (summary.upserted > 0) {
         toast({
           title: "Platform stats synced",
-          description: `Updated ${summary.upserted} analytics row(s) from ${summary.providers.join(", ") || "your accounts"}.`,
+          description:
+            detail ||
+            `Updated ${summary.upserted} analytics row(s) from ${summary.providers.join(", ") || "your accounts"}.`,
         });
       } else if (summary.errors.length) {
         toast({
           variant: "destructive",
           title: "Sync completed with errors",
-          description: summary.errors.slice(0, 2).join(" · "),
+          description: detail || summary.errors.slice(0, 2).join(" · "),
         });
       } else {
         toast({
+          variant: summary.skipped ? "destructive" : "default",
           title: "Sync finished",
           description:
+            detail ||
             "No platform stats were returned yet. Publish posts linked to a campaign (with a platform post id), then sync again.",
         });
       }
@@ -177,20 +187,21 @@ export default function Analytics() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack">
       <PageHeader
+        compact
         eyebrow="Performance"
         title="Analytics"
-        description={`Live platform stats auto-sync daily via the background worker${syncedCount ? ` · ${syncedCount} synced entries` : ""}.`}
+        description={`Hourly platform sync${syncedCount ? ` · ${syncedCount} synced rows` : ""}. Tap Sync for an immediate refresh.`}
         actions={
           <Button size="sm" variant="outline" className="rounded-full" onClick={onSync} disabled={syncing}>
             <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Syncing…" : "Sync from platforms"}
+            {syncing ? "Syncing…" : "Sync now"}
           </Button>
         }
       />
 
-      <DailyStatsNotifyPanel />
+      <DailyStatsNotifyPanel compact />
 
       {loading ? (
         <div className="h-40 animate-shimmer rounded-2xl" />
@@ -218,7 +229,7 @@ export default function Analytics() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="metric-grid">
             <StatCard label="Total Views" value={totals.views.toLocaleString()} icon={Eye} />
             <StatCard label="Engagement" value={engagement.toLocaleString()} icon={Heart} accent="accent" />
             <StatCard label="Streams" value={totals.streams.toLocaleString()} icon={TrendingUp} accent="chart-3" />
@@ -226,18 +237,19 @@ export default function Analytics() {
           </div>
 
           <section>
-            <h2 className="mb-3 font-heading text-sm font-600 uppercase tracking-wider text-muted-foreground">
-              Short video platforms
+            <h2 className="mb-2 font-heading text-xs font-600 uppercase tracking-wider text-muted-foreground">
+              By platform
             </h2>
-            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4">
+            <div className="segmented-scroll pb-1">
+              <div className="flex min-w-max gap-2.5 sm:min-w-0 sm:grid sm:w-full sm:grid-cols-2 lg:grid-cols-4">
               {platformBreakdown.map((p) => {
                 const Icon = p.icon;
                 return (
                   <div
                     key={p.key}
-                    className="rounded-2xl border border-border/60 bg-card/50 p-4"
+                    className="content-band w-[min(100%,17rem)] shrink-0 sm:w-auto"
                   >
-                    <div className="mb-3 flex items-center gap-2">
+                    <div className="mb-2 flex items-center gap-2">
                       <span
                         className="flex h-8 w-8 items-center justify-center rounded-full"
                         style={{ background: `${p.color}22`, color: p.color }}
@@ -270,13 +282,14 @@ export default function Analytics() {
                   </div>
                 );
               })}
+              </div>
             </div>
           </section>
 
           {streamSeries.length > 0 && (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <ChartCard title="Views over time (side-by-side platforms)">
-                <ResponsiveContainer width="100%" height={260}>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <ChartCard title="Views by platform">
+                <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={streamSeries}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -289,8 +302,8 @@ export default function Analytics() {
                   </LineChart>
                 </ResponsiveContainer>
               </ChartCard>
-              <ChartCard title="Engagement over time">
-                <ResponsiveContainer width="100%" height={260}>
+              <ChartCard title="Engagement">
+                <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={streamSeries}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -303,9 +316,9 @@ export default function Analytics() {
             </div>
           )}
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <ChartCard title="Views by Platform">
-              <ResponsiveContainer width="100%" height={240}>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <ChartCard title="Views by platform">
+              <ResponsiveContainer width="100%" height={210}>
                 <BarChart data={byPlatform}>
                   <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} tickLine={false} width={36} />
@@ -314,8 +327,8 @@ export default function Analytics() {
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
-            <ChartCard title="Views by Content Type">
-              <ResponsiveContainer width="100%" height={240}>
+            <ChartCard title="Views by content type">
+              <ResponsiveContainer width="100%" height={210}>
                 <PieChart>
                   <Pie data={byContentType} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} innerRadius={45}>
                     {byContentType.map((_, i) => (
@@ -329,7 +342,7 @@ export default function Analytics() {
           </div>
 
           <div>
-            <h2 className="mb-3 font-heading text-sm font-600 uppercase tracking-wider text-muted-foreground">Campaigns</h2>
+            <h2 className="mb-2 font-heading text-xs font-600 uppercase tracking-wider text-muted-foreground">Campaigns</h2>
             <div className="space-y-2">
               {(campaigns || []).map((c) => {
                 const entries = analytics.filter((a) => a.campaign_id === c.id);
@@ -360,8 +373,8 @@ export default function Analytics() {
 
 function ChartCard({ title, children }) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/50 p-4">
-      <h3 className="mb-3 text-sm font-600">{title}</h3>
+    <div className="content-band">
+      <h3 className="mb-2 text-sm font-600">{title}</h3>
       {children}
     </div>
   );

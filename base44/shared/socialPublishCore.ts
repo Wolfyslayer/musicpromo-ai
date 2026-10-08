@@ -636,8 +636,7 @@ export async function publishSocialPostCore(params: {
         let accessToken = String(creds.access_token || "");
         if (creds.refresh_token) {
           try {
-            const clientKey = secrets.get("TIKTOK_CLIENT_KEY") || secrets.get("TIKTOK_CLIENT_ID");
-            const clientSecret = secrets.get("TIKTOK_CLIENT_SECRET");
+            const { clientKey, clientSecret } = getTikTokAppCredentials();
             if (clientKey && clientSecret) {
               const refreshed = await refreshTikTokToken({
                 clientKey,
@@ -651,9 +650,15 @@ export async function publishSocialPostCore(params: {
           }
         }
 
-        let publishId = tiktokPublishIdFromContainer(String(post.container_id || ""));
+        let tiktokContainerRaw = String(post.container_id || "");
+        if (String(post.status) === "failed" && tiktokContainerRaw) {
+          await base44.asServiceRole.entities.SocialPost.update(postId, { container_id: "" });
+          tiktokContainerRaw = "";
+        }
+
+        let publishId = tiktokPublishIdFromContainer(tiktokContainerRaw);
         let tiktokPrivacyLevel = "";
-        const uploadAlreadyDone = tiktokContainerUploaded(String(post.container_id || ""));
+        const uploadAlreadyDone = tiktokContainerUploaded(tiktokContainerRaw);
 
         if (publishId) {
           const existing = await fetchTikTokPublishStatus(accessToken, publishId).catch(() => null);
@@ -682,16 +687,15 @@ export async function publishSocialPostCore(params: {
         }
 
         if (!publishId) {
-          const tiktokAudited = secrets.get("TIKTOK_CLIENT_AUDITED") === "true";
           const videoDurationSec =
             videoProject?.duration != null ? Number(videoProject.duration) : undefined;
           const init = await initTikTokDirectVideoPost({
             accessToken,
             videoSize: videoBytes.byteLength,
             title: caption || "Promo",
-            preferPublicPrivacy: tiktokAudited,
+            privacyLevel: "SELF_ONLY",
             brandContentToggle: false,
-            brandOrganicToggle: true,
+            brandOrganicToggle: false,
             isAigc: false,
             videoDurationSec:
               videoDurationSec != null && !Number.isNaN(videoDurationSec)
@@ -750,8 +754,8 @@ export async function publishSocialPostCore(params: {
           }),
           note:
             tiktokPrivacyLevel === "SELF_ONLY"
-              ? "TikTok direct post saved as private (Only me). Change visibility in TikTok after our developer app is audited for public posting."
-              : "TikTok direct post (Content Posting API v2).",
+              ? "TikTok posted as Only me (private). Open TikTok to change visibility to Everyone if you want it public."
+              : "TikTok direct post completed. Check privacy in the TikTok app.",
         };
       }
 

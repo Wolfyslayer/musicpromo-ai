@@ -181,7 +181,7 @@ export default function Layout() {
           {isStudio ? (
             <Outlet />
           ) : (
-            <div className="mx-auto w-full max-w-5xl px-4 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:px-8 md:py-10">
+            <div className="mx-auto w-full max-w-5xl px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-7 md:py-7">
               <Outlet />
             </div>
           )}

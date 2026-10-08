@@ -26,11 +26,12 @@ export default function Releases() {
   useEffect(() => { reload(); }, []);
 
   return (
-    <div className="space-y-5">
+    <div className="page-stack">
       <PageHeader
+        compact
         eyebrow="Catalog"
         title="Releases"
-        description="Your catalog — attach cover art, upload audio, then run New promo from any release."
+        description="Cover art, audio, and launch dates — start a promo from any release."
         actions={
           <Button onClick={() => navigate("/releases/new")} className="rounded-full">
             <Plus className="mr-1.5 h-4 w-4" /> New release

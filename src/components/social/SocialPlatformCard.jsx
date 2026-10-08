@@ -16,7 +16,8 @@ const ICONS = {
 
 const SECRET_HINTS = {
   instagram: "Add META_CLIENT_ID and META_CLIENT_SECRET in Base44 secrets.",
-  tiktok: "Add TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET in Base44 secrets.",
+  tiktok:
+    "Set TIKTOK_CREDENTIALS_MODE (production|sandbox) and matching client key/secret in Supabase secrets.",
   youtube: "Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Base44 secrets.",
   x: "Add X_CLIENT_ID and X_CLIENT_SECRET from the X developer portal (OAuth 2.0).",
 };

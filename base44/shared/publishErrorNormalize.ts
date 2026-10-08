@@ -50,17 +50,36 @@ export function normalizeSocialPublishError(
     };
   }
   if (
-    lower.includes("integration guidelines") ||
-    lower.includes("content-sharing-guidelines") ||
     lower.includes("unaudited_client") ||
-    lower.includes("privacy_level_option")
+    lower.includes("private account") ||
+    lower.includes("only post to a private")
   ) {
     return {
       code: "PROVIDER_ERROR",
       message:
+        "TikTok blocked this post: your TikTok profile must be Private for this app (Settings and privacy → Privacy → Private account). Posts are already sent as Only me. Switch the account to Private, reconnect TikTok in Social Hub, then retry.",
+    };
+  }
+  if (lower.includes("tiktok_only_me_unavailable")) {
+    return {
+      code: "PROVIDER_ERROR",
+      message: msg.includes(":") ? msg.split(":").slice(1).join(":").trim() : msg,
+    };
+  }
+  if (
+    lower.includes("integration guidelines") ||
+    lower.includes("content-sharing-guidelines") ||
+    lower.includes("privacy_level_option")
+  ) {
+    const apiDetail = msg.includes(":") ? msg.split(":").slice(1).join(":").trim().slice(0, 220) : "";
+    return {
+      code: "PROVIDER_ERROR",
+      message:
         pid === "tiktok"
-          ? "TikTok rejected this post (API integration rules). Until your TikTok app is audited, posts must use “Only me” (private) privacy and your TikTok account may need to be private. After audit, set TIKTOK_CLIENT_AUDITED=true on the server for public posts."
-          : `${label} rejected this post due to platform integration rules. See the developer docs for ${label}.`,
+          ? apiDetail
+            ? `TikTok: ${apiDetail} We always publish as Only me. If your TikTok profile is public, set it to Private and retry.`
+            : "TikTok blocked this post (integration rules). We publish as Only me — set your TikTok profile to Private (Settings → Privacy), reconnect in Social Hub, and retry."
+          : `${label} rejected this post due to platform integration rules.`,
     };
   }
   if (lower.includes("inbox") || lower.includes("send_to_user_inbox")) {

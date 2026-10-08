@@ -1,6 +1,6 @@
 import { serveWithCors } from "../_shared/cors.ts";
 import { createClientFromRequest, serviceClient } from "../_shared/runtime.ts";
-import { aggregateDailyStats, yesterdayForUserTimeZone } from "../_shared/statsDigestAgg.ts";
+import { aggregateDailyStatsForDigest } from "../_shared/statsDigestAgg.ts";
 import { normalizeNotifyTime, normalizeTimeZone, timeZoneShortLabel } from "../_shared/timezone.ts";
 
 async function handler(req: Request): Promise<Response> {
@@ -38,7 +38,6 @@ async function handler(req: Request): Promise<Response> {
     }
 
     const timeZone = normalizeTimeZone(profile?.timezone);
-    const targetDate = yesterdayForUserTimeZone(timeZone);
 
     const { data: analyticsRows } = await admin
       .from("analytics_entries")
@@ -46,9 +45,8 @@ async function handler(req: Request): Promise<Response> {
       .eq("user_id", user.id)
       .limit(500);
 
-    const digest = aggregateDailyStats(
+    const digest = aggregateDailyStatsForDigest(
       (analyticsRows || []) as Record<string, unknown>[],
-      targetDate,
       timeZone
     );
 

@@ -198,8 +198,8 @@ export default function ComposeInlinePanel({ day, campaign, release, posts = [],
             </span>
             {compose.providerId === "tiktok" ? (
               <span className="block text-xs text-muted-foreground">
-                By posting, you agree to TikTok&apos;s Music Usage Confirmation. Until our TikTok app is audited, posts
-                may be private (&quot;Only me&quot;).
+                By posting, you agree to TikTok&apos;s Music Usage Confirmation. Posts publish as Only me (private);
+                switch to Everyone in TikTok when you want them public.
               </span>
             ) : null}
           </span>

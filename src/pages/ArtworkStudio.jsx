@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Palette, Sparkles, PenTool } from "lucide-react";
+import { Sparkles, PenTool } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/AuthContext";
 import ArtworkAiPanel from "@/components/artwork/ArtworkAiPanel";
 import ArtworkDesignEditor from "@/components/artwork/ArtworkDesignEditor";
 import ArtworkImage from "@/components/ArtworkImage";
+import PageHeader from "@/components/PageHeader";
 
 export default function ArtworkStudio() {
   const { requireAuth } = useAuth();
@@ -13,26 +13,14 @@ export default function ArtworkStudio() {
   const [tab, setTab] = useState("ai");
 
   return (
-    <div className="mx-auto flex h-full min-h-0 max-w-6xl flex-col gap-6 overflow-y-auto p-4 pb-24 md:p-8">
-      <header className="space-y-2">
-        <div className="flex items-center gap-2 text-primary">
-          <Palette className="h-6 w-6" />
-          <span className="text-xs font-600 uppercase tracking-widest">Cover lab</span>
-        </div>
-        <h1 className="font-heading text-2xl font-bold tracking-tight md:text-3xl">AI cover art for your promos</h1>
-        <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
-          The only generative AI we focus on here is artwork for your release. Prompt or refine in chat, or use the
-          layered editor — then attach the URL on a{" "}
-          <Link to="/releases" className="text-primary underline underline-offset-2">
-            release
-          </Link>
-          ,{" "}
-          <Link to="/studio" className="text-primary underline underline-offset-2">
-            video studio
-          </Link>
-          , or social posts.
-        </p>
-      </header>
+    <div className="mx-auto flex h-full min-h-0 max-w-6xl flex-col gap-4 overflow-y-auto p-4 pb-24 md:gap-5 md:p-6">
+      <PageHeader
+        compact
+        eyebrow="Cover lab"
+        title="AI cover art"
+        description="Generate or edit artwork, then attach it on a release, in video studio, or on social posts."
+        className="!animate-none"
+      />
 
       {sharedUrl ? (
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm">
@@ -52,7 +40,7 @@ export default function ArtworkStudio() {
       ) : null}
 
       <Tabs value={tab} onValueChange={setTab} className="min-h-0 flex-1">
-        <TabsList className="mb-4 h-auto flex-wrap gap-1">
+        <TabsList className="mb-3 h-auto flex-wrap gap-1">
           <TabsTrigger value="ai" className="min-h-10 gap-1.5 px-4">
             <Sparkles className="h-4 w-4" />
             AI generate

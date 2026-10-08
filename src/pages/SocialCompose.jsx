@@ -680,9 +680,10 @@ export default function SocialCompose() {
             <span className="block text-muted-foreground">This posts immediately. Scheduling is not available yet.</span>
             {providerId === "tiktok" ? (
               <span className="block text-xs text-muted-foreground">
-                By posting, you agree to TikTok&apos;s Music Usage Confirmation. Promo posts are marked as your own
-                business content. Until our TikTok developer app is audited, videos may publish as private (&quot;Only
-                me&quot;).
+                By posting, you agree to TikTok&apos;s Music Usage Confirmation. Videos publish as{" "}
+                <strong>Only me</strong>. If publish fails, set your TikTok profile to{" "}
+                <strong>Private</strong> (Settings → Privacy), reconnect in Social Hub, then retry — you can switch the
+                video to Everyone in TikTok after it posts.
               </span>
             ) : null}
           </span>

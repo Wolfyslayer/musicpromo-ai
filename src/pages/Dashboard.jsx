@@ -85,17 +85,18 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="page-stack">
       <PageHeader
-        eyebrow="Promo command center"
+        compact
+        eyebrow="Home"
         title={
           <>
             Release promos, <span className="text-gradient">on autopilot</span>
           </>
         }
-        description="Short-form promo videos, day-by-day posting plans, and scheduled publishing for your real releases — not AI song generation."
+        description="Promo videos, day-by-day posts, and scheduled publishing for your releases."
         actions={
-          <Button onClick={() => navigate("/create")} className="rounded-full px-5" size="lg">
+          <Button onClick={() => navigate("/create")} className="rounded-full px-4" size="default">
             <Plus className="mr-1.5 h-4 w-4" /> New promo
           </Button>
         }
@@ -117,20 +118,18 @@ export default function Dashboard() {
 
       <DashboardProfileNudge />
 
-      <SurfacePanel className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/12 text-primary">
-            <Globe2 className="h-5 w-5" aria-hidden />
+      <SurfacePanel className="flex flex-col gap-2.5 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/12 text-primary">
+            <Globe2 className="h-4 w-4" aria-hidden />
           </div>
           <div>
-            <p className="font-heading text-base font-semibold">Community</p>
-            <p className="text-sm text-muted-foreground">
-              Discover public artist profiles, follow creators, and explore featured spotlights.
-            </p>
+            <p className="font-heading text-sm font-semibold">Community</p>
+            <p className="text-xs text-muted-foreground">Discover artists and follow their promo updates.</p>
           </div>
         </div>
-        <Button className="min-h-11 shrink-0 rounded-full" asChild>
-          <Link to="/community">Open Community</Link>
+        <Button size="sm" className="shrink-0 rounded-full" asChild>
+          <Link to="/community">Open</Link>
         </Button>
       </SurfacePanel>
 
@@ -193,23 +192,26 @@ export default function Dashboard() {
       )}
 
       <section>
-        <SectionTitle>Quick Actions</SectionTitle>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {quickActions.map((a) => {
-            const Icon = a.icon;
-            return (
-              <button
-                key={a.label}
-                onClick={() => navigate(a.to)}
-                className="flex flex-col items-start gap-3 rounded-2xl border border-border/60 bg-card/60 p-4 text-left transition hover:border-primary/40 hover:bg-card animate-slide-up"
-              >
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/15 text-primary">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <span className="text-sm font-600">{a.label}</span>
-              </button>
-            );
-          })}
+        <SectionTitle>Quick actions</SectionTitle>
+        <div className="segmented-scroll">
+          <div className="flex min-w-max gap-2 sm:grid sm:min-w-0 sm:w-full sm:grid-cols-3 lg:grid-cols-6">
+            {quickActions.map((a) => {
+              const Icon = a.icon;
+              return (
+                <button
+                  key={a.label}
+                  type="button"
+                  onClick={() => navigate(a.to)}
+                  className="flex min-h-11 w-[8.5rem] shrink-0 items-center gap-2 rounded-2xl border border-border/60 bg-card/60 px-3 py-2.5 text-left transition hover:border-primary/40 hover:bg-card sm:w-auto"
+                >
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="text-xs font-600 leading-tight">{a.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -237,5 +239,5 @@ export default function Dashboard() {
 }
 
 function SectionTitle({ children }) {
-  return <h2 className="mb-3 font-heading text-sm font-600 uppercase tracking-wider text-muted-foreground">{children}</h2>;
+  return <h2 className="mb-2 font-heading text-xs font-600 uppercase tracking-wider text-muted-foreground">{children}</h2>;
 }
