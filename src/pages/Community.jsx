@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bookmark, Copy, Link2, Loader2, Search, Users } from "lucide-react";
+import { Bookmark, Copy, Inbox, Link2, Loader2, Search, Users, UsersRound } from "lucide-react";
+import SegmentedTabs from "@/components/ux/SegmentedTabs";
 import CommunitySpotlightRow from "@/components/community/CommunitySpotlightRow";
 import ArtistSocialIconLinks from "@/components/ArtistSocialIconLinks";
 import { Button } from "@/components/ui/button";
@@ -186,51 +187,24 @@ export default function Community() {
   }, [members, query, genreFilter, intentFilter, linksOnly, followingOnly, followingIds, sort]);
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack">
       <PageHeader
+        compact
         eyebrow="Artists"
         title="Community"
-        description="Discover profiles, follow artists, and see campaign teasers in your feed."
+        description="Discover artists, follow updates, and manage promo swaps."
       />
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant={tab === "discover" ? "default" : "outline"}
-          className="rounded-full"
-          onClick={() => setTab("discover")}
-        >
-          Discover
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={tab === "following" ? "default" : "outline"}
-          className="rounded-full"
-          onClick={() => setTab("following")}
-        >
-          Following feed
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={tab === "circles" ? "default" : "outline"}
-          className="rounded-full"
-          onClick={() => setTab("circles")}
-        >
-          Circles
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={tab === "inbox" ? "default" : "outline"}
-          className="rounded-full"
-          onClick={() => setTab("inbox")}
-        >
-          Inbox{inboxPending ? ` (${inboxPending})` : ""}
-        </Button>
-      </div>
+      <SegmentedTabs
+        value={tab}
+        onChange={setTab}
+        items={[
+          { id: "discover", label: "Discover", icon: Search },
+          { id: "following", label: "Feed", icon: Users },
+          { id: "circles", label: "Circles", icon: UsersRound },
+          { id: "inbox", label: "Inbox", icon: Inbox, badge: inboxPending },
+        ]}
+      />
 
       {tab === "following" ? <CommunityFeedPanel loading={feedLoading} items={feedItems} /> : null}
       {tab === "circles" ? <CommunityCirclesPanel /> : null}

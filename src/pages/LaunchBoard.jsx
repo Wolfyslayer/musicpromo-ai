@@ -138,17 +138,18 @@ export default function LaunchBoard() {
   const { release, artist, campaigns, issues } = data;
 
   return (
-    <div className="space-y-6">
-      <Button variant="ghost" size="sm" className="rounded-full" asChild>
+    <div className="page-stack">
+      <Button variant="ghost" size="sm" className="-mb-1 w-fit rounded-full" asChild>
         <Link to={`/releases/${id}`}>
           <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Back to release
         </Link>
       </Button>
 
       <PageHeader
-        eyebrow="Release command center"
+        compact
+        eyebrow="Command center"
         title={release.title || "Untitled release"}
-        description={`${artist?.name || "Artist"} — timeline, queue, Community, and fixes in one place.`}
+        description={`${artist?.name || "Artist"} — timeline, queue, and publish fixes in one view.`}
         actions={
           <>
             <Button variant="outline" size="sm" className="rounded-full" asChild>

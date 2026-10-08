@@ -37,8 +37,9 @@ export default function CampaignTabBar({ basePath }) {
     );
 
   return (
-    <div className="space-y-2">
-      <div className="segmented grid grid-cols-4">
+    <div className="space-y-1.5">
+      <div className="segmented-scroll">
+        <div className="segmented grid min-w-max grid-cols-4 sm:min-w-0 sm:w-full">
         {CAMPAIGN_PRIMARY_TABS.map((item) => {
           const Icon = item.icon;
           const to = `${basePath}/${item.segment}`;
@@ -49,6 +50,7 @@ export default function CampaignTabBar({ basePath }) {
             </NavLink>
           );
         })}
+        </div>
       </div>
 
       {CAMPAIGN_EXTRA_SECTIONS.length ? (

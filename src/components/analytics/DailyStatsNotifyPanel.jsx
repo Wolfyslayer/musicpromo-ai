@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { BarChart3, Bell, Loader2, Mail } from "lucide-react";
 import { canUseNativePush, syncNativePushRegistration } from "@/services/pushNotifications";
 import SurfacePanel from "@/components/SurfacePanel";
@@ -157,7 +156,7 @@ export default function DailyStatsNotifyPanel({ compact = false }) {
   const tzLabel = digest?.timeZoneLabel || timeZoneShortLabel(timeZone);
 
   return (
-    <SurfacePanel className="space-y-4">
+    <SurfacePanel className={compact ? "space-y-3 p-4 md:p-4" : "space-y-4"}>
       {!schemaReady ? (
         <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/95">
           {digest?.schemaHint || dailyStatsSchemaMigrationHint()}
@@ -229,13 +228,31 @@ export default function DailyStatsNotifyPanel({ compact = false }) {
           </div>
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground">
-          Delivery ~{notifyTime} {tzLabel}. Full controls on{" "}
-          <Link to="/analytics" className="text-primary underline-offset-2 hover:underline">
-            Analytics
-          </Link>
-          .
-        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            {views > 0 ? (
+              <>
+                Last digest: <strong className="font-semibold text-foreground">{views.toLocaleString()}</strong> views ·{" "}
+                {engagement.toLocaleString()} eng.
+              </>
+            ) : (
+              <>Delivery around {notifyTime} ({tzLabel}).</>
+            )}
+          </p>
+          <div className="flex items-center gap-2 sm:w-40">
+            <Label htmlFor="daily-stats-time-compact" className="sr-only">
+              Delivery time
+            </Label>
+            <Input
+              id="daily-stats-time-compact"
+              type="time"
+              value={notifyTime}
+              disabled={timeSaving || !schemaReady}
+              onChange={(e) => saveNotifyTime(e.target.value)}
+              className="h-9 rounded-xl text-sm"
+            />
+          </div>
+        </div>
       )}
 
       {!nativePush && pushOn ? (

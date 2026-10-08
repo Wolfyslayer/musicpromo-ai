@@ -35,8 +35,8 @@ function CampaignShellInner() {
   const basePath = `/campaigns/${id}`;
 
   return (
-    <div className="space-y-4 pb-2 md:space-y-5">
-      <div className="glass-bar sticky top-0 z-20 -mx-4 border-b border-border/40 px-4 py-2 md:static md:mx-0 md:space-y-4 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+    <div className="page-stack pb-1">
+      <div className="section-chrome space-y-2 md:space-y-3">
         <div className="flex items-center gap-2 md:hidden">
           <button
             type="button"
@@ -66,16 +66,16 @@ function CampaignShellInner() {
         </button>
 
         <div className="hero-card hidden md:block">
-          <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
             <ArtworkImage
               src={song?.artwork_url}
               alt={song?.title}
-              className="h-28 w-28 shrink-0 rounded-2xl"
+              className="h-24 w-24 shrink-0 rounded-2xl"
               rounded="rounded-2xl"
             />
             <div className="min-w-0 flex-1">
               <StatusBadge status={campaign.status} />
-              <h1 className="mt-2 truncate font-heading text-2xl font-semibold">{song?.title || "Untitled"}</h1>
+              <h1 className="mt-1.5 truncate font-heading text-xl font-semibold">{song?.title || "Untitled"}</h1>
               <p className="truncate text-sm text-muted-foreground">
                 {artist?.name} · {fmtRange(campaign)}
               </p>
@@ -99,7 +99,7 @@ function CampaignShellInner() {
           </div>
         </div>
 
-        <div className="mt-3 border-t border-border/40 pt-3 md:px-5 md:pb-4">
+        <div className="border-t border-border/40 pt-2 md:px-4 md:pb-2">
           <CampaignTabBar basePath={basePath} />
         </div>
       </div>

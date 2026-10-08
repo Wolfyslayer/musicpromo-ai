@@ -287,4 +287,25 @@
   .list-row {
     @apply surface-interactive rounded-2xl;
   }
+
+  .page-stack {
+    @apply space-y-4 md:space-y-5;
+  }
+
+  .section-chrome {
+    @apply glass-bar sticky top-0 z-20 -mx-4 space-y-2.5 border-b border-border/40 px-4 pb-2.5 md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:pb-0 md:backdrop-blur-none;
+  }
+
+  .segmented-scroll {
+    @apply -mx-4 overflow-x-auto px-4 no-scrollbar md:mx-0 md:px-0;
+  }
+
+  .content-band {
+    @apply rounded-2xl border border-border/55 bg-card/40 p-3.5 md:p-4;
+    box-shadow: var(--shadow-soft);
+  }
+
+  .metric-grid {
+    @apply grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3;
+  }
 }
