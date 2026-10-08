@@ -5,8 +5,14 @@
 
 import { decryptCredential } from "./socialCrypto.ts";
 import { IG_GRAPH, IG_API_VERSION } from "./instagramPublishing.ts";
-import { refreshTikTokToken, fetchTikTokVideoList } from "./tiktokOAuth.ts";
+import {
+  refreshTikTokToken,
+  fetchTikTokVideoList,
+  resolveTikTokVideoIdForStats,
+  looksLikeTikTokPublishId,
+} from "./tiktokOAuth.ts";
 import { refreshYouTubeToken, fetchYouTubeVideoStats } from "./youtubeOAuth.ts";
+import { looksLikeYouTubeVideoId } from "./publishDedupe.ts";
 import { secrets } from "./runtime.ts";
 
 export type SyncStatsResult = {
@@ -236,15 +242,32 @@ export async function syncSocialStats(params: {
           accessToken = refreshed.access_token;
         }
       } catch (err) {
-        console.warn("[syncSocialStats] youtube refresh warning", (err as Error)?.message || err);
+        result.errors.push(`youtube:token_refresh:${(err as Error)?.message || err}`);
       }
     }
-    const ids = withMedia.map((p: Record<string, unknown>) => String(p.external_post_id));
+    if (!accessToken) {
+      result.errors.push("youtube:no_access_token");
+      return result;
+    }
+    const ids = [
+      ...new Set(
+        withMedia
+          .map((p: Record<string, unknown>) =>
+            String(p.external_post_id || p.container_id || "").trim()
+          )
+          .filter((id) => looksLikeYouTubeVideoId(id))
+      ),
+    ];
+    if (!ids.length) {
+      result.errors.push("youtube:no_valid_video_ids_on_published_posts");
+      return result;
+    }
     try {
       const statsList = await fetchYouTubeVideoStats({ accessToken, videoIds: ids });
       const byId = Object.fromEntries(statsList.map((s) => [s.id, s]));
       for (const post of withMedia) {
-        const s = byId[String(post.external_post_id)];
+        const vid = String(post.external_post_id || post.container_id || "").trim();
+        const s = byId[vid];
         if (!s) {
           result.skipped += 1;
           continue;
@@ -288,12 +311,48 @@ export async function syncSocialStats(params: {
         console.warn("[syncSocialStats] tiktok refresh warning", (err as Error)?.message || err);
       }
     }
-    const ids = withMedia.map((p: Record<string, unknown>) => String(p.external_post_id));
     try {
-      const videos = await fetchTikTokVideoList({ accessToken, videoIds: ids });
-      const byId = Object.fromEntries(videos.map((v) => [v.id, v]));
+      const resolvedIds: string[] = [];
       for (const post of withMedia) {
-        const v = byId[String(post.external_post_id)];
+        let vid = await resolveTikTokVideoIdForStats(
+          accessToken,
+          String(post.external_post_id || "")
+        );
+        if (vid && looksLikeTikTokPublishId(vid)) {
+          result.skipped += 1;
+          continue;
+        }
+        if (vid && vid !== String(post.external_post_id || "")) {
+          try {
+            await params.base44.asServiceRole.entities.SocialPost.update(String(post.id), {
+              external_post_id: vid,
+            });
+          } catch {
+            /* non-fatal */
+          }
+        }
+        if (vid) resolvedIds.push(vid);
+      }
+      const uniqueIds = [...new Set(resolvedIds)];
+      let videos = uniqueIds.length
+        ? await fetchTikTokVideoList({ accessToken, videoIds: uniqueIds })
+        : [];
+      let byId = Object.fromEntries(videos.map((v) => [v.id, v]));
+
+      const missing = uniqueIds.filter((id) => !byId[id]);
+      if (missing.length) {
+        const recent = await fetchTikTokVideoList({ accessToken }).catch(() => []);
+        for (const v of recent) {
+          if (!byId[v.id]) byId[v.id] = v;
+        }
+      }
+
+      for (const post of withMedia) {
+        let vid = String(post.external_post_id || "").trim();
+        if (looksLikeTikTokPublishId(vid)) {
+          vid = (await resolveTikTokVideoIdForStats(accessToken, vid)) || vid;
+        }
+        const v = byId[vid];
         if (!v) {
           result.skipped += 1;
           continue;
@@ -308,7 +367,7 @@ export async function syncSocialStats(params: {
           comments: v.comment_count || 0,
           shares: v.share_count || 0,
           socialPostId: String(post.id),
-          externalPostId: String(post.external_post_id),
+          externalPostId: vid,
           userId: String(account.user_id || post.user_id || ""),
         });
         result.upserted += 1;

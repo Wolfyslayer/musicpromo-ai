@@ -423,6 +423,24 @@ export async function uploadTikTokVideoBytes(params: {
   }
 }
 
+export function looksLikeTikTokPublishId(id: string): boolean {
+  const s = String(id || "").trim();
+  return Boolean(s && (s.includes("~") || /^v_pub/i.test(s)));
+}
+
+/** Resolve TikTok Content Posting publish_id to a public video id when possible. */
+export async function resolveTikTokVideoIdForStats(
+  accessToken: string,
+  externalPostId: string
+): Promise<string> {
+  const raw = String(externalPostId || "").trim();
+  if (!raw || !looksLikeTikTokPublishId(raw)) return raw;
+  const publishId = raw.replace(/\|uploaded$/i, "").trim();
+  const st = await fetchTikTokPublishStatus(accessToken, publishId).catch(() => null);
+  const vid = st?.publicPostIds?.[0];
+  return vid ? String(vid) : raw;
+}
+
 /** Fetch video list / insights for analytics sync. */
 export async function fetchTikTokVideoList(params: {
   accessToken: string;
@@ -443,14 +461,21 @@ export async function fetchTikTokVideoList(params: {
   if (params.videoIds?.length) {
     body.filters = { video_ids: params.videoIds };
   }
-  const res = await fetch(`${TIKTOK_API}/v2/video/list/?fields=${encodeURIComponent((body.fields as string[]).join(","))}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${params.accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(params.videoIds?.length ? { filters: { video_ids: params.videoIds } } : {}),
-  });
+  const res = await fetch(
+    `${TIKTOK_API}/v2/video/list/?fields=${encodeURIComponent((body.fields as string[]).join(","))}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${params.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        params.videoIds?.length
+          ? { filters: { video_ids: params.videoIds }, max_count: 20 }
+          : { max_count: 20 }
+      ),
+    }
+  );
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(`tiktok_videos: ${formatTikTokError(data, `HTTP ${res.status}`)}`);
