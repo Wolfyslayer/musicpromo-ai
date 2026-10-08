@@ -298,7 +298,11 @@ export function summarizeStatsSyncResult(res) {
     const sk = Number(r?.skipped || 0);
     const err = Array.isArray(r?.errors) ? r.errors.length : 0;
     if (u > 0) return `${label}: ${u} updated`;
-    if (err) return `${label}: error (${r.errors[0]})`;
+    if (err) {
+      const raw = String(r.errors[0] || "unknown");
+      const readable = raw.replace(/^(youtube|tiktok|ig):/, "").trim();
+      return `${label}: error (${readable})`;
+    }
     if (sk) return `${label}: no stats matched (${sk} skipped)`;
     return `${label}: nothing to sync`;
   });

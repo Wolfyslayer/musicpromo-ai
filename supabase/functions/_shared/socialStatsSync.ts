@@ -10,6 +10,7 @@ import {
   fetchTikTokVideoList,
   resolveTikTokVideoIdForStats,
   looksLikeTikTokPublishId,
+  matchTikTokPostsToRecentVideos,
 } from "./tiktokOAuth.ts";
 import { refreshYouTubeToken, fetchYouTubeVideoStats } from "./youtubeOAuth.ts";
 import { looksLikeYouTubeVideoId } from "./publishDedupe.ts";
@@ -258,7 +259,10 @@ export async function syncSocialStats(params: {
     if (creds.refresh_token) {
       try {
         const clientId = secrets.get("GOOGLE_CLIENT_ID") || secrets.get("YOUTUBE_CLIENT_ID");
-        const clientSecret = secrets.get("GOOGLE_CLIENT_SECRET") || secrets.get("YOUTUBE_CLIENT_SECRET");
+        const clientSecret =
+          secrets.get("GOOGLE_LOGIN_CLIENT_SECRET") ||
+          secrets.get("GOOGLE_CLIENT_SECRET") ||
+          secrets.get("YOUTUBE_CLIENT_SECRET");
         if (clientId && clientSecret) {
           const refreshed = await refreshYouTubeToken({
             clientId,
@@ -374,13 +378,8 @@ export async function syncSocialStats(params: {
       const resolvedIds: string[] = [];
       for (const post of withMedia) {
         const raw = postPlatformMediaId(post, "tiktok");
-        let vid = await resolveTikTokVideoIdForStats(accessToken, raw);
-        if (vid && looksLikeTikTokPublishId(vid)) {
-          result.skipped += 1;
-          result.errors.push(`tiktok:unresolved_publish_id:${raw.slice(0, 24)}`);
-          continue;
-        }
-        if (vid) {
+        const vid = await resolveTikTokVideoIdForStats(accessToken, raw);
+        if (vid && !looksLikeTikTokPublishId(vid)) {
           resolvedByPost.set(String(post.id), vid);
           resolvedIds.push(vid);
           if (vid !== String(post.external_post_id || "").trim()) {
@@ -394,6 +393,40 @@ export async function syncSocialStats(params: {
           }
         }
       }
+
+      const stillUnresolved = withMedia.filter((p) => {
+        const id = resolvedByPost.get(String(p.id));
+        return !id || looksLikeTikTokPublishId(id);
+      });
+      if (stillUnresolved.length) {
+        const recent = await fetchTikTokVideoList({ accessToken }).catch(() => []);
+        const fallback = matchTikTokPostsToRecentVideos(
+          stillUnresolved,
+          recent,
+          (p) => postPlatformMediaId(p, "tiktok")
+        );
+        for (const [postId, vid] of fallback) {
+          resolvedByPost.set(postId, vid);
+          resolvedIds.push(vid);
+          try {
+            await params.base44.asServiceRole.entities.SocialPost.update(postId, {
+              external_post_id: vid,
+            });
+          } catch {
+            /* non-fatal */
+          }
+        }
+      }
+
+      for (const post of withMedia) {
+        const raw = postPlatformMediaId(post, "tiktok");
+        const vid = resolvedByPost.get(String(post.id));
+        if (!vid && looksLikeTikTokPublishId(raw)) {
+          result.skipped += 1;
+          result.errors.push(`tiktok:unresolved_publish_id:${raw.slice(0, 24)}`);
+        }
+      }
+
       const uniqueIds = [...new Set(resolvedIds)];
       let byId: Record<
         string,
@@ -443,7 +476,7 @@ export async function syncSocialStats(params: {
       }
       if (result.upserted === 0) {
         result.hints = [
-          "TikTok stats need video.list scope and a real video id (not publish_id). Disconnect TikTok, reconnect, then re-sync. Only-me posts may take a few minutes to appear.",
+          "TikTok stats need video.list scope and a real video id (not publish_id). Disconnect TikTok, reconnect, then re-sync. Only-me (private) posts may not expose a public id — try opening the video in TikTok, wait a few minutes, then sync again.",
         ];
       }
     } catch (err) {

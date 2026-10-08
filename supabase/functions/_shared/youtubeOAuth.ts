@@ -75,8 +75,21 @@ export type GoogleTokenBundle = {
 };
 
 function formatGoogleError(data: Record<string, unknown>, fallback: string): string {
-  const desc = String(data?.error_description || data?.error || "").trim();
-  return desc ? desc.slice(0, 300) : fallback;
+  const err = data?.error;
+  if (err && typeof err === "object" && !Array.isArray(err)) {
+    const o = err as Record<string, unknown>;
+    const msg = String(o.message || o.error_description || "").trim();
+    if (msg) return msg.slice(0, 300);
+    const nested = Array.isArray(o.errors) ? (o.errors[0] as Record<string, unknown>) : null;
+    const reason = nested ? String(nested.reason || nested.message || "").trim() : "";
+    const code = o.code != null ? String(o.code) : "";
+    const combined = [code && `HTTP ${code}`, reason].filter(Boolean).join(": ");
+    if (combined) return combined.slice(0, 300);
+  }
+  const desc = String(data?.error_description || "").trim();
+  if (desc) return desc.slice(0, 300);
+  if (typeof err === "string" && err.trim()) return err.trim().slice(0, 300);
+  return fallback;
 }
 
 export async function exchangeYouTubeCode(params: {

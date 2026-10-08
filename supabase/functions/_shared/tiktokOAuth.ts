@@ -333,11 +333,25 @@ export async function fetchTikTokPublishStatus(
     throw new Error(`tiktok_publish_status: ${formatTikTokError(data, `HTTP ${res.status}`)}`);
   }
   const row = (data?.data || {}) as Record<string, unknown>;
-  const ids = row.publicaly_available_post_id ?? row.publicly_available_post_id;
+  const collected: string[] = [];
+  const pushIds = (raw: unknown) => {
+    if (Array.isArray(raw)) {
+      for (const id of raw) {
+        const s = String(id || "").trim();
+        if (s) collected.push(s);
+      }
+    } else if (raw != null && String(raw).trim()) {
+      collected.push(String(raw).trim());
+    }
+  };
+  pushIds(row.publicaly_available_post_id);
+  pushIds(row.publicly_available_post_id);
+  pushIds(row.video_id);
+  pushIds(row.post_id);
   return {
     status: String(row.status || ""),
     fail_reason: row.fail_reason != null ? String(row.fail_reason) : undefined,
-    publicPostIds: Array.isArray(ids) ? ids.map((id) => String(id)) : undefined,
+    publicPostIds: collected.length ? [...new Set(collected)] : undefined,
   };
 }
 
@@ -436,9 +450,40 @@ export async function resolveTikTokVideoIdForStats(
   const raw = String(externalPostId || "").trim();
   if (!raw || !looksLikeTikTokPublishId(raw)) return raw;
   const publishId = raw.replace(/\|uploaded$/i, "").trim();
-  const st = await fetchTikTokPublishStatus(accessToken, publishId).catch(() => null);
-  const vid = st?.publicPostIds?.[0];
-  return vid ? String(vid) : raw;
+  const pending = new Set(["PROCESSING", "PROCESSING_UPLOAD", "SEND_TO_USER_INBOX"]);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const st = await fetchTikTokPublishStatus(accessToken, publishId).catch(() => null);
+    const vid = st?.publicPostIds?.find((id) => id && !looksLikeTikTokPublishId(id));
+    if (vid) return String(vid);
+    const status = String(st?.status || "").toUpperCase();
+    if (status === "FAILED") break;
+    if (!pending.has(status) && status !== "PUBLISH_COMPLETE") break;
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
+  }
+  return raw;
+}
+
+/** When publish_id never resolves, pair recent list videos to posts (newest first). */
+export function matchTikTokPostsToRecentVideos(
+  posts: Record<string, unknown>[],
+  recentVideos: Array<{ id: string }>,
+  mediaIdForPost: (post: Record<string, unknown>) => string
+): Map<string, string> {
+  const out = new Map<string, string>();
+  const needs = posts.filter((p) => looksLikeTikTokPublishId(mediaIdForPost(p)));
+  if (!needs.length) return out;
+  const pool = recentVideos
+    .map((v) => String(v.id || "").trim())
+    .filter((id) => id && !looksLikeTikTokPublishId(id));
+  const sorted = [...needs].sort(
+    (a, b) =>
+      Date.parse(String(b.published_at || b.updated_at || 0)) -
+      Date.parse(String(a.published_at || a.updated_at || 0))
+  );
+  for (let i = 0; i < sorted.length && i < pool.length; i++) {
+    out.set(String(sorted[i].id), pool[i]);
+  }
+  return out;
 }
 
 /** Fetch video list / insights for analytics sync. */
