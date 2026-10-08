@@ -1,11 +1,14 @@
 import { useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { router } from "expo-router";
-import { Screen } from "@/components/ui/Screen";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { AuthLayout } from "@/components/AuthLayout";
 import { Text } from "@/components/ui/Text";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { db } from "@/api/base44Client";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { radius, spacing } from "@/theme";
 import { userFacingError } from "@/lib/errors";
 
 export default function ResetPasswordScreen() {
@@ -33,16 +36,39 @@ export default function ResetPasswordScreen() {
   };
 
   return (
-    <Screen>
-      <Text variant="display">Choose new password</Text>
-      <Text muted>Complete the reset after opening the email deep link.</Text>
+    <AuthLayout
+      icon="lock-closed-outline"
+      title="Choose new password"
+      subtitle="Complete the reset after opening the email deep link"
+    >
       {error ? (
-        <Text color={colors.destructive} accessibilityRole="alert">
-          {error}
-        </Text>
+        <View
+          style={[styles.errorBox, { backgroundColor: colors.destructive + "1A" }]}
+          accessibilityRole="alert"
+        >
+          <Text color={colors.destructive} variant="label">
+            {error}
+          </Text>
+        </View>
       ) : null}
-      <Input label="New password" secureTextEntry value={password} onChangeText={setPassword} />
-      <Button title="Update password" onPress={submit} loading={loading} disabled={loading} />
-    </Screen>
+      <Input
+        label="New password"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+        leftIcon={<Ionicons name="lock-closed-outline" size={16} color={colors.mutedForeground} />}
+      />
+      <Button
+        title="Update password"
+        size="lg"
+        onPress={submit}
+        loading={loading}
+        disabled={loading}
+      />
+    </AuthLayout>
   );
 }
+
+const styles = StyleSheet.create({
+  errorBox: { borderRadius: radius.md, padding: spacing.md },
+});

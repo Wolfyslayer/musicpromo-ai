@@ -1,11 +1,14 @@
 import { useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { Link } from "expo-router";
-import { Screen } from "@/components/ui/Screen";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { AuthLayout } from "@/components/AuthLayout";
 import { Text } from "@/components/ui/Text";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/auth/AuthContext";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { radius, spacing } from "@/theme";
 import { userFacingError } from "@/lib/errors";
 
 export default function ForgotPasswordScreen() {
@@ -31,16 +34,34 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <Screen>
-      <Text variant="display">Reset password</Text>
-      <Text muted>We’ll email a reset link for your Supabase account.</Text>
+    <AuthLayout
+      icon="key-outline"
+      title="Reset password"
+      subtitle="We’ll email a reset link for your account"
+      footer={
+        <Link href="/(auth)/login" asChild>
+          <Text color={colors.primary} style={{ textAlign: "center" }}>
+            Back to login
+          </Text>
+        </Link>
+      }
+    >
       {error ? (
-        <Text color={colors.destructive} accessibilityRole="alert">
-          {error}
-        </Text>
+        <View
+          style={[styles.errorBox, { backgroundColor: colors.destructive + "1A" }]}
+          accessibilityRole="alert"
+        >
+          <Text color={colors.destructive} variant="label">
+            {error}
+          </Text>
+        </View>
       ) : null}
       {done ? (
-        <Text color={colors.success}>Check your inbox for the reset link.</Text>
+        <View style={[styles.errorBox, { backgroundColor: colors.success + "1A" }]}>
+          <Text color={colors.success} variant="label">
+            Check your inbox for the reset link.
+          </Text>
+        </View>
       ) : (
         <>
           <Input
@@ -49,13 +70,21 @@ export default function ForgotPasswordScreen() {
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
+            leftIcon={<Ionicons name="mail-outline" size={16} color={colors.mutedForeground} />}
           />
-          <Button title="Send reset link" onPress={submit} loading={loading} disabled={loading} />
+          <Button
+            title="Send reset link"
+            size="lg"
+            onPress={submit}
+            loading={loading}
+            disabled={loading}
+          />
         </>
       )}
-      <Link href="/(auth)/login" asChild>
-        <Text color={colors.primary}>Back to login</Text>
-      </Link>
-    </Screen>
+    </AuthLayout>
   );
 }
+
+const styles = StyleSheet.create({
+  errorBox: { borderRadius: radius.md, padding: spacing.md },
+});
