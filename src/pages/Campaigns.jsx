@@ -53,11 +53,12 @@ export default function Campaigns() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="page-stack">
       <PageHeader
+        compact
         eyebrow="Library"
         title="Campaigns"
-        description="Every campaign is a promo plan with videos and scheduled posts for a release track."
+        description="Promo plans with videos and scheduled posts per release track."
         actions={
           <Button onClick={() => navigate("/create")} className="rounded-full">
             <Plus className="mr-1.5 h-4 w-4" /> New promo

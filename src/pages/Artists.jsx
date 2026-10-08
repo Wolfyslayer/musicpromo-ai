@@ -17,11 +17,12 @@ export default function Artists() {
   useEffect(() => { reload(); }, []);
 
   return (
-    <div className="space-y-5">
+    <div className="page-stack">
       <PageHeader
+        compact
         eyebrow="Roster"
         title="Artists"
-        description="Manage multiple artist profiles from one account."
+        description="Multiple artist profiles under one account."
         actions={
           <Button onClick={() => navigate("/artists/new")} className="rounded-full">
             <Plus className="mr-1.5 h-4 w-4" /> New artist

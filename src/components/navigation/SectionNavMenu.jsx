@@ -17,22 +17,26 @@ export default function SectionNavMenu({ basePath, sections }) {
     );
 
   return (
-    <div className="space-y-2">
-      <nav className={cn("segmented grid", cols)}>
+    <div className="segmented-scroll">
+      <nav className={cn("segmented grid min-w-max sm:min-w-0 sm:w-full", cols)} aria-label="Section">
         {sections.map((item) => {
           const Icon = item.icon;
           const to = `${basePath}/${item.segment}`;
           return (
-            <NavLink key={item.segment} to={to} className={({ isActive }) => tabClass(isActive)} end>
+            <NavLink
+              key={item.segment}
+              to={to}
+              title={item.label}
+              className={({ isActive }) => tabClass(isActive)}
+              end
+            >
               <Icon className="h-4 w-4 shrink-0" />
               <span className="truncate">{item.shortLabel || item.label}</span>
             </NavLink>
           );
         })}
       </nav>
-      <p className="hidden text-center text-[11px] text-muted-foreground md:block">
-        {sections.find((s) => s.segment === activeSegment)?.label}
-      </p>
+      <p className="sr-only">{sections.find((s) => s.segment === activeSegment)?.label}</p>
     </div>
   );
 }
