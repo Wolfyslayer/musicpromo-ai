@@ -37,21 +37,30 @@ export default function CampaignAnalytics({ campaign, analytics, days, onRefresh
         return;
       }
       await onRefresh?.();
+      const detail = [
+        summary.lines?.length ? summary.lines.join(" · ") : null,
+        summary.hints?.length ? summary.hints[0] : null,
+      ]
+        .filter(Boolean)
+        .join(" — ");
       if (summary.upserted > 0) {
         toast({
           title: "Platform stats synced",
-          description: `Updated ${summary.upserted} row(s) for your published posts.`,
+          description: detail || `Updated ${summary.upserted} row(s) for your published posts.`,
         });
       } else if (summary.errors.length) {
         toast({
           variant: "destructive",
           title: "Sync completed with errors",
-          description: summary.errors.slice(0, 2).join(" · "),
+          description: detail || summary.errors.slice(0, 2).join(" · "),
         });
       } else {
         toast({
+          variant: summary.skipped ? "destructive" : "default",
           title: "Sync finished",
-          description: "No stats returned yet — publish to social with this campaign linked, then sync again.",
+          description:
+            detail ||
+            "No stats returned yet — publish to social with this campaign linked, then sync again.",
         });
       }
     } catch (e) {

@@ -13,7 +13,7 @@ import {
 } from "./tiktokOAuth.ts";
 import { refreshYouTubeToken, fetchYouTubeVideoStats } from "./youtubeOAuth.ts";
 import { looksLikeYouTubeVideoId } from "./publishDedupe.ts";
-import { secrets } from "base44:runtime";
+import { secrets } from "./runtime.ts";
 
 export type SyncStatsResult = {
   provider: string;
@@ -21,7 +21,28 @@ export type SyncStatsResult = {
   upserted: number;
   skipped: number;
   errors: string[];
+  /** Human-readable hints when upserted=0 (shown in Analytics UI). */
+  hints?: string[];
 };
+
+function postPlatformMediaId(
+  post: Record<string, unknown>,
+  provider: string
+): string {
+  const ext = String(post.external_post_id || "").trim();
+  const container = String(post.container_id || "")
+    .trim()
+    .replace(/\|uploaded$/i, "");
+  if (provider === "youtube") {
+    if (looksLikeYouTubeVideoId(ext)) return ext;
+    if (looksLikeYouTubeVideoId(container)) return container;
+    return ext || container;
+  }
+  if (provider === "tiktok") {
+    return ext || container;
+  }
+  return ext;
+}
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -186,12 +207,16 @@ export async function syncSocialStats(params: {
 
   const accountId = String(account.id || "");
   const withMedia = (posts || []).filter((p: Record<string, unknown>) => {
-    if (!p.external_post_id || !p.campaign_id) return false;
+    if (!p.campaign_id) return false;
+    if (!postPlatformMediaId(p, provider)) return false;
     const bound = p.social_account_id ? String(p.social_account_id) : "";
     return !bound || bound === accountId;
   });
   if (!withMedia.length) {
     result.skipped = 1;
+    result.hints = [
+      `No published ${provider} posts with a platform video id and campaign link. Publish from Compose or auto-publish, then sync again.`,
+    ];
     return result;
   }
 
@@ -247,30 +272,47 @@ export async function syncSocialStats(params: {
     }
     if (!accessToken) {
       result.errors.push("youtube:no_access_token");
+      result.hints = ["Reconnect YouTube in Social Hub."];
       return result;
     }
     const ids = [
       ...new Set(
         withMedia
-          .map((p: Record<string, unknown>) =>
-            String(p.external_post_id || p.container_id || "").trim()
-          )
+          .map((p) => postPlatformMediaId(p, "youtube"))
           .filter((id) => looksLikeYouTubeVideoId(id))
       ),
     ];
     if (!ids.length) {
       result.errors.push("youtube:no_valid_video_ids_on_published_posts");
+      result.hints = [
+        "YouTube posts are missing a valid video id. Re-publish the Short or open Social → Activity and confirm status is Published.",
+      ];
       return result;
     }
     try {
       const statsList = await fetchYouTubeVideoStats({ accessToken, videoIds: ids });
       const byId = Object.fromEntries(statsList.map((s) => [s.id, s]));
+      if (!statsList.length) {
+        result.errors.push("youtube:api_returned_no_video_statistics");
+        result.hints = [
+          "YouTube returned no stats. Reconnect YouTube (needs youtube.readonly) and ensure GOOGLE_CLIENT_ID/SECRET on the server match your OAuth app.",
+        ];
+      }
       for (const post of withMedia) {
-        const vid = String(post.external_post_id || post.container_id || "").trim();
+        const vid = postPlatformMediaId(post, "youtube");
         const s = byId[vid];
         if (!s) {
           result.skipped += 1;
           continue;
+        }
+        if (vid !== String(post.external_post_id || "").trim()) {
+          try {
+            await params.base44.asServiceRole.entities.SocialPost.update(String(post.id), {
+              external_post_id: vid,
+            });
+          } catch {
+            /* non-fatal */
+          }
         }
         await upsertAnalytics({
           base44: params.base44,
@@ -287,8 +329,19 @@ export async function syncSocialStats(params: {
         });
         result.upserted += 1;
       }
+      if (result.upserted === 0 && !result.errors.length) {
+        result.hints = [
+          "YouTube could not match published posts to API results. Confirm the Short exists on your channel and reconnect YouTube.",
+        ];
+      }
     } catch (err) {
-      result.errors.push(`youtube:${(err as Error)?.message || err}`);
+      const msg = (err as Error)?.message || String(err);
+      result.errors.push(`youtube:${msg}`);
+      if (/403|401|insufficient|scope|forbidden/i.test(msg)) {
+        result.hints = [
+          "YouTube denied stats access. Disconnect and reconnect YouTube, accepting all requested permissions (including readonly).",
+        ];
+      }
     }
     return result;
   }
@@ -311,34 +364,52 @@ export async function syncSocialStats(params: {
         console.warn("[syncSocialStats] tiktok refresh warning", (err as Error)?.message || err);
       }
     }
+    if (!accessToken) {
+      result.errors.push("tiktok:no_access_token");
+      result.hints = ["Reconnect TikTok in Social Hub."];
+      return result;
+    }
     try {
+      const resolvedByPost = new Map<string, string>();
       const resolvedIds: string[] = [];
       for (const post of withMedia) {
-        let vid = await resolveTikTokVideoIdForStats(
-          accessToken,
-          String(post.external_post_id || "")
-        );
+        const raw = postPlatformMediaId(post, "tiktok");
+        let vid = await resolveTikTokVideoIdForStats(accessToken, raw);
         if (vid && looksLikeTikTokPublishId(vid)) {
           result.skipped += 1;
+          result.errors.push(`tiktok:unresolved_publish_id:${raw.slice(0, 24)}`);
           continue;
         }
-        if (vid && vid !== String(post.external_post_id || "")) {
-          try {
-            await params.base44.asServiceRole.entities.SocialPost.update(String(post.id), {
-              external_post_id: vid,
-            });
-          } catch {
-            /* non-fatal */
+        if (vid) {
+          resolvedByPost.set(String(post.id), vid);
+          resolvedIds.push(vid);
+          if (vid !== String(post.external_post_id || "").trim()) {
+            try {
+              await params.base44.asServiceRole.entities.SocialPost.update(String(post.id), {
+                external_post_id: vid,
+              });
+            } catch {
+              /* non-fatal */
+            }
           }
         }
-        if (vid) resolvedIds.push(vid);
       }
       const uniqueIds = [...new Set(resolvedIds)];
-      let videos = uniqueIds.length
-        ? await fetchTikTokVideoList({ accessToken, videoIds: uniqueIds })
-        : [];
-      let byId = Object.fromEntries(videos.map((v) => [v.id, v]));
+      let byId: Record<
+        string,
+        {
+          id: string;
+          view_count?: number;
+          like_count?: number;
+          comment_count?: number;
+          share_count?: number;
+        }
+      > = {};
 
+      if (uniqueIds.length) {
+        const videos = await fetchTikTokVideoList({ accessToken, videoIds: uniqueIds });
+        byId = Object.fromEntries(videos.map((v) => [v.id, v]));
+      }
       const missing = uniqueIds.filter((id) => !byId[id]);
       if (missing.length) {
         const recent = await fetchTikTokVideoList({ accessToken }).catch(() => []);
@@ -348,10 +419,8 @@ export async function syncSocialStats(params: {
       }
 
       for (const post of withMedia) {
-        let vid = String(post.external_post_id || "").trim();
-        if (looksLikeTikTokPublishId(vid)) {
-          vid = (await resolveTikTokVideoIdForStats(accessToken, vid)) || vid;
-        }
+        const vid = resolvedByPost.get(String(post.id));
+        if (!vid) continue;
         const v = byId[vid];
         if (!v) {
           result.skipped += 1;
@@ -372,8 +441,19 @@ export async function syncSocialStats(params: {
         });
         result.upserted += 1;
       }
+      if (result.upserted === 0) {
+        result.hints = [
+          "TikTok stats need video.list scope and a real video id (not publish_id). Disconnect TikTok, reconnect, then re-sync. Only-me posts may take a few minutes to appear.",
+        ];
+      }
     } catch (err) {
-      result.errors.push(`tiktok:${(err as Error)?.message || err}`);
+      const msg = (err as Error)?.message || String(err);
+      result.errors.push(`tiktok:${msg}`);
+      if (/scope|authorized|401|403/i.test(msg)) {
+        result.hints = [
+          "TikTok denied video.list. Disconnect and reconnect TikTok so video.list and video.publish are granted.",
+        ];
+      }
     }
     return result;
   }
