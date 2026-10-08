@@ -1,7 +1,9 @@
+import { ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
+  View,
   ViewStyle,
 } from "react-native";
 import { Text } from "./Text";
@@ -18,6 +20,9 @@ type Props = {
   variant?: Variant;
   style?: ViewStyle;
   accessibilityHint?: string;
+  leftIcon?: ReactNode;
+  /** Slightly taller auth CTAs (matches web h-12). */
+  size?: "md" | "lg";
 };
 
 export function Button({
@@ -28,6 +33,8 @@ export function Button({
   variant = "primary",
   style,
   accessibilityHint,
+  leftIcon,
+  size = "md",
 }: Props) {
   const { colors } = useAppTheme();
   const busy = Boolean(loading || disabled);
@@ -39,17 +46,19 @@ export function Button({
         ? colors.secondary
         : variant === "destructive"
           ? colors.destructive
-          : "transparent";
+          : variant === "ghost"
+            ? "transparent"
+            : colors.card;
 
   const fg =
     variant === "primary" || variant === "destructive"
       ? colors.primaryForeground
-      : variant === "secondary"
-        ? colors.secondaryForeground
-        : colors.foreground;
+      : colors.foreground;
 
   const border =
-    variant === "outline" ? { borderWidth: 1, borderColor: colors.border } : null;
+    variant === "outline"
+      ? { borderWidth: 1, borderColor: colors.border }
+      : null;
 
   return (
     <Pressable
@@ -61,6 +70,7 @@ export function Button({
       disabled={busy}
       style={({ pressed }) => [
         styles.base,
+        size === "lg" ? styles.lg : null,
         { backgroundColor: bg, opacity: busy ? 0.55 : pressed ? 0.88 : 1 },
         border,
         style,
@@ -69,9 +79,12 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={fg} />
       ) : (
-        <Text variant="bodyStrong" color={fg}>
-          {title}
-        </Text>
+        <View style={styles.row}>
+          {leftIcon ? <View style={styles.icon}>{leftIcon}</View> : null}
+          <Text variant="bodyStrong" color={fg}>
+            {title}
+          </Text>
+        </View>
       )}
     </Pressable>
   );
@@ -81,8 +94,14 @@ const styles = StyleSheet.create({
   base: {
     minHeight: touchTarget,
     paddingHorizontal: spacing.xl,
-    borderRadius: radius.full,
+    borderRadius: radius.lg,
     alignItems: "center",
     justifyContent: "center",
   },
+  lg: {
+    minHeight: 48,
+    borderRadius: radius.lg,
+  },
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  icon: { marginRight: 2 },
 });
