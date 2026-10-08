@@ -32,6 +32,8 @@ const ERROR_MESSAGES = {
   state_consume_failed: "Could not finish the login session. Try Connect again.",
   token_exchange_failed:
     "The provider rejected the login code. Confirm client ID/secret and that the redirect URI matches exactly.",
+  tiktok_invalid_client:
+    "TikTok rejected the Client Secret. In Supabase Edge secrets, set TIKTOK_CLIENT_KEY + TIKTOK_CLIENT_SECRET (production) or TIKTOK_SANDBOX_* when TIKTOK_CREDENTIALS_MODE=sandbox. Use Client key from the TikTok portal — not the numeric App ID unless they match. Re-copy the secret with no extra spaces, then Connect again.",
   bad_credentials:
     "The provider rejected the app credentials. Check the secrets configured in Base44.",
   redirect_mismatch: `OAuth redirect URI mismatch. Register ${OAUTH_REDIRECTS.instagram} in Meta, ${OAUTH_REDIRECTS.tiktok} in TikTok, and ${OAUTH_REDIRECTS.youtube} in Google.`,
@@ -180,10 +182,21 @@ export function SocialHubProvider({ children }) {
       });
       reload();
     } else if (err) {
+      const oauthProvider = (params.get("provider") || "").toLowerCase();
+      const detailText = String(details || "");
+      let description =
+        detailText || ERROR_MESSAGES[err] || `Authorization error code: ${err}`;
+      if (
+        oauthProvider === "tiktok" &&
+        err === "token_exchange_failed" &&
+        /invalid_client/i.test(detailText)
+      ) {
+        description = ERROR_MESSAGES.tiktok_invalid_client;
+      }
       toast({
         variant: "destructive",
         title: `Connection failed (${err})`,
-        description: details || ERROR_MESSAGES[err] || `Authorization error code: ${err}`,
+        description,
       });
     }
 
