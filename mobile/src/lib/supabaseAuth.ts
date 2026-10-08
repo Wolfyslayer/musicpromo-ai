@@ -114,7 +114,8 @@ export async function signOut() {
 export async function requestPasswordReset(email: string) {
   const client = requireSupabase();
   const { error } = await client.auth.resetPasswordForEmail(String(email || "").trim(), {
-    redirectTo: `${authRedirectOrigin}reset-password`,
+    // Same public site path as web (`/reset-password` on musicpromoai.site).
+    redirectTo: new URL("reset-password", authRedirectOrigin).toString(),
   });
   if (error) raise(error);
 }

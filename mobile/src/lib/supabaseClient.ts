@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
+import { getPublicAppOrigin } from "./appOrigin";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -68,5 +68,5 @@ export function requireSupabase() {
   return supabase;
 }
 
-export const authRedirectOrigin =
-  Platform.OS === "web" ? (typeof window !== "undefined" ? window.location.origin : "") : "musicpromoai://";
+/** Auth emails (confirm / reset) use the same public site as the web app. */
+export const authRedirectOrigin = `${getPublicAppOrigin()}/`;
