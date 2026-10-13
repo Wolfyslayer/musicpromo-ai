@@ -73,7 +73,7 @@ async function fetchUserRows(
 ): Promise<Record<string, unknown>[]> {
   const rows: Record<string, unknown>[] = [];
 
-  let cd = admin.from("campaign_days").select("id,campaign_id,public_url,data").eq("user_id", userId);
+  let cd = admin.from("campaign_days").select("id,campaign_id,data").eq("user_id", userId);
   if (campaignId) cd = cd.or(`campaign_id.eq.${campaignId},id.eq.${campaignId}`);
   const { data: campaignDays } = await cd.limit(5000);
   rows.push(...((campaignDays || []) as Record<string, unknown>[]));

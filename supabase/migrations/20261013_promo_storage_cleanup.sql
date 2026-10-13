@@ -22,7 +22,7 @@ security definer
 set search_path = public
 as $$
   with blobs as (
-    select coalesce(data::text, '') || ' ' || coalesce(public_url, '') as b
+    select coalesce(data::text, '') as b
     from public.campaign_days
     where user_id = p_user_id
     union all
