@@ -23,6 +23,14 @@ export async function deleteCampaign(campaignId: string) {
   } catch (e) {
     console.warn("[deleteCampaign] cancel auto-publish", (e as Error)?.message || e);
   }
+  try {
+    await db.functions.invoke("purgeCampaignStorage", { campaignId: id });
+  } catch (e) {
+    console.warn("[deleteCampaign] storage cleanup", (e as Error)?.message || e);
+  }
+  await db.entities.VideoProject.deleteMany({ campaign_id: id }).catch(() => {});
+  await db.entities.GeneratedContent.deleteMany({ campaign_id: id }).catch(() => {});
+  await db.entities.AnalyticsEntry.deleteMany({ campaign_id: id }).catch(() => {});
   await db.entities.CampaignDay.deleteMany({ campaign_id: id });
   await db.entities.Campaign.delete(id);
 }
