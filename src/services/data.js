@@ -62,6 +62,14 @@ export async function deleteCampaign(campaignId) {
   const id = String(campaignId || "");
   if (!id) throw new Error("Campaign id is required.");
   await cancelCampaignAutoPublish(id);
+  try {
+    await db.functions.invoke("purgeCampaignStorage", { campaignId: id });
+  } catch (e) {
+    console.warn("[deleteCampaign] storage cleanup", e?.message || e);
+  }
+  await db.entities.VideoProject.deleteMany({ campaign_id: id }).catch(() => {});
+  await db.entities.GeneratedContent.deleteMany({ campaign_id: id }).catch(() => {});
+  await db.entities.AnalyticsEntry.deleteMany({ campaign_id: id }).catch(() => {});
   await db.entities.CampaignDay.deleteMany({ campaign_id: id });
   await db.entities.Campaign.delete(id);
 }
