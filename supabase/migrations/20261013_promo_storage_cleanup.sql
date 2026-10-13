@@ -22,7 +22,7 @@ security definer
 set search_path = public
 as $$
   with blobs as (
-    select coalesce(data::text, '') || ' ' || coalesce(public_url, '') as b
+    select coalesce(data::text, '') as b
     from public.campaign_days
     where user_id = p_user_id
     union all
@@ -66,9 +66,9 @@ grant execute on function public.extract_promo_asset_paths(text) to authenticate
 grant execute on function public.list_referenced_promo_paths(uuid) to authenticated, service_role;
 grant execute on function public.list_orphan_promo_storage(uuid) to authenticated, service_role;
 
--- Example (replace YOUR_USER_UUID, run once, review rows first):
+-- Example (replace YOUR_USER_UUID — inspect only):
 -- select * from public.list_orphan_promo_storage('YOUR_USER_UUID'::uuid);
 --
--- delete from storage.objects o
--- using public.list_orphan_promo_storage('YOUR_USER_UUID'::uuid) x
--- where o.bucket_id = 'music-promo-assets' and o.name = x.object_name;
+-- Supabase blocks DELETE on storage.objects. To remove orphans, use Edge Function
+-- purgeCampaignStorage with body { "orphanOnly": true } (signed in), or delete
+-- files in Dashboard → Storage → music-promo-assets, or Storage API .remove() with service role.

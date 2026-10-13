@@ -73,7 +73,7 @@ async function fetchUserRows(
 ): Promise<Record<string, unknown>[]> {
   const rows: Record<string, unknown>[] = [];
 
-  let cd = admin.from("campaign_days").select("id,campaign_id,public_url,data").eq("user_id", userId);
+  let cd = admin.from("campaign_days").select("id,campaign_id,data").eq("user_id", userId);
   if (campaignId) cd = cd.or(`campaign_id.eq.${campaignId},id.eq.${campaignId}`);
   const { data: campaignDays } = await cd.limit(5000);
   rows.push(...((campaignDays || []) as Record<string, unknown>[]));
@@ -154,8 +154,9 @@ export async function purgeCampaignStorage(
 /** Orphan = object in bucket under userId/ with no reference in DB json. */
 export async function purgeOrphanPromoAssetsForUser(
   admin: SupabaseClient,
-  userId: string
-): Promise<{ deleted: number; paths: string[]; errors: string[] }> {
+  userId: string,
+  opts?: { dryRun?: boolean }
+): Promise<{ deleted: number; paths: string[]; errors: string[]; dryRun?: boolean }> {
   const { data, error } = await admin.rpc("list_orphan_promo_storage", {
     p_user_id: userId,
   });
@@ -171,10 +172,16 @@ export async function purgeOrphanPromoAssetsForUser(
       const objectPath = `${userId}/${entry.name}`;
       if (!referenced.has(objectPath)) orphanPaths.push(objectPath);
     }
+    if (opts?.dryRun) {
+      return { deleted: 0, paths: orphanPaths, errors: [], dryRun: true };
+    }
     const { deleted, errors } = await deleteStoragePaths(admin, orphanPaths);
     return { deleted, paths: orphanPaths, errors };
   }
   const paths = (data || []).map((row: { object_name: string }) => String(row.object_name || "")).filter(Boolean);
+  if (opts?.dryRun) {
+    return { deleted: 0, paths, errors: [], dryRun: true };
+  }
   const { deleted, errors } = await deleteStoragePaths(admin, paths);
   return { deleted, paths, errors };
 }
