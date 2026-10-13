@@ -1,0 +1,58 @@
+# Manual orphan storage cleanup for music-promo-assets (purgeCampaignStorage).
+#
+# GitHub secrets: SUPABASE_PROJECT_REF, PROMO_STORAGE_CRON_SECRET
+# Supabase Edge secret: PROMO_STORAGE_CRON_SECRET (same value)
+#
+# Get user UUID: Supabase → Authentication → Users
+
+name: Purge orphan promo storage
+
+on:
+  workflow_dispatch:
+    inputs:
+      user_id:
+        description: Supabase auth user UUID (bucket folder name)
+        required: true
+        type: string
+      dry_run:
+        description: List paths only — do not delete
+        required: true
+        type: boolean
+        default: true
+
+concurrency:
+  group: promo-storage-purge
+  cancel-in-progress: false
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Invoke purgeCampaignStorage
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          PROMO_STORAGE_CRON_SECRET: ${{ secrets.PROMO_STORAGE_CRON_SECRET }}
+          USER_ID: ${{ inputs.user_id }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ -z "$SUPABASE_PROJECT_REF" ] || [ -z "$PROMO_STORAGE_CRON_SECRET" ]; then
+            echo "::error::Set SUPABASE_PROJECT_REF and PROMO_STORAGE_CRON_SECRET in repository secrets."
+            echo "Also set PROMO_STORAGE_CRON_SECRET in Supabase → Edge Functions → Secrets."
+            exit 1
+          fi
+          if [ -z "$USER_ID" ]; then
+            echo "::error::user_id input is required."
+            exit 1
+          fi
+          payload=$(jq -n \
+            --arg uid "$USER_ID" \
+            --argjson dry "$DRY_RUN" \
+            '{ userId: $uid, orphanOnly: true, dryRun: $dry }')
+          echo "Request: $payload"
+          curl -sfS -X POST \
+            -H "x-promo-storage-secret: ${PROMO_STORAGE_CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/purgeCampaignStorage" \
+            --max-time 300 | jq .

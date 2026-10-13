@@ -27,6 +27,7 @@ To change which paths trigger a job, edit the `filters` block in the workflow’
 | `VITE_SUPABASE_ANON_KEY` | Project **anon/public** API key (Settings → API) |
 | `SUPABASE_URL` | Same as `VITE_SUPABASE_URL` — used by **Campaign worker cron** (optional) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Project **service_role** key (Settings → API) — cron only; never expose in the frontend |
+| `PROMO_STORAGE_CRON_SECRET` | Shared secret for **Purge orphan promo storage** workflow (also set in Supabase Edge secrets) |
 | `GOOGLE_SERVICES_JSON` | Firebase **Android** file pasted whole (easiest on phone) — [Build Android debug APK](../.github/workflows/native-android-apk.yml) |
 | `GOOGLE_SERVICES_JSON_BASE64` | *Optional* single-line base64 instead of raw JSON |
 | `ANDROID_KEYSTORE_PASSWORD` | Password you choose — used by [Generate Android upload keystore](../.github/workflows/native-android-keystore.yml) |
@@ -39,6 +40,8 @@ To change which paths trigger a job, edit the `filters` block in the workflow’
 Phone-first Android flow (no PC): **[docs/NATIVE_APP.md § Android from your phone only](./NATIVE_APP.md#android-from-your-phone-only-no-pc)**.
 
 **Auto-publish:** configure [AUTO_PUBLISH.md](./AUTO_PUBLISH.md) — GitHub cron workflows invoke `campaignWorker` about every **2–5 minutes** (requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` repo secrets). Without them, scheduled posts only publish when someone has the app open or taps **Run worker now**.
+
+**Storage cleanup:** **Actions → Purge orphan promo storage → Run workflow** calls `purgeCampaignStorage` for a user folder ([STORAGE_CLEANUP.md](./STORAGE_CLEANUP.md)). Requires GitHub **`PROMO_STORAGE_CRON_SECRET`** and the same value in Supabase Edge secrets; deploy functions after merging `config.toml` changes for that function.
 
 ### 2. GitHub Pages
 

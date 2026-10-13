@@ -43,6 +43,11 @@ select * from public.list_orphan_promo_storage('YOUR_USER_UUID'::uuid);
 
 3. **Script with service role** (advanced) — use `@supabase/supabase-js` `storage.from('music-promo-assets').remove([paths])` with paths from `list_orphan_promo_storage`, not raw SQL delete.
 
+4. **GitHub Actions (manual)** — workflow **[Purge orphan promo storage](../.github/workflows/promo-storage-purge.yml)** (`workflow_dispatch`):
+   - **user_id** — your Supabase Auth user UUID (same as the `{user_id}/` folder in Storage).
+   - **dry_run** — leave **true** first to print paths in the job log; set **false** to delete.
+   - One-time setup: GitHub secret **`PROMO_STORAGE_CRON_SECRET`** (same value in Supabase Edge secrets) and **`SUPABASE_PROJECT_REF`**. Run **Deploy** after merging so `purgeCampaignStorage` and `verify_jwt = false` in `config.toml` are live.
+
 Shared artwork/audio on a **song** used by multiple campaigns is **not** deleted while any campaign or song row still references that URL.
 
 ## Free tier tips

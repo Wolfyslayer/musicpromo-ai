@@ -45,3 +45,7 @@ verify_jwt = false
 
 [functions.stripeBillingWebhook]
 verify_jwt = false
+
+# GitHub Actions / cron: x-promo-storage-secret + userId (see promo-storage-purge workflow).
+[functions.purgeCampaignStorage]
+verify_jwt = false
